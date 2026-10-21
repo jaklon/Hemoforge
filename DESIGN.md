@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: HemoGPT by HemoForge
+name: HemoForge
 description: An auditable culture-monitoring workspace for erythroid research.
 colors:
   primary: "#b4232b"
@@ -31,11 +31,11 @@ components:
     borderRadius: "4px"
 ---
 
-# HemoGPT design
+# HemoForge design
 
 ## Overview
 
-HemoGPT is the product identity; HemoForge is the team identity. The supplied
+HemoForge is the product identity; HemoBot is its biomedical research assistant. The supplied
 GenoHack proposal is the business brief. This is a product interface for bioprocess
 researchers and laboratory analysts. Bioreactor Guard opens first and answers
 which batches need review. ErythroPilot reads the same replay cursor and produces
@@ -122,8 +122,9 @@ and neutralizes formula-leading text. JSON/HTML include the full case snapshot;
 CSV contains checkpoint rows and follow-up notes. Python outputs include model
 version, request fingerprint, engine, and execution time. Inputs, computed results, notes, and selections persist across navigation for
 the current session. JSON/HTML exports include inputs, source hashes, model
-results, simulation settings, and pending QC. Python processes inputs in memory;
-there is no backend persistence. Data & runs shows a compact connection badge,
+results, simulation settings, and pending QC. Prediction-only calls process inputs
+in memory; explicit HemoBot analyses persist local SQLite snapshots and audit records.
+Data & runs shows a compact connection badge,
 Retry when disconnected, and a link to the separate Streamlit lab. Preserve
 staged files on failure and never silently fall back to browser predictions.
 

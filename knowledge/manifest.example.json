@@ -1,0 +1,9 @@
+[
+  {
+    "path": "reviewed-paper.txt",
+    "title": "Replace with the actual English document title",
+    "study_id": "Replace with the actual independent study identifier",
+    "reference": "Replace with the actual DOI or source URL",
+    "sha256": "Replace with the SHA-256 of the actual UTF-8 file bytes"
+  }
+]

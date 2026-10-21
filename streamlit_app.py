@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -30,10 +31,10 @@ def call_api(route, payload):
         raise ValueError("Python service unavailable. Run start-python.ps1, then try again.") from error
 
 
-st.set_page_config(page_title="HemoGPT · Python lab", page_icon="🧬", layout="wide")
-st.title("HemoGPT · Python lab")
+st.set_page_config(page_title="HemoForge · Python lab", page_icon="🧬", layout="wide")
+st.title("HemoForge · Python lab")
 st.caption("Upload → Predict → Export · Exploratory models")
-st.sidebar.link_button("Open HemoGPT website", "http://localhost:8443/#data")
+st.sidebar.link_button("Open HemoForge website", os.environ.get("HEMOFORGE_WEBSITE_URL", "http://localhost:8443/#data"))
 st.sidebar.link_button("API documentation", API + "/docs")
 prediction = st.selectbox("Prediction", ["Cell growth", "Experiment response"])
 kind = "culture" if prediction == "Cell growth" else "experiments"

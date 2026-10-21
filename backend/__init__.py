@@ -1,1 +1,1 @@
-"""Shared Python prediction service for HemoGPT and Streamlit."""
+"""Shared Python services for HemoForge, HemoBot, and Streamlit."""

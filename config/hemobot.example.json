@@ -1,0 +1,11 @@
+{
+  "mode": "auto",
+  "ollama_url": "http://127.0.0.1:11434",
+  "ollama_model": "hf.co/aaditya/OpenBioLLM-Llama3-8B-GGUF:Q4_K_M",
+  "ollama_token": "REPLACE_WITH_THE_GATEWAY_TOKEN_ON_YOUR_COMPUTER_ONLY",
+  "timeout_seconds": 120,
+  "num_thread": 8,
+  "num_ctx": 8192,
+  "rag_enabled": false,
+  "embedding_model": "nomic-embed-text"
+}
