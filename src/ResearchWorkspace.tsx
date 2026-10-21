@@ -21,6 +21,8 @@ import { downloadFile, csv, escapeHtml } from "./workspace-utils"
 import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
 import DataWorkspace from "./DataWorkspace"
+import HemoBot, { useHemoBot } from "./HemoBot"
+import type { BotAnalysis, BotModule } from "./hemobot-api"
 
 import {
   SimulationPanel,
@@ -42,7 +44,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "guard" | "pilot" | "plan" | "match" | "workflow" | "report"
+type View = "data" | "guard" | "pilot" | "plan" | "match" | "workflow" | "report" | "bot"
 
 interface NavigationItem {
   id: View
@@ -55,6 +57,7 @@ interface NavigationItem {
 }
 
 const navigation: NavigationItem[] = [
+  { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot" },
   {
     id: "data",
 
@@ -1031,7 +1034,7 @@ function Pilot({
             </p>
             <p>
               No trained model, verified counts file, or evaluation artifact is
-              bundled. HemoGPT summaries here use deterministic rules.
+              bundled. HemoForge summaries here use deterministic rules.
             </p>
           </div>
         </div>
@@ -1124,7 +1127,7 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
           ))}
         </div>
       </Panel>
-      <Panel title="HemoGPT process map">
+      <Panel title="HemoForge process map">
         <ol className="process-map">
           {[
             {
@@ -1240,7 +1243,8 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
             <p>
               The local Python API runs growth simulations and experiment
               predictions. Streamlit provides a second interface to the same
-              models. Inputs are processed in memory.
+              models. HemoBot adds evidence analysis, local SQLite audits, and
+              an optional private Ollama connection.
             </p>
           </div>
         </div>
@@ -1255,6 +1259,7 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
 }
 
 function ResearchReport({
+  botAnalysis,
   hour,
 
   replicate,
@@ -1273,6 +1278,7 @@ function ResearchReport({
 
   checks,
 }: {
+  botAnalysis: BotAnalysis | null
   hour: number
 
   replicate: number
@@ -1328,7 +1334,8 @@ function ResearchReport({
   )
 
   const bundle = {
-    product: "HemoGPT by HemoForge",
+    hemobot_analysis: botAnalysis,
+    product: "HemoForge",
 
     generated_at: new Date().toISOString(),
 
@@ -1397,7 +1404,7 @@ function ResearchReport({
     })),
   }
 
-  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><title>HemoGPT research report</title><style>body{font:16px/1.6 system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;padding:20px}h1{color:#9d232c}</style><h1>HemoGPT research report</h1><p>Research input files are labeled by source. Uploaded files have not been independently verified as biological evidence. Harvest / QC: pending_lab_verification.</p><p>Export generated at ${bundle.generated_at} UTC.</p><h2>Researcher notes</h2><p>${escapeHtml(notes) || "No notes recorded."}</p><h2>Auditable snapshot</h2><pre>${escapeHtml(JSON.stringify(bundle, null, 2))}</pre></html>`
+  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><title>HemoForge research report</title><style>body{font:16px/1.6 system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;padding:20px}h1{color:#9d232c}</style><h1>HemoForge research report</h1><p>Research input files are labeled by source. Uploaded files have not been independently verified as biological evidence. Harvest / QC: pending_lab_verification.</p><p>Export generated at ${bundle.generated_at} UTC.</p><h2>Researcher notes</h2><p>${escapeHtml(notes) || "No notes recorded."}</p><h2>Auditable snapshot</h2><pre>${escapeHtml(JSON.stringify(bundle, null, 2))}</pre></html>`
 
   const reportCsv = csv([
     [
@@ -1599,6 +1606,16 @@ function ResearchWorkspaceContent() {
 
   const [checks, setChecks] = useState([false, false, false])
 
+  const botContext = {
+    batch_id: batches[replicate - 1]?.id ?? batches[0]?.id ?? "No batch",
+    replay_elapsed_hours: hour,
+    kel,
+    slc,
+    objective: workspaceData.run?.plan?.objective ?? "maximize" as const,
+    verification_requests: checks,
+  }
+  const bot = useHemoBot(botContext)
+
   const current = navigation.find((item) => item.id === view)!
 
   useEffect(() => {
@@ -1701,8 +1718,8 @@ function ResearchWorkspaceContent() {
             <Icon name="dna" />
           </span>
           <span>
-            <strong>HemoGPT</strong>
-            <small>by HemoForge</small>
+            <strong>HemoForge</strong>
+            <small>Erythroid research</small>
           </span>
         </a>
         <div className="workspace-context">
@@ -1750,7 +1767,7 @@ function ResearchWorkspaceContent() {
           <Icon name="arrow" />
           <strong>{current.name}</strong>
         </div>
-        <strong className="mobile-brand">HemoGPT</strong>
+        <strong className="mobile-brand">HemoForge</strong>
         <div className="header-actions">
           <span className="replay-indicator">
             <span className="status-dot" />
@@ -1774,7 +1791,7 @@ function ResearchWorkspaceContent() {
         </div>
       </header>
       <main id="main-content" className="workspace" tabIndex={-1}>
-        {(view === "guard" || view === "pilot") && (
+        {(view === "guard" || view === "pilot" || view === "bot") && (
           <ReplayControls
             hour={hour}
             setHour={setHour}
@@ -1784,7 +1801,15 @@ function ResearchWorkspaceContent() {
             setSpeed={setSpeed}
           />
         )}
-        {view === "data" ? (
+        {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
+          <div className="bot-module-handoff"><span>Interpret the current evidence with HemoBot.</span>
+            <Button onClick={() => { bot.prepare(view as BotModule); navigate("bot") }}>Ask HemoBot</Button>
+          </div>
+        )}
+        {view === "bot" ? (
+          <HemoBot bot={bot} context={botContext} batchChoices={batches.map(batch => batch.id)}
+            onBatchChange={id => setReplicate(batches.findIndex(batch => batch.id === id) + 1)} />
+        ) : view === "data" ? (
           <DataWorkspace onRun={() => navigate("guard")} />
         ) : view === "guard" ? (
           <Guard
@@ -1820,6 +1845,7 @@ function ResearchWorkspaceContent() {
           <Workflow navigate={navigate} />
         ) : (
           <ResearchReport
+            botAnalysis={bot.result}
             hour={hour}
             replicate={replicate}
             notes={notes}
@@ -1832,7 +1858,7 @@ function ResearchWorkspaceContent() {
           />
         )}
         <footer className="workspace-footer">
-          <span>HemoGPT by HemoForge</span>
+          <span>HemoForge</span>
           <span>Research decision support · Harvest & QC pending</span>
         </footer>
       </main>

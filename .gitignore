@@ -17,6 +17,12 @@ vite.config.*.timestamp-*
 *.tsbuildinfo
 *-debug.log*
 logs/
+data/
+hemobot.local.json
+deploy/secrets/
+knowledge/corpus/*
+knowledge/*.local.json
+!knowledge/corpus/.gitkeep
 *.log
 .claude-replay.*
 .tmp-*

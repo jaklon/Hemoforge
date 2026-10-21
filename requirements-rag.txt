@@ -1,0 +1,2 @@
+# Optional: only needed on the machine maintaining the reviewed literature index.
+chromadb>=1.0,<2
