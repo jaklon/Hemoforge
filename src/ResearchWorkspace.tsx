@@ -61,101 +61,31 @@ type View = "data" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" 
 
 interface NavigationItem {
   id: View
-
   name: string
-
   purpose: string
-
   icon: string
+  group: string
+  // Process-map role; items with a role are ranked stages in array order.
+  role?: string
 }
 
+// Ordered start to finish along the HemoForge process map.
 const navigation: NavigationItem[] = [
-  {
-    id: "bot",
-    name: "HemoBot",
-    purpose: "Analyze research evidence",
-    icon: "pilot",
-  },
-
-  {
-    id: "data",
-
-    name: "Data & runs",
-
-    purpose: "Import, validate & run",
-
-    icon: "data",
-  },
-
-  {
-    id: "guard",
-
-    name: "Bioreactor Guard",
-
-    purpose: "Observe culture",
-
-    icon: "guard",
-  },
-
-  {
-    id: "pilot",
-
-    name: "ErythroPilot",
-
-    purpose: "Interpret & report",
-
-    icon: "pilot",
-  },
-
-  {
-    id: "plan",
-
-    name: "CulturePlan",
-
-    purpose: "Plan experiments",
-
-    icon: "plan",
-  },
-
-  { id: "match", name: "RareMatch", purpose: "Screen markers", icon: "dna" },
-
-  {
-    id: "evo2",
-    name: "Evo 2",
-    purpose: "Prepare public sequences",
-    icon: "dna",
-  },
-
-  {
-    id: "workflow",
-
-    name: "Workflow & datasets",
-
-    purpose: "Trace the evidence",
-
-    icon: "data",
-  },
-
-  {
-    id: "report",
-
-    name: "Research report",
-
-    purpose: "Review & export",
-
-    icon: "report",
-  },
-
-  {
-    id: "methods",
-
-    name: "Methods & references",
-
-    purpose: "Equations & sources",
-
-    icon: "report",
-  },
+  { id: "data", name: "Data & runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
+  { id: "workflow", name: "Workflow & datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
+  { id: "match", name: "RareMatch", purpose: "Screen markers", icon: "dna", group: "Workspace", role: "Select" },
+  { id: "evo2", name: "Evo 2", purpose: "Prepare public sequences", icon: "dna", group: "Workspace", role: "Score" },
+  { id: "plan", name: "CulturePlan", purpose: "Plan experiments", icon: "plan", group: "Workspace", role: "Plan" },
+  { id: "guard", name: "Bioreactor Guard", purpose: "Observe culture", icon: "guard", group: "Workspace", role: "Observe" },
+  { id: "pilot", name: "ErythroPilot", purpose: "Interpret & summarize", icon: "pilot", group: "Workspace", role: "Interpret" },
+  { id: "report", name: "Research report", purpose: "Review & export", icon: "report", group: "Output", role: "Report" },
+  { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot", group: "Assist & reference" },
+  { id: "methods", name: "Methods & references", purpose: "Equations & sources", icon: "report", group: "Assist & reference" },
 ]
+
+const processStages = navigation.filter((item) => item.role)
+
+const navigationGroups = [...new Set(navigation.map((item) => item.group))]
 
 function ReplayControls({
   hour,
@@ -653,52 +583,18 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
       </Panel>
       <Panel title="HemoForge process map">
         <ol className="process-map">
-          {[
-            {
-              name: "RareMatch",
-
-              role: "Select",
-
-              text: "Screen initial markers",
-
-              view: "match" as View,
-            },
-
-            {
-              name: "CulturePlan",
-
-              role: "Plan",
-
-              text: "Review experimental conditions",
-
-              view: "plan" as View,
-            },
-
-            {
-              name: "Bioreactor Guard",
-
-              role: "Observe",
-
-              text: "Compare batches and warnings",
-
-              view: "guard" as View,
-            },
-
-            {
-              name: "ErythroPilot",
-
-              role: "Interpret",
-
-              text: `Summarize every ${workspaceData.reportInterval} hours`,
-
-              view: "pilot" as View,
-            },
-          ].map((stage) => (
-            <li key={stage.name}>
-              <button onClick={() => navigate(stage.view)}>
-                <small>{stage.role}</small>
+          {processStages.map((stage, index) => (
+            <li key={stage.id}>
+              <button onClick={() => navigate(stage.id)}>
+                <small>
+                  {index + 1} · {stage.role}
+                </small>
                 <strong>{stage.name}</strong>
-                <span>{stage.text}</span>
+                <span>
+                  {stage.id === "pilot"
+                    ? `Summarize every ${workspaceData.reportInterval} hours`
+                    : stage.purpose}
+                </span>
                 <Icon name="arrow" />
               </button>
             </li>
@@ -1300,27 +1196,34 @@ function ResearchWorkspaceContent() {
           <small>CASE-DEMO-01</small>
         </div>
         <nav aria-label="Research modules">
-          {navigation.map((item) => (
-            <a
-              href={`#${item.id}`}
-              key={item.id}
-              aria-current={view === item.id ? "page" : undefined}
-              className={view === item.id ? "active" : ""}
-              onClick={(e) => {
-                e.preventDefault()
+          {navigationGroups.map((group) => (
+            <div className="nav-group" key={group} role="group" aria-label={group}>
+              <span className="nav-group-label" aria-hidden="true">{group}</span>
+              {navigation
+                .filter((item) => item.group === group)
+                .map((item) => (
+                  <a
+                    href={`#${item.id}`}
+                    key={item.id}
+                    aria-current={view === item.id ? "page" : undefined}
+                    className={view === item.id ? "active" : ""}
+                    onClick={(e) => {
+                      e.preventDefault()
 
-                navigate(item.id)
-              }}
-            >
-              <Icon name={item.icon} />
-              <span>
-                <strong>{item.name}</strong>
-                <small>{item.purpose}</small>
-              </span>
-              {item.id === "guard" && (
-                <span className="nav-count">{batches.length}</span>
-              )}
-            </a>
+                      navigate(item.id)
+                    }}
+                  >
+                    <Icon name={item.icon} />
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>{item.purpose}</small>
+                    </span>
+                    {item.id === "guard" && (
+                      <span className="nav-count">{batches.length}</span>
+                    )}
+                  </a>
+                ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">

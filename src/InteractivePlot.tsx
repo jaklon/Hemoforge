@@ -122,18 +122,18 @@ export default function InteractivePlot({
     const element = svg.current
     if (!element) return
     function wheel(event: WheelEvent) {
-      // Preserve document scrolling until the user explicitly focuses the chart.
-      if (
-        document.activeElement !== element &&
-        !event.ctrlKey &&
-        !event.metaKey
+      const factor = Math.exp(
+        Math.max(-0.7, Math.min(0.7, event.deltaY * 0.002)),
       )
-        return
+      // Zooming out a fully fitted chart scrolls the page instead of trapping it.
+      const fitted =
+        current.x[0] <= xExtent[0] &&
+        current.x[1] >= xExtent[1] &&
+        current.y[0] <= yExtent[0] &&
+        current.y[1] >= yExtent[1]
+      if (factor > 1 && fitted) return
       event.preventDefault()
-      zoom(
-        Math.exp(Math.max(-0.7, Math.min(0.7, event.deltaY * 0.002))),
-        position(event.clientX, event.clientY),
-      )
+      zoom(factor, position(event.clientX, event.clientY))
     }
     element.addEventListener("wheel", wheel, { passive: false })
     return () => element.removeEventListener("wheel", wheel)
@@ -175,20 +175,6 @@ export default function InteractivePlot({
             −
           </Button>
           <Button onClick={() => setView(null)}>Reset view</Button>
-        </div>
-        <div className="plot-buttons" role="group" aria-label="Pan controls">
-          <Button onClick={() => pan(-0.2, 0)} aria-label="Pan earlier">
-            ←
-          </Button>
-          <Button onClick={() => pan(0.2, 0)} aria-label="Pan later">
-            →
-          </Button>
-          <Button onClick={() => pan(0, 0.2)} aria-label="Pan up">
-            ↑
-          </Button>
-          <Button onClick={() => pan(0, -0.2)} aria-label="Pan down">
-            ↓
-          </Button>
         </div>
       </div>
       <svg
@@ -308,8 +294,8 @@ export default function InteractivePlot({
       </svg>
       <div className="plot-footer">
         <p id={`${id}-help`}>
-          Drag to pan · Click chart, then scroll to zoom · Pinch to zoom ·
-          Double-click or Home to reset. Keyboard: arrows and + / −.
+          Scroll to zoom · Drag to pan · Pinch on touch · Double-click to
+          reset. Keyboard: arrows pan, + / − zoom.
         </p>
         <span id={`${id}-range`} aria-live="polite">
           {plotNumber(current.x[0])}–{plotNumber(current.x[1])}h ·{" "}
