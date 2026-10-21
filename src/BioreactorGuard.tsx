@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState, useEffect, type ReactNode } from "react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
+
 import { useCultureData, useWorkspace } from "./workspace-context"
+
 import {
   Button,
   Panel,
@@ -9,9 +11,15 @@ import {
   Icon,
   Details,
 } from "./workspace-ui"
+
 import MonitoringControls from "./MonitoringControls"
+
+import InteractivePlot from "./InteractivePlot"
+
 import { ChannelPanel } from "./AnalysisPanels"
+
 import { csv, downloadFile } from "./workspace-utils"
+
 import {
   summarizeGuardBatch,
   guardSeries,
@@ -22,29 +30,41 @@ import {
 
 type BatchView = {
   index: number
+
   id: string
+
   cellLine: string
+
   total: number
+
   summary: GuardBatchSummary
 }
 
 function Sparkline({ summary }: { summary: GuardBatchSummary }) {
   const segments = guardSeries(summary, 0, "count")
+
   const points = segments.flat()
+
   const end = Math.max(1, points.at(-1)?.hour ?? 1)
+
   const max = Math.max(0.01, ...points.map((point) => point.value))
+
   const min = Math.min(...points.map((point) => point.value), max)
+
   const range = max - min || max * 0.1
+
   return (
     <svg className="guard-sparkline" viewBox="0 0 110 32" aria-hidden="true">
       {segments.map((segment, i) => (
         <polyline
           key={i}
           points={segment
+
             .map(
               (point) =>
                 `${4 + (point.hour / end) * 102},${27 - ((point.value - min) / range) * 23}`,
             )
+
             .join(" ")}
           fill="none"
           stroke="currentColor"
@@ -65,60 +85,69 @@ function Sparkline({ summary }: { summary: GuardBatchSummary }) {
 
 function GrowthChart({
   batches,
+
   selected,
+
   hour,
+
   endHour,
 }: {
   batches: BatchView[]
+
   selected: BatchView
+
   hour: number
+
   endHour: number
 }) {
   const { guardView: view, setGuardView: setView } = useWorkspace()
-  const chart = useRef<SVGSVGElement>(null)
-  const [width, setWidth] = useState(700)
+
   const [inspectedHour, setInspectedHour] = useState<number | null>(null)
-  useEffect(() => {
-    if (!chart.current) return
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(260, entry.contentRect.width)),
-    )
-    observer.observe(chart.current)
-    return () => observer.disconnect()
-  }, [])
+
   const start = view.window ? Math.max(0, hour - view.window) : 0
+
   const end = Math.max(start + 1, view.window ? hour : endHour)
+
   const displayed = batches.filter(
     (batch) =>
       batch.index === selected.index ||
       (view.compare && !view.hiddenBatchIds.includes(batch.id)),
   )
+
   const series = displayed.map((batch) => ({
     ...batch,
+
     segments: guardSeries(batch.summary, start, view.scale),
   }))
+
   const allPoints = series.flatMap((batch) => batch.segments.flat())
-  const max = Math.max(0.01, ...allPoints.map((point) => point.value)) * 1.12
-  const x = (time: number) =>
-    54 + ((time - start) / (end - start)) * (width - 78)
-  const y = (value: number) => 245 - (value / max) * 195
+
   const selectedPoints = series
+
     .find((batch) => batch.index === selected.index)!
+
     .segments.flat()
+
   const point =
     selectedPoints.find((point) => point.hour === inspectedHour) ??
     selectedPoints.at(-1)
+
   function comparison(id: string) {
     setView((old) => ({
       ...old,
+
       hiddenBatchIds: old.hiddenBatchIds.includes(id)
         ? old.hiddenBatchIds.filter((value) => value !== id)
         : [...old.hiddenBatchIds, id],
     }))
   }
+
   return (
     <>
       <div className="guard-chart-controls">
+        <a className="method-link" href="#methods/monitoring">
+          Growth &amp; warning formulas
+        </a>
         <fieldset className="guard-segmented">
           <legend className="sr-only">Growth chart scale</legend>
           <button
@@ -160,122 +189,97 @@ function GrowthChart({
           Compare batches
         </label>
       </div>
-      <svg
-        ref={chart}
-        className="guard-growth-chart"
-        viewBox={`0 0 ${width} 280`}
-        role="img"
-        aria-label={`${
-          view.scale === "fold" ? "Fold change" : "Cell counts"
-        } for ${selected.id}${
-          view.compare ? " and comparison batches" : ""
-        }, ${number(start)}h to ${number(end)}h. Observations stop at ${number(hour)}h; gaps represent missing or invalid rows.`}
-      >
-        <text x="54" y="25" className="axis-title">
-          {view.scale === "count"
+      <InteractivePlot
+        title={`Observed growth for ${selected.id}`}
+        xExtent={[start, end]}
+        values={allPoints.map((point) => point.value)}
+        yLabel={
+          view.scale === "count"
             ? "Cell count · ×10⁶ cells"
-            : "Fold change · first valid sample = 1×"}
-        </text>
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
-          <g key={fraction}>
-            <line
-              x1="54"
-              x2={width - 24}
-              y1={y(max * fraction)}
-              y2={y(max * fraction)}
-              className="chart-grid"
-            />
-            <text x="44" y={y(max * fraction) + 4} textAnchor="end">
-              {number(max * fraction)}
-            </text>
-          </g>
-        ))}
-        {hour < end && (
-          <rect
-            x={x(hour)}
-            y="40"
-            width={Math.max(0, x(end) - x(hour))}
-            height="205"
-            fill="var(--guard-future)"
-          />
-        )}
-        {series.map((batch) => (
-          <g
-            key={batch.id}
-            className={`guard-series ${
-              batch.index === selected.index
-                ? "is-current"
-                : batch.index % 2
-                  ? "is-teal"
-                  : "is-slate"
-            }`}
-          >
-            {batch.segments.map((segment, index) => (
-              <polyline
-                key={index}
-                points={segment
-                  .map((sample) => `${x(sample.hour)},${y(sample.value)}`)
-                  .join(" ")}
-                fill="none"
-                strokeWidth={batch.index === selected.index ? 2.6 : 1.5}
-                strokeDasharray={
-                  batch.index === selected.index
-                    ? undefined
-                    : batch.index % 3 === 0
-                      ? "3 4"
-                      : undefined
-                }
+            : "Fold change · first valid sample = 1×"
+        }
+      >
+        {({ x, y, top, bottom }) => (
+          <>
+            {hour < end && (
+              <rect
+                x={x(hour)}
+                y={top}
+                width={Math.max(0, x(end) - x(hour))}
+                height={bottom - top}
+                fill="var(--guard-future)"
               />
-            ))}
-            {batch.segments.flat().map((sample) => (
-              <circle
-                key={sample.hour}
-                cx={x(sample.hour)}
-                cy={y(sample.value)}
-                r={batch.index === selected.index ? 3.8 : 2.5}
+            )}
+            {series.map((batch) => (
+              <g
+                key={batch.id}
+                className={`guard-series ${
+                  batch.index === selected.index
+                    ? "is-current"
+                    : batch.index % 2
+                      ? "is-teal"
+                      : "is-slate"
+                }`}
               >
-                <title>
-                  {batch.id} · {sample.hour}h · {number(sample.value)}
-                  {view.scale === "count" ? " million cells" : "×"}
-                </title>
-              </circle>
+                {batch.segments.map((segment, index) => (
+                  <polyline
+                    key={index}
+                    points={segment
+
+                      .map((sample) => `${x(sample.hour)},${y(sample.value)}`)
+
+                      .join(" ")}
+                    fill="none"
+                    strokeWidth={batch.index === selected.index ? 2.6 : 1.5}
+                    strokeDasharray={
+                      batch.index === selected.index ? undefined : "3 4"
+                    }
+                  />
+                ))}
+                {batch.segments.flat().map((sample) => (
+                  <circle
+                    key={sample.hour}
+                    cx={x(sample.hour)}
+                    cy={y(sample.value)}
+                    r={batch.index === selected.index ? 3.8 : 2.5}
+                  >
+                    <title>
+                      {batch.id} · {number(sample.hour)}h ·{" "}
+                      {number(sample.value)}
+                      {view.scale === "count" ? " million cells" : "×"}
+                    </title>
+                  </circle>
+                ))}
+              </g>
             ))}
-          </g>
-        ))}
-        {point && (
-          <line
-            x1={x(point.hour)}
-            x2={x(point.hour)}
-            y1="40"
-            y2="245"
-            className="guard-inspection-line"
-          />
+            {point && (
+              <line
+                x1={x(point.hour)}
+                x2={x(point.hour)}
+                y1={top}
+                y2={bottom}
+                className="guard-inspection-line"
+              />
+            )}
+            <line
+              x1={x(Math.min(hour, end))}
+              x2={x(Math.min(hour, end))}
+              y1={top}
+              y2={bottom}
+              className="replay-line"
+            />
+            {!allPoints.length && (
+              <text
+                x={x((start + end) / 2)}
+                y={(top + bottom) / 2}
+                textAnchor="middle"
+              >
+                No valid samples in this window
+              </text>
+            )}
+          </>
         )}
-        <line
-          x1={x(Math.min(hour, end))}
-          x2={x(Math.min(hour, end))}
-          y1="40"
-          y2="245"
-          className="replay-line"
-        />
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
-          <text
-            key={fraction}
-            x={x(start + (end - start) * fraction)}
-            y="269"
-            textAnchor="middle"
-          >
-            {number(start + (end - start) * fraction)}h
-          </text>
-        ))}
-        {!allPoints.length && (
-          <text x={width / 2} y="140" textAnchor="middle">
-            {view.scale === "fold"
-              ? "No valid baseline in this view"
-              : "No valid samples in this window"}
-          </text>
-        )}
-      </svg>
+      </InteractivePlot>
       <div className="guard-legend" aria-label="Chart series">
         <span className="guard-current-series">
           <i />
@@ -283,7 +287,9 @@ function GrowthChart({
         </span>
         {view.compare &&
           batches
+
             .filter((batch) => batch.index !== selected.index)
+
             .map((batch) => (
               <label
                 key={batch.id}
@@ -349,83 +355,132 @@ function GrowthChart({
 
 export default function BioreactorGuard({
   hour,
+
   replicate,
+
   setReplicate,
+
   navigate,
+
   eventNotes,
+
   setEventNotes,
+
   replayControls,
 }: {
   hour: number
+
   replicate: number
+
   setReplicate: (index: number) => void
+
   navigate: (view: "data" | "pilot" | "report") => void
+
   eventNotes: Record<string, string>
+
   setEventNotes: (notes: Record<string, string>) => void
+
   replayControls: ReactNode
 }) {
   const {
     batches,
+
     source,
+
     replayEndHour,
+
     monitoring,
+
     reportInterval,
+
     checkpointReports,
   } = useCultureData()
+
   const { guardView: view, setGuardView: setView } = useWorkspace()
+
   const settingsRef = useRef<HTMLDivElement>(null)
+
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
+
   const [measurementPage, setMeasurementPage] = useState(0)
+
   const batchViews = useMemo(
     () =>
       batches.map((batch, index) => ({
         index: index + 1,
+
         id: batch.id,
+
         cellLine: batch.cellLine,
+
         total: batch.measurements.length,
+
         summary: summarizeGuardBatch(batch.measurements, hour, monitoring),
       })),
+
     [batches, hour, monitoring],
   )
+
   const selected =
     batchViews.find((batch) => batch.index === replicate) ?? batchViews[0]
+
   const state = selected.summary
+
   const attention = batchViews.filter((batch) => batch.summary.events.length)
+
   const noData = batchViews.filter((batch) => !batch.summary.latest)
+
   const shown = view.attentionOnly ? attention : batchViews
+
   const urgent = [...attention].sort(
     (a, b) => b.summary.priority - a.summary.priority,
   )[0]
+
   const warnings = [...state.events].sort(
     (a, b) =>
       (b.status === "needs_review" ? 1 : 0) -
         (a.status === "needs_review" ? 1 : 0) || b.hour - a.hour,
   )
+
   const event =
     warnings.find((item) => item.id === selectedEvent) ?? warnings[0]
+
   const eventInfo = event ? guardEventInfo(event, monitoring) : null
+
   const report = useMemo(
     () => checkpointReports(replicate, hour).at(-1),
+
     [replicate, hour, source, monitoring, reportInterval],
   )
+
   const page = Math.min(
     measurementPage,
+
     Math.max(0, Math.ceil(state.visible.length / 25) - 1),
   )
+
   const noteKey = event ? `R${selected.index}-${event.id}` : ""
+
   function configure() {
     const details = settingsRef.current?.querySelector("details")
+
     if (details) {
       details.open = true
+
       details.scrollIntoView({ block: "start", behavior: "instant" })
+
       details.querySelector("summary")?.focus()
     }
   }
+
   function choose(index: number) {
     setReplicate(index)
+
     setSelectedEvent(null)
+
     setMeasurementPage(0)
   }
+
   return (
     <div className="guard-workspace">
       <PageTitle
@@ -482,6 +537,7 @@ export default function BioreactorGuard({
             <dd>
               {batchViews.reduce(
                 (sum, batch) => sum + batch.summary.events.length,
+
                 0,
               )}
             </dd>
@@ -495,11 +551,17 @@ export default function BioreactorGuard({
           <Button
             onClick={() => {
               choose(urgent.index)
+
               document
+
                 .getElementById("guard-review")
+
                 ?.scrollIntoView({ behavior: "instant", block: "start" })
+
               document
+
                 .getElementById("guard-review-heading")
+
                 ?.focus({ preventScroll: true })
             }}
           >
@@ -856,26 +918,41 @@ export default function BioreactorGuard({
             onClick={() =>
               downloadFile(
                 `hemogpt-${selected.id.replace(/[^a-z0-9_-]/gi, "_")}-${hour}h-observations.csv`,
+
                 csv([
                   [
                     "batch_id",
+
                     "elapsed_hours",
+
                     "cell_count_million",
+
                     "unit",
+
                     "data_quality",
+
                     "source",
+
                     "sha256",
                   ],
+
                   ...state.visible.map((sample) => [
                     selected.id,
+
                     sample.hour,
+
                     sample.count,
+
                     sample.unit,
+
                     state.valid.includes(sample) ? "valid" : "needs_review",
+
                     source.name,
+
                     source.sha256,
                   ]),
                 ]),
+
                 "text/csv;charset=utf-8",
               )
             }
@@ -894,7 +971,9 @@ export default function BioreactorGuard({
             </thead>
             <tbody>
               {state.visible
+
                 .slice(page * 25, (page + 1) * 25)
+
                 .map((sample, index) => (
                   <tr key={`${sample.hour}-${index}`}>
                     <td>{number(sample.hour)}h</td>

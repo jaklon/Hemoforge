@@ -104,6 +104,17 @@ desktop, 40px below 900px. Radios and range inputs retain native keyboard behavi
 
 ## Components
 
+`InteractivePlot` owns scientific chart pan, zoom, linear/logarithmic Y scales,
+keyboard alternatives, pinch gestures, clipping, and reset. `ForecastChart` draws
+Python-returned paths and intervals with exact-value inspection. Its forecast,
+path, and band colors map to `--plot-forecast`, `--plot-path`, and `--plot-band`
+in `src/index.css`. Guard reuses the same plot navigation.
+`MethodsPage` and `methods-content.ts` own the methods notebook: LaTeX equations
+render through locally bundled KaTeX with accessible MathML; model identifiers,
+assumptions, symbol definitions, sources, and deep links travel together. The
+page has a compact contents rail, quiet equation panels, and a LaTeX download.
+`source-references.ts` supplies shared proposal-source records.
+
 `Button`, `Badge`, `Panel`, `Details`, `Icon`, `PageTitle`, and `Status` in
 `src/workspace-ui.tsx` are the shared visual owners. `ReplayControls` in
 `src/ResearchWorkspace.tsx` owns the replay toolbar. `src/BioreactorGuard.tsx`
@@ -139,8 +150,9 @@ owning module. Preserve the existing navy/red palette and native popup ownership
 
 Native `details`/`summary` supports secondary evidence and starts collapsed.
 Keep primary actions, results, units, validation errors, and actionable warnings
-visible. Put file previews, import guides, methods, provenance, references, and
-roadmaps behind labeled disclosures. Use one short purpose sentence per page;
+visible. Put file previews, import guides, and roadmaps behind labeled disclosures.
+Full equations, references, and provenance also live on the dedicated Methods
+& references page, with visible section links beside analysis controls. Use one short purpose sentence per page;
 avoid repeating explanations in banners and cards. Example loading stays beside
 the file picker, with template downloads available in a disclosure.
 Reports show 8 checkpoints per page with explicit Earlier/Newer controls.

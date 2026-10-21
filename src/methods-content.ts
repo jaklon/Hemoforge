@@ -1,0 +1,245 @@
+export const methodReferences = [
+  {
+    id: "sigman",
+    title: "Karl Sigman — Geometric Brownian Motion",
+    detail:
+      "Columbia University lecture notes, §1. Mathematical background for a lognormal process; not evidence of cell-culture validity.",
+    url: "https://www.columbia.edu/~ks20/FE-Notes/4700-07-Notes-GBM.pdf",
+  },
+  {
+    id: "numpy",
+    title: "NumPy — quantile",
+    detail:
+      "Reference for the default linear interpolation used to summarize simulated paths.",
+    url: "https://numpy.org/doc/stable/reference/generated/numpy.quantile.html",
+  },
+  {
+    id: "gpml",
+    title:
+      "Rasmussen & Williams (2006) — Gaussian Processes for Machine Learning",
+    detail:
+      "MIT Press, chapter 2, equations 2.25–2.26. Posterior mean and latent variance in Gaussian process regression.",
+    url: "https://gaussianprocess.org/gpml/chapters/RW2.pdf",
+  },
+  {
+    id: "jones",
+    title:
+      "Jones, Schonlau & Welch (1998) — Efficient Global Optimization of Expensive Black-Box Functions",
+    detail:
+      "Journal of Global Optimization 13, 455–492. Expected improvement as an acquisition criterion. DOI: 10.1023/A:1008306431147.",
+    url: "https://link.springer.com/article/10.1023/A:1008306431147",
+  },
+  {
+    id: "dbsnp",
+    title: "NCBI — dbSNP RefSNP records",
+    detail:
+      "Variant identity and assembly context. An rs ID is a database identifier; allele orientation and genome assembly must be checked separately.",
+    url: "https://www.ncbi.nlm.nih.gov/snp/",
+  },
+] as const
+
+export const methods = [
+  {
+    id: "growth",
+    title: "Growth simulation",
+    module: "ErythroPilot",
+    route: "pilot",
+    engine: "Python · growth-lognormal-v2",
+    intro:
+      "A stationary lognormal process fitted to positive cell counts available at the replay cutoff. A run uses only the selected batch and fitting window.",
+    notation:
+      "Nᵢ is the count in million cells at time tᵢ (hours). There are n observations and m = n − 1 time intervals. g is log-growth per hour; σ is volatility per square-root hour.",
+    equations: [
+      {
+        id: "growth-fit",
+        name: "Fit log-growth and variability",
+        latex: String.raw`\begin{aligned}d_i&=t_i-t_{i-1},\quad r_i=\ln\!\left(\frac{N_i}{N_{i-1}}\right)\\ \widehat g&=\frac{\sum_{i=1}^{m}r_i}{\sum_{i=1}^{m}d_i},\qquad \widehat\sigma^2=\frac{1}{m-1}\sum_{i=1}^{m}\frac{(r_i-\widehat g d_i)^2}{d_i}\end{aligned}`,
+        explanation:
+          "Intervals retain their actual duration, including fractional hours. The residual variance uses m − 1 degrees of freedom. At least three positive measurements with increasing times are required.",
+      },
+      {
+        id: "growth-step",
+        name: "Advance each simulated path",
+        latex: String.raw`N(t+\Delta t)=N(t)\exp\!\left(g\,\Delta t+\sigma\sqrt{\Delta t}\,Z\right),\quad Z\sim\mathcal N(0,1)`,
+        explanation:
+          "Independent normal draws advance each path. Python first advances from the last observation to the replay cutoff if there is a gap, then returns hourly steps. The chosen seed makes the same request reproducible within the same model environment.",
+      },
+      {
+        id: "growth-drift",
+        name: "Interpret the drift parameter",
+        latex: String.raw`\frac{dN_t}{N_t}=\left(g+\frac{\sigma^2}{2}\right)dt+\sigma\,dW_t`,
+        explanation:
+          "The app's rate control is the drift of log-count, g. It is not the arithmetic drift of N. The transition above already uses log drift, so subtracting another σ²/2 would change the implemented model.",
+      },
+    ],
+    limits:
+      "User-entered rate and volatility replace the fitted values. The process assumes constant growth and variability, and omits feeding, contamination, carrying capacity, interventions, and maturation. It is an exploratory mathematical scenario with no demonstrated biological forecasting accuracy.",
+    refs: ["sigman"],
+  },
+  {
+    id: "intervals",
+    title: "Simulated ranges & chart axes",
+    module: "ErythroPilot / Guard",
+    route: "pilot",
+    engine: "Python quantiles · browser chart coordinates",
+    intro:
+      "The shaded band summarizes the distribution across all returned paths at each time. The chart draws up to 24 individual paths for readability.",
+    notation:
+      "M is the requested number of paths. At one time, v₀ ≤ ⋯ ≤ vM₋₁ are their sorted values. p is the desired quantile probability.",
+    equations: [
+      {
+        id: "quantiles",
+        name: "Linear empirical quantiles",
+        latex: String.raw`\begin{aligned}h&=(M-1)p,\quad j=\lfloor h\rfloor,\quad w=h-j\\ Q_p&=(1-w)v_j+w\,v_{\min(j+1,M-1)}\\ \text{median}&=Q_{0.5},\quad I_{95}=[Q_{0.025},Q_{0.975}],\quad I_{80}=[Q_{0.1},Q_{0.9}]\end{aligned}`,
+        explanation:
+          "This matches numpy.quantile with its default linear method. Ranges are pointwise Monte Carlo summaries, conditional on the selected parameters; they do not include uncertainty in the fitted parameters.",
+      },
+      {
+        id: "log-axis",
+        name: "Logarithmic display",
+        latex: String.raw`y_{\mathrm{display}}=\log_{10}N,\quad N>0`,
+        explanation:
+          "Equal distances represent equal ratios. Tick labels and inspector values remain in the original units. Changing the axis, panning, and zooming change only the view; Python predictions and source measurements stay intact. Time uses a linear axis, including 0h.",
+      },
+    ],
+    limits:
+      "A 95% simulated range is not a calibrated 95% biological prediction interval or a simultaneous band across time. Zero, negative, and missing counts cannot be plotted on a logarithmic count axis.",
+    refs: ["numpy"],
+  },
+  {
+    id: "gp",
+    title: "Gaussian process experiment model",
+    module: "CulturePlan",
+    route: "plan",
+    engine: "Python · experiment-rbf-gp-v2",
+    intro:
+      "The model relates lactate and ammonia settings to the observed response for each condition. Hyperparameters are supplied by the researcher rather than optimized automatically.",
+    notation:
+      "x contains lactate and ammonia in mg/L. y is the vector of condition means. b and s are the training means' average and population standard deviation (s = 1 when constant). ℓ is length scale; η is the normalized noise SD.",
+    equations: [
+      {
+        id: "gp-kernel",
+        name: "Normalize factors and build the RBF kernel",
+        latex: String.raw`\begin{aligned}u_{ij}&=\frac{x_{ij}}{\max(1,\max_k x_{kj})},\quad z=\frac{y-b}{s}\\ k(u,v)&=\exp\!\left(-\frac{\lVert u-v\rVert^2}{2\ell^2}\right),\quad C=K+\eta^2I\end{aligned}`,
+        explanation:
+          "Factor normalization uses the available candidate settings. Each training set supplies its own response normalization. The model operates on condition means; it does not weight them by replicate count or measured replicate SD.",
+      },
+      {
+        id: "gp-posterior",
+        name: "Predict response and latent uncertainty",
+        latex: String.raw`\begin{aligned}\mu_*&=b+s\,k_*^{\mathsf T}C^{-1}z\\ s_*&=s\sqrt{\max\!\left(0,1-k_*^{\mathsf T}C^{-1}k_*\right)}\end{aligned}`,
+        explanation:
+          "k* holds kernel values between the candidate and training conditions. Python solves the linear systems rather than explicitly forming the inverse. The displayed SD is latent-function uncertainty: additional measurement-noise variance is not added.",
+      },
+    ],
+    limits:
+      "The current candidate set contains only observed conditions. Results rank possible repeat measurements, not arbitrary new factor combinations. The GP assumes a smooth response surface and does not establish causal effects or a validated production recipe.",
+    refs: ["gpml"],
+  },
+  {
+    id: "improvement",
+    title: "Expected improvement ranking",
+    module: "CulturePlan",
+    route: "plan",
+    engine: "Python · experiment-rbf-gp-v2",
+    intro:
+      "Expected improvement balances predicted response against model uncertainty when ranking conditions for another measurement.",
+    notation:
+      "d = +1 for maximization and −1 for minimization. ybest is the best observed condition mean for that goal. ξ is the exploration margin in response units. Φ and φ are the standard normal CDF and density.",
+    equations: [
+      {
+        id: "expected-improvement",
+        name: "Acquisition score",
+        latex: String.raw`\begin{aligned}a&=d(\mu_*-y_{\mathrm{best}})-\xi,\quad z=\frac{a}{s_*}\\ \operatorname{EI}&=\begin{cases}a\,\Phi(z)+s_*\phi(z),&s_*>0\\ \max(a,0),&s_*=0\end{cases}\end{aligned}`,
+        explanation:
+          "Conditions are sorted by descending EI. A numerical floor of zero removes tiny negative roundoff. Changing the goal or exploration margin requires a new Python fit.",
+      },
+    ],
+    limits:
+      "EI is a model-dependent acquisition score in response units, not a probability of success. This app evaluates it only at the supplied conditions; it does not run continuous global optimization.",
+    refs: ["jones"],
+  },
+  {
+    id: "validation",
+    title: "Replicate summaries & held-out checks",
+    module: "CulturePlan",
+    route: "plan",
+    engine: "Python validation · browser descriptive summaries",
+    intro:
+      "Replicate measurements are summarized within each condition. Model evaluation withholds one complete condition at a time, including all its replicates.",
+    notation:
+      "R is the number of replicates in a condition, with responses qᵣ. C is the number of conditions. ŷ₋ⱼ is the prediction after excluding condition j.",
+    equations: [
+      {
+        id: "replicate-summary",
+        name: "Observed mean and sample standard deviation",
+        latex: String.raw`\bar q=\frac{1}{R}\sum_{r=1}^{R}q_r,\qquad s_q=\sqrt{\frac{\sum_{r=1}^{R}(q_r-\bar q)^2}{R-1}}`,
+        explanation:
+          "SD is unavailable for a single replicate. These descriptive summaries are currently calculated for display in the browser and independently aggregated by Python for fitting.",
+      },
+      {
+        id: "held-out-mae",
+        name: "Leave-one-condition-out mean absolute error",
+        latex: String.raw`\begin{aligned}\operatorname{MAE}_{\mathrm{GP}}&=\frac{1}{C}\sum_{j=1}^{C}|y_j-\widehat y_{-j}|\\ \operatorname{MAE}_{\mathrm{baseline}}&=\frac{1}{C}\sum_{j=1}^{C}\left|y_j-\frac{1}{C-1}\sum_{k\ne j}y_k\right|\end{aligned}`,
+        explanation:
+          "Lower error is better. The baseline predicts the average of the other condition means. Response normalization is recomputed within each training fold. These are direct definitions used by this app, not an external performance claim.",
+      },
+    ],
+    limits:
+      "At least three distinct conditions are needed. A small held-out comparison does not establish external generalization, and selecting model settings after inspecting these errors can make them optimistic.",
+    refs: ["gpml"],
+  },
+  {
+    id: "monitoring",
+    title: "Observed growth & monitoring rules",
+    module: "Bioreactor Guard",
+    route: "guard",
+    engine: "Browser · deterministic monitoring",
+    intro:
+      "Guard evaluates available recorded samples at the replay cutoff. These rules identify trends and data-quality issues for review.",
+    notation:
+      "N₀ is the first valid count; Nlast and Nprev are the latest two. tc is the replay cutoff. H is the researcher-selected sample-age limit.",
+    equations: [
+      {
+        id: "observed-growth",
+        name: "Fold change, last-interval rate, and percentage change",
+        latex: String.raw`\begin{aligned}F&=\frac{N_{\mathrm{last}}}{N_0},\quad g_{\mathrm{last}}=\frac{\ln(N_{\mathrm{last}}/N_{\mathrm{prev}})}{t_{\mathrm{last}}-t_{\mathrm{prev}}}\\ \Delta_\%&=100\frac{N_{\mathrm{last}}-N_{\mathrm{prev}}}{N_{\mathrm{prev}}}\end{aligned}`,
+        explanation:
+          "These describe measured change. They do not extrapolate a future trajectory. Invalid visible source rows withhold derived growth values until reviewed.",
+      },
+      {
+        id: "monitoring-rules",
+        name: "Configured decline and stale-sample checks",
+        latex: String.raw`\begin{aligned}N_i&<N_{i-1},\quad 100\frac{N_{i-1}-N_i}{N_{i-1}}\ge D\\ \text{sample age}&=t_c-t_{\mathrm{last}},\quad \text{stale if age}>H\end{aligned}`,
+        explanation:
+          "A decline warning needs the configured number of consecutive adjacent valid declines, each reaching the percentage threshold D. Missing or invalid rows break the sequence. The stale check runs only when H is enabled. Earlier warnings remain in history.",
+      },
+    ],
+    limits:
+      "Thresholds are researcher-defined application rules, not published biological alarm limits. They do not identify a cause or drive equipment. These calculations still run in the frontend; growth simulation and experiment fitting run in Python.",
+    refs: [],
+  },
+  {
+    id: "markers",
+    title: "Genotype matching",
+    module: "RareMatch",
+    route: "match",
+    engine: "Browser · configurable exact matching",
+    intro:
+      "RareMatch compares unphased diploid calls to the researcher's selected marker panel. It supports all-marker or any-marker matching and explicit missing-call policies.",
+    notation:
+      "cᵢ is a usable genotype call and Tᵢ is its target. norm sorts the two DNA letters after treating | and / as unphased separators. A wildcard target accepts any usable call.",
+    equations: [
+      {
+        id: "genotype-matching",
+        name: "Match each usable call",
+        latex: String.raw`m_i=\mathbf 1\!\left[T_i=*\;\lor\;\operatorname{norm}(c_i)=\operatorname{norm}(T_i)\right]`,
+        explanation:
+          "All mode requires every applicable mᵢ = 1; any mode requires at least one. Missing or disallowed calls follow the selected unknown / exclude / ignore policy. With no usable calls the result remains unknown, including under ignore.",
+      },
+    ],
+    limits:
+      "Built-in calls are synthetic fixtures. An rs identifier names a variant record rather than encoding a coordinate. Gene labels, genome build, strand orientation, and permitted alleles need verification for real inputs. A genotype signature alone does not certify blood compatibility.",
+    refs: ["dbsnp"],
+  },
+] as const

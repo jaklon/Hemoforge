@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useState } from "react"
+
+import ForecastChart from "./ForecastChart"
+
+import { plotNumber } from "./plot-navigation"
 
 import { useCultureData, useWorkspace } from "./workspace-context"
-
-import { analyzeMeasurements } from "./culture-monitoring"
 
 import {
   channels,
@@ -83,56 +85,20 @@ export function SimulationPanel({
       ? simulation
       : null
 
-  const chartRef = useRef<SVGSVGElement>(null)
-
-  const [width, setWidth] = useState(650)
-
-  useEffect(() => {
-    if (!chartRef.current) return
-
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(280, entry.contentRect.width)),
-    )
-
-    observer.observe(chartRef.current)
-
-    return () => observer.disconnect()
-  }, [current])
-
   const result = current?.result
 
   const end = result?.distribution.at(-1)
 
-  const yMax = result
-    ? Math.max(
-        ...state.valid.map((p) => p.count!),
-
-        ...result.distribution.map((p) => p.upper95),
-
-        0.01,
-      ) * 1.08
-    : 1
-
-  const xmax = hour + horizon || 1
-
-  const x = (value: number) => 58 + (value / xmax) * (width - 84)
-
-  const y = (value: number) => 224 - (value / yMax) * 170
-
-  const band = result
-    ? [
-        ...result.distribution.map((p) => `${x(p.hour)},${y(p.upper95)}`),
-
-        ...[...result.distribution]
-
-          .reverse()
-
-          .map((p) => `${x(p.hour)},${y(p.lower95)}`),
-      ].join(" ")
-    : ""
-
   return (
-    <Panel title="Simulate future growth">
+    <Panel
+      title="Simulate future growth"
+      caption="Runs in Python using measurements available at the cutoff."
+      action={
+        <a className="method-link" href="#methods/growth">
+          Equations &amp; references
+        </a>
+      }
+    >
       <div className="simulation-controls">
         <NumberField
           label="Future period (hours)"
@@ -244,7 +210,7 @@ export function SimulationPanel({
         <>
           <div className="growth-metrics">
             <div>
-              <span>Projected median at {end.hour}h</span>
+              <span>Projected median at {plotNumber(end.hour)}h</span>
               <strong>
                 {end.median.toPrecision(4)}
                 <small>×10⁶ cells</small>
@@ -261,97 +227,11 @@ export function SimulationPanel({
               <strong>{result.measurementCount}</strong>
             </div>
           </div>
-          <svg
-            ref={chartRef}
-            className="simulation-chart"
-            viewBox={`0 0 ${width} 265`}
-            role="img"
-            aria-label={`${result.simulationCount} simulated growth paths from ${hour}h, using only ${result.measurementCount} source samples. Up to 24 paths shown; all paths contribute to the median and 95 percent range.`}
-          >
-            <text x="58" y="24">
-              Cell count · ×10⁶
-            </text>
-            {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
-              <g key={fraction}>
-                <line
-                  x1="58"
-                  x2={width - 26}
-                  y1={y(fraction * yMax)}
-                  y2={y(fraction * yMax)}
-                  stroke="#e6ebf0"
-                />
-                <text x="48" y={y(fraction * yMax) + 4} textAnchor="end">
-                  {(fraction * yMax).toPrecision(2)}
-                </text>
-              </g>
-            ))}
-            <polygon points={band} fill="#dce9ed" />
-            {result.paths.slice(0, 24).map((path, i) => (
-              <polyline
-                key={i}
-                points={path
-
-                  .map((v, step) => `${x(hour + step)},${y(v)}`)
-
-                  .join(" ")}
-                fill="none"
-                stroke="#91adb5"
-                strokeWidth=".65"
-                opacity=".5"
-              />
-            ))}
-            <polyline
-              points={state.valid
-
-                .map((p) => `${x(p.hour)},${y(p.count!)}`)
-
-                .join(" ")}
-              fill="none"
-              stroke="#b4232b"
-              strokeWidth="2.5"
-            />
-            {state.valid.map((p) => (
-              <circle
-                key={p.hour}
-                cx={x(p.hour)}
-                cy={y(p.count!)}
-                r="3"
-                fill="#b4232b"
-              />
-            ))}
-            <polyline
-              points={result.distribution
-
-                .map((p) => `${x(p.hour)},${y(p.median)}`)
-
-                .join(" ")}
-              fill="none"
-              stroke="#376979"
-              strokeWidth="2"
-              strokeDasharray="5 4"
-            />
-            <line
-              x1={x(hour)}
-              x2={x(hour)}
-              y1="45"
-              y2="224"
-              stroke="#8495a7"
-              strokeDasharray="3 4"
-            />
-            {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
-              <text
-                x={x(xmax * fraction)}
-                y="250"
-                textAnchor="middle"
-                key={fraction}
-              >
-                {Math.round(xmax * fraction)}h
-              </text>
-            ))}
-          </svg>
-          <p className="panel-note">
-            Red: measured · Dashed blue: simulated median · Shading: 95% range
-          </p>
+          <ForecastChart
+            key={current!.requestId}
+            result={result}
+            samples={state.valid}
+          />
         </>
       ) : (
         <div className="empty-state simulation-empty">
@@ -457,6 +337,9 @@ export function ExperimentPlanner({
         }
       />
       <div className="context-strip">
+        <a className="method-link" href="#methods/gp">
+          GP equations &amp; references
+        </a>
         <span>
           Source: <b>{source.name}</b> · {rows.length} runs · {summary.length}{" "}
           conditions
@@ -635,7 +518,14 @@ export function ExperimentPlanner({
       </div>
       {model && (
         <>
-          <Panel title="GP estimates & next-test rankings">
+          <Panel
+            title="GP estimates & next-test rankings"
+            action={
+              <a className="method-link" href="#methods/improvement">
+                Expected improvement equation
+              </a>
+            }
+          >
             <div className="table-scroll">
               <table>
                 <thead>
@@ -659,7 +549,14 @@ export function ExperimentPlanner({
               </table>
             </div>
           </Panel>
-          <Panel title="Held-out condition check">
+          <Panel
+            title="Held-out condition check"
+            action={
+              <a className="method-link" href="#methods/validation">
+                Validation formulas
+              </a>
+            }
+          >
             <div className="growth-metrics">
               <div>
                 <span>GP mean absolute error</span>
@@ -884,8 +781,11 @@ export function ChannelPanel({
           Values are laboratory samples, not a continuous sensor stream.
           Unmeasured channels:{" "}
           {channels
+
             .filter((channel) => !sampledChannels.includes(channel))
+
             .map((channel) => channel.label)
+
             .join(", ") || "none"}
           . No contamination or leak diagnosis is inferred.
         </p>

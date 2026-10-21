@@ -127,6 +127,7 @@ export function Button({
   disabled = false,
 
   icon,
+  "aria-label": ariaLabel,
 }: {
   children: ReactNode
 
@@ -137,6 +138,7 @@ export function Button({
   disabled?: boolean
 
   icon?: string
+  "aria-label"?: string
 }) {
   return (
     <button
@@ -144,6 +146,8 @@ export function Button({
       className={`button${primary ? " primary" : ""}`}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      title={ariaLabel}
     >
       {icon && <Icon name={icon} />}
       {children}

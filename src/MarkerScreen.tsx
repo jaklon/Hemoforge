@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
+
 import { useWorkspace } from "./workspace-context"
+
 import {
   builtInMarkers,
   filterMarkers,
@@ -8,24 +10,34 @@ import {
   type MarkerRow,
   type MarkerTarget,
 } from "./marker-screening"
+
 import { Button, Panel, Badge, PageTitle, Details } from "./workspace-ui"
+
 import { csv, downloadFile } from "./workspace-utils"
 
 export default function MarkerScreen({
   checks,
+
   setChecks,
+
   onEditData,
 }: {
   checks: boolean[]
+
   setChecks: (value: boolean[]) => void
+
   onEditData: () => void
 }) {
   const {
     inputs,
+
     markerSettings: settings,
+
     setMarkerSettings: setSettings,
   } = useWorkspace()
+
   const source = inputs.markers
+
   const catalog = [
     ...new Map(
       [...builtInMarkers, ...(source.markers ?? []), ...settings.targets].map(
@@ -33,48 +45,70 @@ export default function MarkerScreen({
       ),
     ).values(),
   ]
+
   const rows = filterMarkers(source.rows as MarkerRow[], settings)
+
   const error = markerSettingsError(settings)
+
   const [status, setStatus] = useState("all")
+
   const [pageSize, setPageSize] = useState(25)
+
   const [page, setPage] = useState(0)
+
   const [custom, setCustom] = useState({
     gene: "",
+
     rsId: "",
+
     alleles: "A,C,G,T",
   })
+
   const [customError, setCustomError] = useState("")
+
   const filtered =
     status === "all" ? rows : rows.filter((row) => row.status === status)
+
   const maxPage = Math.max(0, Math.ceil(filtered.length / pageSize) - 1)
+
   const safePage = Math.min(page, maxPage)
+
   useEffect(() => setPage(0), [settings, source, status, pageSize])
 
   function update(index: number, change: Partial<MarkerTarget>) {
     setSettings((old) => ({
       ...old,
+
       targets: old.targets.map((target, i) =>
         i === index ? { ...target, ...change } : target,
       ),
     }))
   }
+
   function add(marker: MarkerDefinition) {
     if (settings.targets.some((target) => target.rsId === marker.rsId)) {
       setCustomError(
         `${marker.rsId} is already in this panel. Edit its existing target.`,
       )
+
       return
     }
+
     if (settings.targets.length >= 100) {
       setCustomError("Use at most 100 markers per local panel.")
+
       return
     }
+
     setSettings((old) => ({
       ...old,
+
       targets: [...old.targets, { ...marker, genotype: "*" }],
     }))
+
     setCustomError("")
   }
+
   return (
     <>
       <PageTitle
@@ -94,10 +128,16 @@ export default function MarkerScreen({
           href="#data"
           onClick={(event) => {
             event.preventDefault()
+
             onEditData()
           }}
         >
           Edit scenario data
+        </a>
+      </p>
+      <p>
+        <a className="method-link" href="#methods/markers">
+          Matching rules &amp; references
         </a>
       </p>
       <Panel
@@ -112,6 +152,7 @@ export default function MarkerScreen({
                     (target) => target.rsId === marker.rsId,
                   ),
               )
+
               if (next) add(next)
               else document.getElementById("custom-marker-gene")?.focus()
             }}
@@ -132,6 +173,7 @@ export default function MarkerScreen({
                     const marker = catalog.find(
                       (entry) => entry.rsId === event.target.value,
                     )!
+
                     update(index, { ...marker, genotype: "*" })
                   }}
                 >
@@ -171,7 +213,9 @@ export default function MarkerScreen({
                   onChange={(event) =>
                     update(index, {
                       alleles: event.target.value
+
                         .toUpperCase()
+
                         .split(/[\s,;/]+/),
                     })
                   }
@@ -185,6 +229,7 @@ export default function MarkerScreen({
                 onClick={() =>
                   setSettings({
                     ...settings,
+
                     targets: settings.targets.filter((_, i) => i !== index),
                   })
                 }
@@ -199,24 +244,37 @@ export default function MarkerScreen({
           className="custom-marker-form"
           onSubmit={(event) => {
             event.preventDefault()
+
             const rsId = custom.rsId.trim().toLowerCase()
+
             const known = catalog.find((marker) => marker.rsId === rsId)
+
             const marker = known ?? {
               gene: custom.gene.trim().toUpperCase(),
+
               rsId,
+
               alleles: custom.alleles
+
                 .toUpperCase()
+
                 .split(/[\s,;/]+/)
+
                 .filter(Boolean),
             }
+
             const failure = markerSettingsError({
               ...settings,
+
               targets: [{ ...marker, genotype: "*" }],
             })
+
             if (failure) {
               setCustomError(failure)
+
               return
             }
+
             add(marker)
           }}
         >
@@ -229,6 +287,7 @@ export default function MarkerScreen({
                 placeholder="e.g. ACKR1"
                 onChange={(event) => {
                   const gene = event.target.value.toUpperCase()
+
                   const known = catalog.find(
                     (marker) =>
                       marker.gene === gene &&
@@ -236,9 +295,12 @@ export default function MarkerScreen({
                         (target) => target.rsId === marker.rsId,
                       ),
                   )
+
                   setCustom({
                     ...custom,
+
                     gene,
+
                     ...(known
                       ? { rsId: known.rsId, alleles: known.alleles.join(",") }
                       : {}),
@@ -254,10 +316,14 @@ export default function MarkerScreen({
                 placeholder="e.g. rs12075"
                 onChange={(event) => {
                   const rsId = event.target.value.toLowerCase()
+
                   const known = catalog.find((marker) => marker.rsId === rsId)
+
                   setCustom({
                     ...custom,
+
                     rsId,
+
                     ...(known
                       ? { gene: known.gene, alleles: known.alleles.join(",") }
                       : {}),
@@ -299,6 +365,7 @@ export default function MarkerScreen({
               onChange={(event) =>
                 setSettings({
                   ...settings,
+
                   mode: event.target.value as typeof settings.mode,
                 })
               }
@@ -314,6 +381,7 @@ export default function MarkerScreen({
               onChange={(event) =>
                 setSettings({
                   ...settings,
+
                   missing: event.target.value as typeof settings.missing,
                 })
               }
@@ -357,36 +425,57 @@ export default function MarkerScreen({
             onClick={() =>
               downloadFile(
                 "hemogpt-marker-results.csv",
+
                 csv([
                   [
                     "sample_id",
+
                     ...settings.targets.map(
                       (target) => `${target.gene}_${target.rsId}`,
                     ),
+
                     "status",
+
                     "checked_markers",
+
                     "total_markers",
+
                     "target_signature",
+
                     "match_rule",
+
                     "missing_rule",
+
                     "source",
+
                     "sha256",
                   ],
+
                   ...filtered.map((row) => [
                     row.id,
+
                     ...settings.targets.map(
                       (target) => row.calls[target.rsId] ?? "./.",
                     ),
+
                     row.status,
+
                     row.checkedMarkers,
+
                     row.totalMarkers,
+
                     JSON.stringify(settings.targets),
+
                     settings.mode,
+
                     settings.missing,
+
                     source.name,
+
                     source.sha256,
                   ]),
                 ]),
+
                 "text/csv;charset=utf-8",
               )
             }
@@ -437,7 +526,9 @@ export default function MarkerScreen({
             <tbody>
               {filtered.length ? (
                 filtered
+
                   .slice(safePage * pageSize, (safePage + 1) * pageSize)
+
                   .map((row) => (
                     <tr key={row.id}>
                       <td>{row.id}</td>
@@ -498,7 +589,9 @@ export default function MarkerScreen({
         <div className="qc-checklist">
           {[
             "Request paired post-harvest genotyping / sequencing",
+
             "Request phenotype / serology confirmation",
+
             "Reconcile laboratory results with the initial marker profile",
           ].map((text, i) => (
             <label key={text}>

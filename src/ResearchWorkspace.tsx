@@ -1,3 +1,5 @@
+import { sourceReferences as sources } from "./source-references"
+
 import {
   filterMarkers,
   type MarkerRow,
@@ -34,7 +36,9 @@ import {
   MarkerScreen,
 } from "./AnalysisPanels"
 
-import { useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+
+const MethodsPage = lazy(() => import("./MethodsPage"))
 
 import {
   analyzeMeasurements,
@@ -47,7 +51,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "guard" | "pilot" | "plan" | "match" | "workflow" | "report"
+type View = "data" | "guard" | "pilot" | "plan" | "match" | "workflow" | "report" | "methods"
 
 interface NavigationItem {
   id: View
@@ -118,6 +122,16 @@ const navigation: NavigationItem[] = [
     name: "Research report",
 
     purpose: "Review & export",
+
+    icon: "report",
+  },
+
+  {
+    id: "methods",
+
+    name: "Methods & references",
+
+    purpose: "Equations & sources",
 
     icon: "report",
   },
@@ -358,7 +372,7 @@ function Pilot({
     <>
       <PageTitle
         title="ErythroPilot"
-        description="Review checkpoint reports and simulate growth."
+        description="Simulate growth and review checkpoint reports."
         action={
           <Button
             icon="download"
@@ -392,8 +406,9 @@ function Pilot({
             ))}
           </select>
         </label>
-        <Badge>Deterministic summaries</Badge>
+        <Badge>Reports use configured rules</Badge>
       </div>
+      <SimulationPanel replicate={replicate} hour={hour} />
       <div className="pilot-grid">
         <Panel
           title="Checkpoint reports"
@@ -533,7 +548,6 @@ function Pilot({
           )}
         </Panel>
       </div>
-      <SimulationPanel replicate={replicate} hour={hour} />
       <Details title={`${roadmapDays}-day reporting roadmap · planned`}>
         <div
           className="roadmap-days"
@@ -585,59 +599,6 @@ function Pilot({
     </>
   )
 }
-
-const sources = [
-  {
-    name: "BEL-A · University of Bath",
-
-    id: "BATH-01456",
-
-    scope: "Static culture growth and metabolite DOE",
-
-    details:
-      "Proposal: 3 growth replicates × 8 timepoints; 12 separate DOE runs. Source timing extends to about 171h; the unverified UI fixture ends at 168h.",
-
-    url: "https://doi.org/10.15125/BATH-01456",
-
-    license: "CC BY 4.0 (proposal)",
-
-    module: "Guard / CulturePlan",
-  },
-
-  {
-    name: "Human erythroid transcriptomes",
-
-    id: "GSE53983",
-
-    scope: "Reference stage classification",
-
-    details:
-      "Proposal: 15 human samples, 5 stages × 3 replicates. Not a 21-day culture time series and not paired with BEL-A.",
-
-    url: "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE53983",
-
-    license: "Check source terms",
-
-    module: "ErythroPilot reference",
-  },
-
-  {
-    name: "1000 Genomes · Phase 3",
-
-    id: "1000G-P3",
-
-    scope: "Population genotype reference",
-
-    details:
-      "Proposal: KEL rs8176058 and SLC14A1 rs1058396. Sample IDs and GRCh38 allele orientation require verification before screening real profiles.",
-
-    url: "https://www.internationalgenome.org/data/",
-
-    license: "Check source terms",
-
-    module: "RareMatch",
-  },
-]
 
 function Workflow({ navigate }: { navigate: (view: View) => void }) {
   const workspaceData = useWorkspace()
@@ -771,6 +732,9 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
           ))}
         </div>
       </Details>
+      <p>
+        <a href="#methods">All methods, equations &amp; references</a>
+      </p>
       <Details title="System architecture & integration status">
         <div className="architecture">
           <div>
@@ -1144,9 +1108,13 @@ function ResearchWorkspaceContent() {
   const workspaceData = useWorkspace()
 
   const [view, setView] = useState<View>(() =>
-    navigation.some((item) => item.id === location.hash.slice(1))
-      ? location.hash.slice(1) as View
+    navigation.some((item) => item.id === location.hash.slice(1).split("/")[0])
+      ? location.hash.slice(1).split("/")[0] as View
       : "guard",
+  )
+
+  const [methodSection, setMethodSection] = useState(
+    () => location.hash.slice(1).split("/")[1] ?? "",
   )
 
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1170,6 +1138,10 @@ function ResearchWorkspaceContent() {
   const current = navigation.find((item) => item.id === view)!
 
   useEffect(() => {
+    document.title = `${current.name} · HemoGPT`
+  }, [current.name])
+
+  useEffect(() => {
     if (!playing) return
 
     const timer = window.setInterval(
@@ -1187,7 +1159,9 @@ function ResearchWorkspaceContent() {
 
   useEffect(() => {
     function hashChanged() {
-      const next = location.hash.slice(1)
+      const next = location.hash.slice(1).split("/")[0]
+
+      setMethodSection(location.hash.slice(1).split("/")[1] ?? "")
 
       setView(
         navigation.some((item) => item.id === next) ? next as View : "guard",
@@ -1405,6 +1379,16 @@ function ResearchWorkspaceContent() {
             setChecks={setChecks}
             onEditData={() => navigate("data")}
           />
+        ) : view === "methods" ? (
+          <Suspense
+            fallback={
+              <p className="empty-state" role="status">
+                Loading methods…
+              </p>
+            }
+          >
+            <MethodsPage section={methodSection} />
+          </Suspense>
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />
         ) : (

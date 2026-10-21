@@ -10,8 +10,9 @@ FastAPI and owns the upload session, prediction controls, and results.
 
 The compact presentation keeps upload, example loading, Run, simulation controls,
 results, errors, and warning status visible. Supporting explanations, raw previews,
-source details, model methods, and proposal references start collapsed in native
-disclosures. Users can expand them without leaving the current workflow.
+source details and previews start collapsed in native disclosures. Full methods,
+LaTeX equations, mathematical references, and proposal-source records also have
+a dedicated Methods & references page. Users can expand them without leaving the current workflow.
 
 ## Canonical UI Map
 
@@ -24,6 +25,8 @@ disclosures. Users can expand them without leaving the current workflow.
 | Replay | ReplayControls and culture-monitoring.ts | Proposal section III | paused, playback, manual cursor | Core tests and browser |
 | Reports | reportsForSamples / ResearchReport | Proposal section IV | timeline, HTML, JSON, CSV | Core tests and browser exports |
 | Import | DataWorkspace / workspace-data.ts | Current user request | CSV, TSV, JSON; picker and drop | Parser tests and browser file chooser |
+| Scientific charts | InteractivePlot / plot-navigation.ts | Current user request | linear/logarithmic Y; buttons, pointer, keyboard, pinch | Navigation tests and desktop/mobile browser |
+| Methods | MethodsPage / methods-content.ts | Implementation and cited primary sources | nested hash anchors, LaTeX source export | Equation rendering test and browser deep links |
 | Run | workspace-context.tsx | Current user request | independent typed inputs in one workspace | Custom-input browser workflow |
 
 ## Workflow and state
@@ -141,3 +144,39 @@ The configurable roadmap contains planned report intervals, not a measured
 culture trajectory. The selected culture input determines the actual observation
 window; schedules never create new source measurements. Clinical use, release, equipment control, and physical leak
 detection are outside this frontend's capabilities.
+
+
+## Scientific chart interaction and method references
+
+Growth simulation and Guard's main observation chart share InteractivePlot.
+Drag pans both axes; a focused chart accepts wheel zoom anchored at the pointer.
+An unfocused chart leaves document scrolling intact (Ctrl/Meta wheel still zooms).
+Two pointers pinch to zoom. Buttons and keyboard arrows provide non-drag panning;
++/- zoom, Home/Escape and double-click reset. Zoom can target time, Y, or both.
+The native Y-scale selector switches linear/log10; the time axis stays linear
+because 0h is meaningful. Log tick labels and exact-value inspectors retain source
+units. Plot navigation never fits a model, changes source values, or calls Python.
+New data, a changed window, or a changed transform fits the view again; resizing
+retains the viewport. Pan/zoom and Y-axis transform are local chart-view state.
+Guard's existing count/fold, comparison, and time-window choices remain in the
+workspace provider. Plot content is clipped within the axes. No future Guard
+observations or connections across missing rows are introduced.
+
+ErythroPilot places the Python growth simulator above checkpoint reports for
+discoverability and labels its computation location. It offers 80%/95% pointwise intervals and a toggle for up to 24 paths;
+all requested paths contribute to backend quantiles. A native time selector
+shows an exact returned forecast or source measurement without hover. Long
+fractional-hour labels use readable precision. Growth fitting and simulation,
+GP prediction, EI, and validation remain in Python with no browser fallback.
+
+#methods/<section-or-equation> is a shareable in-app location. Contextual links
+from simulation, intervals, monitoring, genotype matching, GP rankings, and
+validation focus the relevant section. Browser back/forward and module state
+remain available. Full primary-source citations and shared proposal datasets
+are collected there. KaTeX is lazy-loaded and bundled locally, including fonts
+and MathML. Equations match executed implementation, including log drift versus
+arithmetic drift, irregular sample durations, pointwise Monte Carlo quantiles,
+response normalization, and latent GP uncertainty. Monitoring thresholds and
+matching policies are identified as application rules. The page does not imply
+biological validation from mathematical citations. Download LaTeX source exports
+the same equations and explanations as a standalone article.
