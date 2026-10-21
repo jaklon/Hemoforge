@@ -183,5 +183,5 @@ def claim_catalog(context):
     counts = match["counts"]
     add("match_screen", "match", f"Marker screening includes {match['profile_count']} profiles: {counts['match']} match, {counts['excluded']} excluded, and {counts['unknown']} unknown for the selected marker signature. Culture and marker inputs remain independent.")
     add("match_lab", "match", "Post-harvest status remains pending_lab_verification. Checklist selections record laboratory requests, never completed genotyping or serology.")
-    add("match_evo2", "match", "Evo 2 input preparation is available offline, but two-marker calls do not provide reference/alternate DNA sequences. Model inference, external providers, downloads, and GPU provisioning are disabled. No sequence score or genomic stability audit has been executed.")
+    add("match_evo2", "match", "Evo 2 input preparation is available offline, but two-marker calls do not provide reference/alternate DNA sequences. This marker analysis does not run Evo 2 or ingest sequence scores. Optional NVIDIA trial scoring of bundled public variants is configured separately in the Evo 2 workspace. Local model execution, downloads, GPU provisioning and paid fallback remain disabled. No donor genomic stability audit is established.")
     return claims

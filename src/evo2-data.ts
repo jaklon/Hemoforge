@@ -69,3 +69,12 @@ export function evo2DatasetPayload(ids: string[]) {
   if (!ids.length || ids.length > 20 || new Set(ids).size !== ids.length) throw new Error("Select 1–20 unique variants.")
   return { variant_ids: [...ids] }
 }
+
+export function evo2NvidiaPayload(ids: string[]) {
+  if (ids.length !== 1) throw new Error("Select exactly one public variant for NVIDIA trial inference.")
+  return { variant_id: ids[0] }
+}
+
+export function evo2NvidiaExportUrl(id: string) {
+  return `/api/v1/evo2/nvidia/results/${encodeURIComponent(id)}/export`
+}

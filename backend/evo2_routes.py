@@ -1,15 +1,17 @@
 import sqlite3
+import json
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from backend.agent_config import get_settings
 from backend.evo2_models import PreparationRequest, PreparedBundle, ReadinessRequest
 from backend.evo2_service import load_preparation, marker_readiness, prepare, status
 from backend.evo2_dataset import DatasetPreparationRequest, get_public_dataset
+from backend.evo2_nvidia import NvidiaScoreRequest, TrialError, get_nvidia_settings, latest_result, load_result, score_public_variant, trial_status
 
-router = APIRouter(prefix="/api/v1/evo2", tags=["Evo 2 · offline preparation"])
+router = APIRouter(prefix="/api/v1/evo2", tags=["Evo 2 · public data and optional NVIDIA trial"])
 
 
 @router.get("/status")
@@ -93,3 +95,63 @@ def evo2_score():
     # Deliberately no provider/client/model import or enabling parameter. This cannot incur inference spend.
     return {"detail": "Evo 2 inference is disabled by the preparation-only budget lock.",
             "score_status": "not_run", "delta_log_likelihood": None, "policy": status()["policy"]}
+
+
+def nvidia_error(error):
+    if isinstance(error, TrialError):
+        raise HTTPException(error.http_status, error.detail) from None
+    raise HTTPException(503, "The local NVIDIA trial configuration or audit store is unavailable.") from None
+
+
+@router.get("/nvidia/status")
+def evo2_nvidia_status():
+    try:
+        return trial_status(get_nvidia_settings(), get_settings().database_path)
+    except (TrialError, ValueError, OSError, sqlite3.Error) as error:
+        nvidia_error(error)
+
+
+@router.post("/nvidia/score")
+def evo2_nvidia_score(request: NvidiaScoreRequest, http_request: Request):
+    # Require a deliberate same-origin JSON action. Cross-site forms cannot trigger external calls.
+    origin = http_request.headers.get("origin")
+    if (http_request.headers.get("x-hemoforge-action") != "nvidia-trial"
+        or (origin is not None and origin not in {
+            "http://127.0.0.1:8443", "http://localhost:8443", "http://127.0.0.1:8000", "http://localhost:8000"})):
+        raise HTTPException(403, "Use the local Evo 2 workspace to request trial inference.")
+    try:
+        return score_public_variant(request, public_dataset(), get_nvidia_settings(), get_settings().database_path)
+    except KeyError:
+        raise HTTPException(404, "Public variant not found. No inference was requested.") from None
+    except (TrialError, ValueError, OSError, sqlite3.Error) as error:
+        nvidia_error(error)
+
+
+@router.get("/nvidia/results/{result_id}/export")
+def evo2_nvidia_export(result_id: str):
+    try:
+        result = load_result(result_id, get_settings().database_path)
+    except (OSError, sqlite3.Error, ValueError) as error:
+        nvidia_error(error)
+    if result is None:
+        raise HTTPException(404, "NVIDIA trial result not found.")
+    return Response(json.dumps(result, indent=2, allow_nan=False), media_type="application/json", headers={
+        "Content-Disposition": f'attachment; filename="{result_id}.json"', "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+@router.get("/nvidia/results/latest")
+def evo2_nvidia_saved(variant_id: str = Query(max_length=120)):
+    try:
+        dataset = public_dataset()
+        dataset.variant(variant_id)
+        result = latest_result(variant_id, dataset.pairs_sha256, get_nvidia_settings().logits_layer, get_settings().database_path)
+    except KeyError:
+        raise HTTPException(404, "Public variant not found.") from None
+    except (TrialError, OSError, sqlite3.Error, ValueError) as error:
+        nvidia_error(error)
+    if result is None:
+        raise HTTPException(404, "No saved NVIDIA result for this variant and scoring configuration. No upstream request was made.")
+    return Response(json.dumps({**result, "cache_hit": True, "new_requests_reserved": 0}, allow_nan=False),
+                    media_type="application/json", headers={"Cache-Control": "no-store"})

@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { emptyEvo2Draft, evo2Payload, evo2ExportUrl, evo2VariantsUrl, evo2DatasetPayload } from "./evo2-data.ts"
+import { emptyEvo2Draft, evo2Payload, evo2ExportUrl, evo2VariantsUrl, evo2DatasetPayload, evo2NvidiaPayload, evo2NvidiaExportUrl } from "./evo2-data.ts"
 
 test("paired sequence preparation excludes VCF and inference settings", () => {
   const payload = evo2Payload({ ...emptyEvo2Draft, start: "", alternate_fasta: ">ALT\nACGT", vcf_text: "stale VCF" })
@@ -28,6 +28,13 @@ test("dataset preparation submits bounded unique IDs without sequence or provide
   assert.throws(() => evo2DatasetPayload([]), /1–20/)
   assert.throws(() => evo2DatasetPayload(Array(21).fill("id")), /1–20/)
   assert.throws(() => evo2DatasetPayload(["id", "id"]), /unique/)
+})
+
+test("NVIDIA trial submits exactly one public ID without credentials or provider settings", () => {
+  assert.deepEqual(evo2NvidiaPayload(["KEL:rs1:100:A:G"]), { variant_id: "KEL:rs1:100:A:G" })
+  assert.throws(() => evo2NvidiaPayload([]), /exactly one/)
+  assert.throws(() => evo2NvidiaPayload(["id1", "id2"]), /exactly one/)
+  assert.equal(evo2NvidiaExportUrl("../bad"), "/api/v1/evo2/nvidia/results/..%2Fbad/export")
 })
 
 test("VCF preparation requires an explicit integer coordinate", () => {

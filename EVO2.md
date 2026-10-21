@@ -1,9 +1,11 @@
 # Evo 2 · public dataset and offline preparation
 
-Evo 2 inference remains disabled. This implementation prepares data locally;
-it does not call hosted models, buy compute, download weights, or provision GPUs.
-No new dependency was installed. The source is the free Ensembl REST API,
-which reported release 116 during retrieval.
+Local Evo 2 inference remains disabled. Data preparation does not call hosted
+models, buy compute, download weights, or provision GPUs. An optional, separately
+configured [NVIDIA trial integration](EVO2_NVIDIA.md) can score one bundled public
+variant per explicit action. It starts disabled until a backend key and free-access
+confirmation are installed. No new dependency was installed. Dataset retrieval
+used the free Ensembl REST API, which reported release 116 during retrieval.
 
 ## Prepared public reference data
 
@@ -145,6 +147,12 @@ expiry. They are not sent to HemoBot/Ollama or linked automatically to marker pr
 Use the retention policy in HEMOBOT.md; keep non-public genomic inputs out of the
 public dataset folder. Budget-lock fields refer to models/provisioning; explicit
 downloads of free public reference data are a separate operator action.
+
+Optional trial endpoints are `GET /api/v1/evo2/nvidia/status`,
+`POST /api/v1/evo2/nvidia/score` (one public variant ID, explicit action header),
+and `GET /api/v1/evo2/nvidia/results/{id}/export`. They do not change the immutable
+offline manifest policy or enable the local GPU worker. See EVO2_NVIDIA.md for
+secure key setup, per-day caps, provider errors, and the different scoring contract.
 
 The container image copies the same bundled dataset into the API runtime as well
 as the frontend static files. Building or running a container is not required for
