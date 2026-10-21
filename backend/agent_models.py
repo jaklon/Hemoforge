@@ -143,7 +143,8 @@ class MonitoringSettings(InputModel):
 class PlanSettings(InputModel):
     objective: Literal["maximize", "minimize"] = "maximize"
     lengthScale: float = Field(default=0.6, ge=0.001, le=100)
-    noise: float = Field(default=0.05, ge=0.0001, le=10)
+    # None estimates noise from replicates, matching the CulturePlan workspace.
+    noise: float | None = Field(default=None, ge=0.0001, le=10)
     exploration: float = Field(default=0.01, ge=0, le=1000000)
 
 

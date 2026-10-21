@@ -54,3 +54,13 @@ class WorkspaceBridgeTests(unittest.TestCase):
             objective="minimize", length_scale=1.3, noise_sd=0.25, exploration=0.1))["result"]
         self.assertEqual(actual["ranked"], expected["ranked"])
         self.assertEqual(actual["mae"], expected["mae"])
+
+    def test_blank_plan_noise_estimates_from_replicates_like_cultureplan(self):
+        data = payload()
+        data["active_context"]["plan_settings"] = {
+            "objective": "maximize", "lengthScale": 0.6, "noise": None, "exploration": 0.01}
+        request = AnalyzeRequest(**data)
+        actual = collect_context(request)["modules"]["plan"]
+        expected = predict_experiments(ExperimentRequest(rows=request.inputs.experiments.rows,
+            objective="maximize", length_scale=0.6, noise_sd=None, exploration=0.01))["result"]
+        self.assertEqual(actual["ranked"], expected["ranked"])
