@@ -36,6 +36,46 @@ export const methodReferences = [
       "Variant identity and assembly context. An rs ID is a database identifier; allele orientation and genome assembly must be checked separately.",
     url: "https://www.ncbi.nlm.nih.gov/snp/",
   },
+  {
+    id: "bayley",
+    title:
+      "Bayley et al. (2018) — The productivity limit of manufacturing blood cell therapy in scalable stirred bioreactors",
+    detail:
+      "J Tissue Eng Regen Med 12(1), e368-e378. Erythroblast growth rates from exponential fits (0.029/h static, 0.051/h stirred; 24.25 h and 13.93 h doubling), population doublings as 3.33 log10 of the count ratio, and lactate/ammonia inhibition above roughly 15 mM and 4 mM. DOI: 10.1002/term.2337.",
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5811890/",
+  },
+  {
+    id: "phillips",
+    title:
+      "Phillips et al. (2025) — Characterizing a novel adult erythroid cell line for red blood cell manufacture",
+    detail:
+      "BEL-A counts decline beyond 70 h of static batch culture; viability is more sensitive to ammonia than lactate, and 2640 mg/L lactate with 129 mg/L ammonia mediated cell death. DOI: 10.1002/btm2.70026; confirm the journal record, which is listed inconsistently.",
+    url: "https://research-information.bris.ac.uk/en/publications/characterizing-a-novel-adult-erythroid-cell-line-for-red-blood-ce/",
+  },
+  {
+    id: "timmins",
+    title:
+      "Timmins et al. (2011) — Ultra-high-yield manufacture of red blood cells from hematopoietic stem cells",
+    detail:
+      "Tissue Eng Part C Methods 17(11), 1131-1137. Fold-expansion context for cultured red cells: over 500 units per cord blood donation with above 90 percent enucleation, including agitated bioreactors.",
+    url: "https://journals.sagepub.com/doi/abs/10.1089/ten.tec.2011.0207",
+  },
+  {
+    id: "trakarnsanga",
+    title:
+      "Trakarnsanga et al. (2017) — An immortalized adult human erythroid line facilitates sustainable and scalable generation of functional red cells",
+    detail:
+      "Nature Communications 8, 14750. Origin of the BEL-A line named in the bundled demo fixtures. Source provenance only; it does not validate any bundled measurement.",
+    url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC5355882",
+  },
+  {
+    id: "isbt",
+    title:
+      "ISBT Working Party on Red Cell Immunogenetics and Blood Group Terminology",
+    detail:
+      "Registry of blood group systems, antigens and alleles: KEL is system 006 and JK (SLC14A1, 18q12.3) is system 009. Allele naming and antigen assignment follow this registry, not an rs identifier alone.",
+    url: "https://www.isbtweb.org/isbt-working-parties/rcibgt/members-assignments-and-activities.html",
+  },
 ] as const
 
 export const methods = [
@@ -74,7 +114,7 @@ export const methods = [
     ],
     limits:
       "User-entered rate and volatility replace the fitted values. The process assumes constant growth and variability, and omits feeding, contamination, carrying capacity, interventions, and maturation. It is an exploratory mathematical scenario with no demonstrated biological forecasting accuracy.",
-    refs: ["sigman"],
+    refs: ["bayley", "sigman"],
   },
   {
     id: "intervals",
@@ -104,7 +144,7 @@ export const methods = [
     ],
     limits:
       "A 95% simulated range is not a calibrated 95% biological prediction interval or a simultaneous band across time. Zero, negative, and missing counts cannot be plotted on a logarithmic count axis.",
-    refs: ["numpy"],
+    refs: ["numpy", "bayley"],
   },
   {
     id: "gp",
@@ -187,7 +227,7 @@ export const methods = [
     ],
     limits:
       "At least three distinct conditions are needed. A small held-out comparison does not establish external generalization, and selecting model settings after inspecting these errors can make them optimistic.",
-    refs: ["gpml"],
+    refs: ["gpml", "bayley"],
   },
   {
     id: "monitoring",
@@ -217,7 +257,7 @@ export const methods = [
     ],
     limits:
       "Thresholds are researcher-defined application rules, not published biological alarm limits. They do not identify a cause or drive equipment. These calculations still run in the frontend; growth simulation and experiment fitting run in Python.",
-    refs: [],
+    refs: ["phillips", "bayley", "timmins"],
   },
   {
     id: "markers",
@@ -240,6 +280,6 @@ export const methods = [
     ],
     limits:
       "Built-in calls are synthetic fixtures. An rs identifier names a variant record rather than encoding a coordinate. Gene labels, genome build, strand orientation, and permitted alleles need verification for real inputs. A genotype signature alone does not certify blood compatibility.",
-    refs: ["dbsnp"],
+    refs: ["isbt", "dbsnp"],
   },
 ] as const
