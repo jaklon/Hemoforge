@@ -24,14 +24,17 @@ import DataWorkspace from "./DataWorkspace"
 
 import MonitoringControls from "./MonitoringControls"
 
+import Guard from "./BioreactorGuard"
+
+import { sampleSteps } from "./guard-insights"
+
 import {
   SimulationPanel,
   ExperimentPlanner,
   MarkerScreen,
-  ChannelPanel,
 } from "./AnalysisPanels"
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   analyzeMeasurements,
@@ -120,167 +123,6 @@ const navigation: NavigationItem[] = [
   },
 ]
 
-function GrowthChart({
-  hour,
-
-  replicate,
-
-  compare,
-}: {
-  hour: number
-
-  replicate: number
-
-  compare: boolean
-}) {
-  const {
-    batches,
-
-    batchIndexes,
-
-    batchId,
-
-    batchMeasurements,
-
-    checkpointReports,
-
-    replayEndHour,
-
-    demoSource,
-
-    source,
-
-    analyze: analyzeMeasurements,
-    monitoring,
-    reportInterval,
-  } = useCultureData()
-
-  const ref = useRef<SVGSVGElement>(null)
-
-  const [width, setWidth] = useState(700)
-
-  useEffect(() => {
-    if (!ref.current) return
-
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(280, entry.contentRect.width)),
-    )
-
-    observer.observe(ref.current)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const x = (h: number) => 46 + (h / replayEndHour) * (width - 68)
-
-  const yMax =
-    Math.max(
-      0.01,
-
-      ...batchIndexes.flatMap((n) =>
-        analyzeMeasurements(batchMeasurements(n), hour).valid.map(
-          (sample) => sample.count!,
-        ),
-      ),
-    ) * 1.15
-
-  const y = (value: number) => 213 - (value / yMax) * 176
-
-  const series = compare
-    ? [replicate, ...batchIndexes.filter((n) => n !== replicate)]
-
-        .sort((a, b) => a - b)
-    : [replicate]
-
-  return (
-    <svg
-      ref={ref}
-      className="growth-chart"
-      viewBox={`0 0 ${width} 253`}
-      role="img"
-      aria-label={`Cell counts through ${hour} hours. Points are discrete samples; connecting lines are visual guides.`}
-    >
-      <title>Cell count replay — active source</title>
-      <text x="46" y="17" className="axis-title">
-        Cell count · ×10⁶ cells
-      </text>
-      {Array.from({ length: 5 }, (_, i) => (i * yMax) / 4).map((tick) => (
-        <g key={tick}>
-          <line
-            x1="46"
-            x2={width - 22}
-            y1={y(tick)}
-            y2={y(tick)}
-            className="chart-grid"
-          />
-          <text x="32" y={y(tick) + 4} textAnchor="end">
-            {tick.toPrecision(2)}
-          </text>
-        </g>
-      ))}
-      {Array.from({ length: width < 480 ? 5 : 8 }, (_, i) =>
-        Math.round((i * replayEndHour) / (width < 480 ? 4 : 7)),
-      )
-
-        .map((tick) => (
-          <text key={tick} x={x(tick)} y="237" textAnchor="middle">
-            {tick}h
-          </text>
-        ))}
-      <rect
-        x={x(hour)}
-        y="30"
-        width={Math.max(0, width - 22 - x(hour))}
-        height="183"
-        fill="#f4f6f8"
-      />
-      {series.map((n) => {
-        const samples = analyzeMeasurements(batchMeasurements(n), hour).valid
-
-        const selected = n === replicate
-
-        return (
-          <g
-            key={n}
-            className={`series series-${((n - 1) % 3) + 1}${
-              selected ? " selected" : ""
-            }`}
-          >
-            <polyline
-              points={samples
-
-                .map((p) => `${x(p.hour)},${y(p.count!)}`)
-
-                .join(" ")}
-              fill="none"
-              strokeWidth={selected ? 2.5 : 1.5}
-            />
-            {samples.map((p) => (
-              <circle
-                key={p.hour}
-                cx={x(p.hour)}
-                cy={y(p.count!)}
-                r={selected ? 4 : 3}
-              >
-                <title>
-                  {batchId(n)} · {p.hour}h · {p.count!.toFixed(2)} ×10⁶ cells
-                </title>
-              </circle>
-            ))}
-          </g>
-        )
-      })}
-      <line
-        x1={x(hour)}
-        x2={x(hour)}
-        y1="30"
-        y2="213"
-        className="replay-line"
-      />
-    </svg>
-  )
-}
-
 function ReplayControls({
   hour,
 
@@ -293,8 +135,12 @@ function ReplayControls({
   speed,
 
   setSpeed,
+
+  replicate,
 }: {
   hour: number
+
+  replicate: number
 
   setHour: (hour: number) => void
 
@@ -306,27 +152,9 @@ function ReplayControls({
 
   setSpeed: (speed: number) => void
 }) {
-  const {
-    batches,
+  const { batchMeasurements, batchId, replayEndHour } = useCultureData()
 
-    batchIndexes,
-
-    batchId,
-
-    batchMeasurements,
-
-    checkpointReports,
-
-    replayEndHour,
-
-    demoSource,
-
-    source,
-
-    analyze: analyzeMeasurements,
-    monitoring,
-    reportInterval,
-  } = useCultureData()
+  const steps = sampleSteps(batchMeasurements(replicate), hour)
 
   function move(next: number) {
     setPlaying(false)
@@ -369,6 +197,30 @@ function ReplayControls({
           value={hour}
           onChange={(e) => move(Number(e.target.value))}
         />
+        <div
+          className="replay-sample-navigation"
+          aria-label="Source sample navigation"
+        >
+          <Button
+            disabled={steps.previous === null}
+            onClick={() => move(steps.previous!)}
+          >
+            Previous sample
+          </Button>
+          <Button
+            disabled={steps.next === null}
+            onClick={() => move(steps.next!)}
+          >
+            Next sample
+          </Button>
+          <Button
+            disabled={steps.last === null || hour === steps.last}
+            onClick={() => move(steps.last!)}
+          >
+            Last source sample
+          </Button>
+          <small>{batchId(replicate)}</small>
+        </div>
         <label className="replay-precise">
           Exact cutoff (hours)
           <input
@@ -406,6 +258,7 @@ function ReplayControls({
           value={speed}
           onChange={(event) => {
             const value = Number(event.target.value)
+
             if (Number.isFinite(value) && value > 0 && value <= 10000)
               setSpeed(value)
           }}
@@ -413,372 +266,6 @@ function ReplayControls({
         <small>hours / second</small>
       </label>
     </section>
-  )
-}
-
-function Guard({
-  hour,
-
-  replicate,
-
-  setReplicate,
-
-  navigate,
-
-  eventNotes,
-
-  setEventNotes,
-}: {
-  hour: number
-
-  replicate: number
-
-  setReplicate: (n: number) => void
-
-  navigate: (view: View) => void
-
-  eventNotes: Record<string, string>
-
-  setEventNotes: (notes: Record<string, string>) => void
-}) {
-  const {
-    batches,
-
-    batchIndexes,
-
-    batchId,
-
-    batchMeasurements,
-
-    checkpointReports,
-
-    replayEndHour,
-
-    demoSource,
-
-    source,
-
-    analyze: analyzeMeasurements,
-    monitoring,
-    reportInterval,
-  } = useCultureData()
-
-  const [compare, setCompare] = useState(true)
-
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
-
-  const state = analyzeMeasurements(batchMeasurements(replicate), hour)
-
-  const event = state.events.find((item) => item.id === selectedEvent)
-
-  const report = checkpointReports(replicate, hour).at(-1)
-
-  return (
-    <>
-      <PageTitle
-        title="Bioreactor Guard"
-        description="Track cell growth and review warnings."
-        action={<Badge tone="brand">Replay · {hour}h elapsed</Badge>}
-      />
-      <div className="section-heading">
-        <h2>Batch overview</h2>
-        <span>{batches.length} batches</span>
-      </div>
-      <fieldset className="batch-grid">
-        <legend className="sr-only">Select culture batch</legend>
-        {batchIndexes.map((n) => {
-          const batch = analyzeMeasurements(batchMeasurements(n), hour)
-
-          return (
-            <label
-              key={n}
-              className={`batch-card${replicate === n ? " is-selected" : ""}`}
-            >
-              <input
-                type="radio"
-                name="batch"
-                checked={replicate === n}
-                onChange={() => {
-                  setReplicate(n)
-
-                  setSelectedEvent(null)
-                }}
-              />
-              <div className="batch-heading">
-                <strong>{batchId(n)}</strong>
-                <Status status={batch.status} />
-              </div>
-              <p>
-                {batches[n - 1].cellLine} · batch {n}
-              </p>
-              <div className="batch-count">
-                {batch.latest?.count?.toFixed(2) ?? "—"}
-                <small>×10⁶ cells</small>
-              </div>
-              <footer>
-                <span>
-                  Last sample <b>{batch.latest?.hour ?? "—"}h</b>
-                </span>
-                <span>
-                  {batch.visible.length} / {batchMeasurements(n).length} samples
-                </span>
-              </footer>
-            </label>
-          )
-        })}
-      </fieldset>
-      <div className="guard-grid">
-        <Panel
-          title="Cell growth"
-          caption={`${batchId(replicate)} · ${source.name}`}
-          action={
-            <label className="inline-check">
-              <input
-                type="checkbox"
-                checked={compare}
-                onChange={(e) => setCompare(e.target.checked)}
-              />
-              Compare all batches
-            </label>
-          }
-        >
-          <div className="growth-metrics">
-            <div>
-              <span>Fold change from first sample</span>
-              <strong>
-                {state.foldChange?.toFixed(2) ?? "—"}
-                <small>×</small>
-              </strong>
-            </div>
-            <div>
-              <span>Last interval growth rate</span>
-              <strong>
-                {state.growthRate?.toFixed(4) ?? "—"}
-                <small>h⁻¹</small>
-              </strong>
-            </div>
-            <div>
-              <span>Latest sample</span>
-              <strong>
-                {state.latest?.hour ?? "—"}
-                <small>h</small>
-              </strong>
-            </div>
-          </div>
-          <GrowthChart hour={hour} replicate={replicate} compare={compare} />
-          <div className="chart-foot">
-            <div className="series-key">
-              {(compare
-                ? [replicate, ...batchIndexes.filter((n) => n !== replicate)]
-
-                    .sort((a, b) => a - b)
-                : [replicate]
-              )
-
-                .map((n) => (
-                  <span key={n}>
-                    <i className={`series-dot r${((n - 1) % 3) + 1}`} />
-                    {batchId(n)}
-                  </span>
-                ))}
-            </div>
-            <p>Points = measured samples</p>
-          </div>
-        </Panel>
-        <Panel
-          title="Events & warnings"
-          action={
-            <Badge tone={state.events.length ? "warning" : "neutral"}>
-              {state.events.length} flagged
-            </Badge>
-          }
-        >
-          <div className="warning-list">
-            {state.events.length ? (
-              state.events.map((item) => (
-                <button
-                  className="warning-row"
-                  key={item.id}
-                  aria-expanded={selectedEvent === item.id}
-                  onClick={() =>
-                    setSelectedEvent(selectedEvent === item.id ? null : item.id)
-                  }
-                >
-                  <Icon name="alert" />
-                  <span>
-                    <strong>
-                      {item.status === "needs_review"
-                        ? "Data need review"
-                        : "Two consecutive declines"}
-                    </strong>
-                    <small>
-                      {batchId(replicate)} · {item.hour}h · cell count
-                    </small>
-                  </span>
-                  <Icon name="arrow" />
-                </button>
-              ))
-            ) : (
-              <div className="empty-state">
-                <Icon name="check" />
-                <strong>No growth warnings at {hour}h</strong>
-              </div>
-            )}
-            {event && (
-              <div className="event-detail">
-                <Badge tone="warning">{event.rule}</Badge>
-                <p>{event.reason}</p>
-                <dl>
-                  <div>
-                    <dt>Value</dt>
-                    <dd>
-                      {event.value}{" "}
-                      {event.variable === "sample_age" ? "hours" : "×10⁶ cells"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>
-                      {event.variable === "sample_age"
-                        ? "Evaluated at"
-                        : "Measured at"}
-                    </dt>
-                    <dd>{event.hour}h relative</dd>
-                  </div>
-                  <div>
-                    <dt>Source</dt>
-                    <dd>{source.name}</dd>
-                  </div>
-                </dl>
-                <label>
-                  Follow-up note
-                  <textarea
-                    className="resize-none"
-                    value={eventNotes[`R${replicate}-${event.id}`] ?? ""}
-                    onChange={(e) =>
-                      setEventNotes({
-                        ...eventNotes,
-
-                        [`R${replicate}-${event.id}`]: e.target.value,
-                      })
-                    }
-                    placeholder="Record the evidence to review and next steps…"
-                  />
-                  <small>
-                    Kept during this session and included in the research
-                    export.
-                  </small>
-                </label>
-              </div>
-            )}
-          </div>
-          <Details title="Monitoring rules">
-            <p>
-              Positive counts, consistent units, and increasing timestamps are
-              required. Decline and stale-sample warnings follow your configured
-              settings.
-            </p>
-          </Details>
-        </Panel>
-        <ChannelPanel replicate={replicate} hour={hour} />
-        <Panel
-          title="ErythroPilot handoff"
-          caption={`A summary every ${reportInterval} hours from Guard data`}
-          action={
-            <Badge>
-              {report
-                ? `${report.checkpoint_hour}h checkpoint`
-                : `Awaiting ${reportInterval}h`}
-            </Badge>
-          }
-        >
-          <div className="handoff">
-            <div className="handoff-title">
-              <Icon name="pilot" />
-              <strong>
-                {report?.new_measurements
-                  ? "New measurement to review"
-                  : "No new measurements"}
-              </strong>
-            </div>
-            <p>
-              {report?.summary ??
-                `The first scheduled report is at ${reportInterval}h. The initial sample is available in Guard.`}
-            </p>
-            <div className="handoff-meta">
-              <span>
-                Latest count <b>{state.latest?.count?.toFixed(2)} ×10⁶</b>
-              </span>
-              <span>
-                Last sampled <b>{state.latest?.hour}h</b>
-              </span>
-            </div>
-            <Button onClick={() => navigate("pilot")} icon="report">
-              Open checkpoint reports
-            </Button>
-          </div>
-        </Panel>
-      </div>
-      <Details title="Available measurements · current input">
-        <div className="table-scroll">
-          <table aria-label="Available culture measurements">
-            <thead>
-              <tr>
-                <th>Sample time</th>
-                {batchIndexes.map((n) => (
-                  <th key={n} className="numeric">
-                    {batchId(n)}
-                  </th>
-                ))}
-                <th>Unit / quality</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.visible.map((sample, index) => (
-                <tr key={sample.hour}>
-                  <td>{sample.hour}h</td>
-                  {batchIndexes.map((n) => (
-                    <td key={n} className="numeric">
-                      {batchMeasurements(n)
-
-                        .find((point) => point.hour === sample.hour)
-
-                        ?.count?.toFixed(2) ?? "—"}
-                    </td>
-                  ))}
-                  <td>×10⁶ cells · {source.evidence}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Details>
-      <Details title="Measurement provenance & status definitions">
-        <div className="two-column">
-          <div>
-            <h3>Trace every value</h3>
-            <p>
-              <code>dataset_id: {demoSource.dataset_id}</code>
-              <br />
-              <code>source: {source.name}</code>
-              <br />
-              Times and batch IDs come from the active input. Absolute
-              laboratory timestamps and instrument IDs are not inferred. File
-              SHA-256: {source.sha256 || "not available for built-in demo"}. A
-              fingerprint establishes file identity, not scientific validity.
-            </p>
-          </div>
-          <div>
-            <h3>Read status in context</h3>
-            <p>
-              <b>Normal:</b> no configured growth rule triggered.{" "}
-              <b>Warning:</b> a count trend needs review. <b>Needs review:</b>{" "}
-              data validation failed. <b>No data:</b> a measurement is absent.
-              Missing channels never receive a normal status.
-            </p>
-          </div>
-        </div>
-      </Details>
-    </>
   )
 }
 
@@ -817,7 +304,9 @@ function Pilot({
     source,
 
     analyze: analyzeMeasurements,
+
     monitoring,
+
     reportInterval,
   } = useCultureData()
 
@@ -1360,7 +849,9 @@ function ResearchReport({
     source,
 
     analyze: analyzeMeasurements,
+
     monitoring,
+
     reportInterval,
   } = useCultureData()
 
@@ -1418,13 +909,17 @@ function ResearchReport({
 
     researcher_notes: notes,
 
+    guard_view: workspaceData.guardView,
+
     target_signature: workspaceData.markerSettings,
 
     researcher_settings: {
       growth: workspaceData.growthSettings,
+
       planning: workspaceData.planSettings,
 
       monitoring: workspaceData.monitoring,
+
       report_interval_hours: workspaceData.reportInterval,
 
       roadmap_days: workspaceData.roadmapDays,
@@ -1847,7 +1342,7 @@ function ResearchWorkspaceContent() {
         </div>
       </header>
       <main id="main-content" className="workspace" tabIndex={-1}>
-        {(view === "guard" || view === "pilot") && (
+        {view === "pilot" && (
           <ReplayControls
             hour={hour}
             setHour={setHour}
@@ -1855,9 +1350,10 @@ function ResearchWorkspaceContent() {
             setPlaying={setPlaying}
             speed={speed}
             setSpeed={setSpeed}
+            replicate={replicate}
           />
         )}
-        {(view === "guard" || view === "pilot") && <MonitoringControls />}
+        {view === "pilot" && <MonitoringControls />}
         {view === "data" ? (
           <DataWorkspace
             onRun={(kind) =>
@@ -1872,6 +1368,17 @@ function ResearchWorkspaceContent() {
           />
         ) : view === "guard" ? (
           <Guard
+            replayControls={
+              <ReplayControls
+                hour={hour}
+                setHour={setHour}
+                playing={playing}
+                setPlaying={setPlaying}
+                speed={speed}
+                setSpeed={setSpeed}
+                replicate={replicate}
+              />
+            }
             hour={hour}
             replicate={replicate}
             setReplicate={setReplicate}

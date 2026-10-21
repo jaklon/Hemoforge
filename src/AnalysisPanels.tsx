@@ -37,8 +37,11 @@ export function SimulationPanel({
 }) {
   const {
     simulate,
+
     simulation,
+
     growthSettings: settings,
+
     setGrowthSettings: setSettings,
   } = useWorkspace()
 
@@ -62,6 +65,7 @@ export function SimulationPanel({
         settings.lookbackHours === null ||
         sample.hour >= hour - settings.lookbackHours,
     ),
+
     hour,
   )
 
@@ -389,18 +393,24 @@ export function ExperimentPlanner({
   candidate,
 
   setCandidate,
+
   onEditData,
 }: {
   candidate: number | null
 
   setCandidate: (value: number) => void
+
   onEditData: () => void
 }) {
   const {
     inputs,
+
     run,
+
     refitPlan,
+
     planSettings: settings,
+
     setPlanSettings: setSettings,
   } = useWorkspace()
 
@@ -459,6 +469,7 @@ export function ExperimentPlanner({
             onChange={(event) => {
               setSettings({
                 ...settings,
+
                 objective: event.target.value as "maximize" | "minimize",
               })
 
@@ -529,6 +540,7 @@ export function ExperimentPlanner({
             href="#data"
             onClick={(event) => {
               event.preventDefault()
+
               onEditData()
             }}
           >
@@ -681,10 +693,14 @@ export function ChannelPanel({
   replicate,
 
   hour,
+
+  onImport,
 }: {
   replicate: number
 
   hour: number
+
+  onImport?: () => void
 }) {
   const { batchMeasurements, batchId } = useCultureData()
 
@@ -697,16 +713,24 @@ export function ChannelPanel({
   const available = (key: string) =>
     rows.filter((row) => row.channels[key] != null)
 
-  const values = available(selected)
+  const sampledChannels = channels.filter(
+    (channel) => available(channel.key).length,
+  )
 
-  const channel = channels.find((item) => item.key === selected)!
+  const activeKey = available(selected).length
+    ? selected
+    : (sampledChannels[0]?.key ?? selected)
+
+  const values = available(activeKey)
+
+  const channel = channels.find((item) => item.key === activeKey)!
 
   const minimum = values.length
-    ? Math.min(...values.map((row) => row.channels[selected]!))
+    ? Math.min(...values.map((row) => row.channels[activeKey]!))
     : 0
 
   const maximum = values.length
-    ? Math.max(...values.map((row) => row.channels[selected]!))
+    ? Math.max(...values.map((row) => row.channels[activeKey]!))
     : 1
 
   const padding = Math.max(
@@ -725,6 +749,35 @@ export function ChannelPanel({
 
   const y = (v: number) => 177 - ((v - low) / (high - low)) * 130
 
+  if (!sampledChannels.length)
+    return (
+      <Panel
+        title="Environment & metabolites"
+        caption={`${batchId(replicate)} · through ${hour}h`}
+        action={<Badge>No data</Badge>}
+      >
+        <div className="guard-sensor-empty">
+          <div className="guard-sensor-symbol">—</div>
+          <h3>No environment samples at this cutoff</h3>
+          <p>
+            Import pH, temperature, oxygen, or metabolite values to inspect
+            their trends alongside cell growth.
+          </p>
+          {onImport && (
+            <Button icon="data" onClick={onImport}>
+              Add environment data
+            </Button>
+          )}
+        </div>
+        <Details title="Available environment columns">
+          <p>
+            {channels.map((channel) => channel.key).join(", ")}. Values must
+            come from source measurements; missing channels remain unmeasured.
+          </p>
+        </Details>
+      </Panel>
+    )
+
   return (
     <Panel
       title="Environment & metabolites"
@@ -738,7 +791,7 @@ export function ChannelPanel({
       }
     >
       <div className="channel-grid">
-        {channels.map((item) => {
+        {sampledChannels.map((item) => {
           const sample = available(item.key).at(-1)
 
           return (
@@ -757,10 +810,10 @@ export function ChannelPanel({
       <label className="channel-picker">
         Trend to inspect
         <select
-          value={selected}
+          value={activeKey}
           onChange={(event) => setSelected(event.target.value)}
         >
-          {channels.map((item) => (
+          {sampledChannels.map((item) => (
             <option value={item.key} key={item.key}>
               {item.label}
             </option>
@@ -794,7 +847,7 @@ export function ChannelPanel({
           <polyline
             points={values
 
-              .map((p) => `${x(p.hour)},${y(p.channels[selected]!)}`)
+              .map((p) => `${x(p.hour)},${y(p.channels[activeKey]!)}`)
 
               .join(" ")}
             fill="none"
@@ -805,12 +858,12 @@ export function ChannelPanel({
             <circle
               key={p.hour}
               cx={x(p.hour)}
-              cy={y(p.channels[selected]!)}
+              cy={y(p.channels[activeKey]!)}
               r="3"
               fill="#0d8279"
             >
               <title>
-                {p.hour}h · {p.channels[selected]} {channel.unit}
+                {p.hour}h · {p.channels[activeKey]} {channel.unit}
               </title>
             </circle>
           ))}
@@ -828,9 +881,13 @@ export function ChannelPanel({
       )}
       <Details title="Measurement context">
         <p>
-          Values are laboratory samples, not a continuous sensor stream. Missing
-          channels remain No data. No contamination or leak diagnosis is
-          inferred.
+          Values are laboratory samples, not a continuous sensor stream.
+          Unmeasured channels:{" "}
+          {channels
+            .filter((channel) => !sampledChannels.includes(channel))
+            .map((channel) => channel.label)
+            .join(", ") || "none"}
+          . No contamination or leak diagnosis is inferred.
         </p>
       </Details>
     </Panel>

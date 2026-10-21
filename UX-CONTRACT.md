@@ -17,7 +17,7 @@ disclosures. Users can expand them without leaving the current workflow.
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
-| Select/Listbox | Native select in ResearchWorkspace.tsx | DESIGN.md | native; OS popup geometry accepted | Browser keyboard and open popup |
+| Select/Listbox | Native selects in ResearchWorkspace / BioreactorGuard / AnalysisPanels | DESIGN.md | native; OS popup geometry accepted | Browser keyboard and open popup |
 | Scrollbar | src/index.css | DESIGN.md | global baseline; table geometry only | Browser overflow and computed style |
 | Form | NumberField / labeled native inputs and textarea | DESIGN.md | session notes, marker filters | Browser label activation and retained navigation state |
 | Navigation | ResearchWorkspace navigation / hash | Proposal section VII | desktop sidebar, inline mobile menu | All modules and back/forward |
@@ -99,6 +99,35 @@ are identified as requiring refitting. Notes have no artificial 1,000-character
 limit. Session settings stay in memory instead of URLs because profiles and
 scenario data may be sensitive. Researcher choices configure a simulation, never
 the truth of laboratory evidence.
+
+## Guard review and chart behavior
+
+The Guard title precedes an attention summary, compact replay controls, and batch
+cards. The attention summary counts all currently revealed warning records;
+its review action selects the highest-priority flagged batch (data-quality issues
+first) and focuses warning review. The optional attention filter only changes
+which cards are shown; it never changes the selected batch or hides its detail.
+Empty filters provide Show all batches. Warning history is retained after a later
+rise and is explicitly described as history. Rule labels distinguish invalid
+measurements, configured decline counts, and stale samples; no diagnostic cause
+is inferred. Notes retain existing per-batch/event keys and appear in exports.
+
+Cell count and fold-change modes support full-source, last-24h, and last-72h views.
+Only revealed valid source points are plotted; invalid or missing rows break the
+line, and invalid batches have no derived fold series. Y scaling uses displayed
+series only. The selected batch always stays visible and red; comparison batches
+can be individually hidden. A native sample selector exposes exact source values
+without requiring hover. Chart choices and the attention filter survive navigation
+in provider state and are included as guard_view in full research exports.
+
+Previous/next/last-source-sample buttons use the selected batch's actual source
+times, including fractional and irregular times, and pause playback. They do not
+create interpolated observations. Source measurements use a 25-row bounded table;
+its CSV download includes all revealed rows for that batch, missing/invalid values,
+row quality, units, source name, and source hash. No future rows are exported.
+Empty environment data shows one compact add-data path. When values are available,
+only sampled channels are featured; unmeasured channels are listed in supporting
+context. Changing a batch, rules, or cursor recalculates all visible summaries.
 
 ## Evidence and statuses
 

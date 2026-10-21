@@ -43,8 +43,8 @@ three-hour checkpoint summaries. CulturePlan and RareMatch support planning and
 marker screening. English remains the established interface language.
 
 Keep the established navy navigation and red culture accent. The distinctive
-visual element is three selectable replicate cards paired with a sample-timed
-comparison chart and an auditable warning. No marketing hero or decorative media.
+visual element is selectable batch cards with source-only sparklines, paired with
+a sample-timed comparison chart and an auditable warning review. No marketing hero or decorative media.
 
 ## Colors
 
@@ -67,8 +67,8 @@ Use installed fonts and system fallbacks; the app has no remote font dependency.
 ## Layout
 
 Desktop uses a 244px navy sidebar, a 65px sticky white header, and 28px workspace
-margins. Panels use an 18px gap. Guard presents replay controls, a clear title,
-three replicate cards, then a growth/warnings split and environment/report handoff.
+margins. Panels use an 18px gap. Guard presents its title, an attention summary, compact replay controls,
+batch cards, then a growth/warning review split and environment/report handoff.
 The chart only reveals samples at or before the replay cursor. Lines are guides,
 not additional observed measurements. No forecast is presented as an observation.
 
@@ -78,6 +78,17 @@ stack; below 520px batches become full-width compact rows. Tables scroll inside
 their panel without causing page overflow. Forms retain normal document scrolling.
 A 21-day roadmap uses 7 columns on narrower screens; it never invents observations
 past the active input's final source time. Native selects own OS popup geometry.
+
+Guard's attention strip summarizes recorded flags without claiming live sensor
+health. Batch cards show last-interval percentage, sample age, and a sparkline
+from revealed source rows. Selected chart series are always red; comparison
+series use slate/teal plus labels and dash patterns. Cell-count/fold controls,
+time windows, and an always-available source-sample inspector support keyboard
+and touch. Missing/invalid rows break chart segments; future observations stay
+unrevealed. Empty environment channels collapse into a compact import prompt.
+The Guard CSS uses `--guard-future`, `--guard-alert-surface`,
+`--guard-alert-border`, and `--guard-alert-text` from the runtime token owner;
+they extend the existing slate/amber status palette.
 
 ## Elevation & Depth
 
@@ -95,7 +106,11 @@ desktop, 40px below 900px. Radios and range inputs retain native keyboard behavi
 
 `Button`, `Badge`, `Panel`, `Details`, `Icon`, `PageTitle`, and `Status` in
 `src/workspace-ui.tsx` are the shared visual owners. `ReplayControls` in
-`src/ResearchWorkspace.tsx` owns the replay toolbar. `src/App.tsx` mounts that
+`src/ResearchWorkspace.tsx` owns the replay toolbar. `src/BioreactorGuard.tsx`
+owns Guard layout, observation inspection, batch comparisons, and warning review.
+`src/guard-insights.ts` owns cutoff-safe summaries, chart segments, sample navigation,
+and rule-specific warning labels. `guardView` in the workspace provider retains
+comparison, chart-window, scale, and attention-filter choices across navigation. `src/App.tsx` mounts that
 workspace. `src/culture-monitoring.ts` owns count checks. `src/workspace-data.ts` owns the
 CSV/TSV/JSON schemas, sample-time normalization, shared report generation, and
 marker filtering. `src/workspace-context.tsx` holds the active input files and

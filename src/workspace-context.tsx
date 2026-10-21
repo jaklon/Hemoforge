@@ -37,6 +37,7 @@ import {
 } from "./python-api"
 import type { ExperimentRow } from "./workspace-data"
 import { analyzeMeasurements, type Measurement } from "./culture-monitoring"
+import { defaultGuardView, type GuardView } from "./guard-insights"
 export interface SimulationResult {
   batchId: string
   sourceHash: string
@@ -68,6 +69,8 @@ interface WorkspaceContextValue {
   setMarkerSettings: Dispatch<SetStateAction<MarkerSettings>>
   monitoring: MonitoringSettings
   setMonitoring: Dispatch<SetStateAction<MonitoringSettings>>
+  guardView: GuardView
+  setGuardView: Dispatch<SetStateAction<GuardView>>
   reportInterval: number
   setReportInterval: Dispatch<SetStateAction<number>>
   roadmapDays: number
@@ -106,6 +109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [planSettings, setPlanSettings] = useState(defaultPlanSettings)
   const [markerSettings, setMarkerSettings] = useState(defaultMarkerSettings)
   const [monitoring, setMonitoring] = useState(defaultMonitoringSettings)
+  const [guardView, setGuardView] = useState(defaultGuardView)
   const [reportInterval, setReportInterval] = useState(3)
   const [roadmapDays, setRoadmapDays] = useState(21)
   const [editor, setEditor] = useState<{
@@ -292,6 +296,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setMarkerSettings,
         monitoring,
         setMonitoring,
+        guardView,
+        setGuardView,
         reportInterval,
         setReportInterval,
         roadmapDays,
