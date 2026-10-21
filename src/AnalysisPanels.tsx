@@ -76,16 +76,50 @@ export function SimulationPanel({
     fitState.status === "needs_review" ||
     !!settingError
 
-  const current =
+  const matching =
     simulation &&
     simulation.batchId === batchId(replicate) &&
     simulation.sourceHash === source.sha256 &&
-    simulation.result.fromHour === hour &&
     JSON.stringify(simulation.settings) === JSON.stringify(settings)
       ? simulation
       : null
 
+  // Keep an earlier run while replay moves forward; a later run would reveal future samples.
+  const current =
+    matching && matching.result.fromHour <= hour ? matching : null
+
   const result = current?.result
+
+  const stale = !!result && result.fromHour !== hour
+
+  const outdated = !!matching && matching.result.fromHour !== hour
+
+  async function run() {
+    if (predicting) return
+
+    setPredicting(true)
+
+    setError("")
+
+    try {
+      await simulate(replicate, hour, { ...settings })
+    } catch (failure) {
+      setError(
+        failure instanceof Error ? failure.message : "Simulation failed.",
+      )
+    } finally {
+      setPredicting(false)
+    }
+  }
+
+  // Refresh the shown run once replay settles at a new cutoff.
+  useEffect(() => {
+    if (!outdated || blocked || predicting || error) return
+
+    const timer = window.setTimeout(() => void run(), 600)
+
+    return () => window.clearTimeout(timer)
+  })
 
   const end = result?.distribution.at(-1)
 
@@ -129,25 +163,7 @@ export function SimulationPanel({
         <Button
           primary
           disabled={blocked || predicting}
-          onClick={async () => {
-            if (predicting) return
-
-            setPredicting(true)
-
-            setError("")
-
-            try {
-              await simulate(replicate, hour, { ...settings })
-            } catch (failure) {
-              setError(
-                failure instanceof Error
-                  ? failure.message
-                  : "Simulation failed.",
-              )
-            } finally {
-              setPredicting(false)
-            }
-          }}
+          onClick={() => void run()}
         >
           {predicting ? "Running in Python…" : "Run growth simulation"}
         </Button>
@@ -229,8 +245,14 @@ export function SimulationPanel({
           <ForecastChart
             key={current!.requestId}
             result={result}
-            samples={state.valid}
+            samples={stale ? analyze(samples, result.fromHour).valid : state.valid}
           />
+          {stale && (
+            <p className="panel-note" role="status">
+              Showing the run from {plotNumber(result.fromHour)}h · updating to{" "}
+              {plotNumber(hour)}h when replay pauses.
+            </p>
+          )}
         </>
       ) : (
         <div className="empty-state simulation-empty">

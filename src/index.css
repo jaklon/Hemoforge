@@ -677,3 +677,4 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .plot-buttons .button { min-width: 32px; min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
 .guard-chart-controls + .interactive-plot .plot-toolbar { padding-top: 10px; }
 @media (max-width: 600px) { .plot-buttons .button { min-height: 42px; } .plot-toolbar select { min-height: 38px; } }
+.report-form > select { margin-bottom: 14px; }
