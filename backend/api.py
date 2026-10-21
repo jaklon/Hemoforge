@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +17,8 @@ from backend.predictions import ENGINE, predict_experiments, predict_growth
 
 app = FastAPI(title="HemoForge research API · HemoBot", version="1.1.0")
 app.add_middleware(BodyLimitMiddleware)
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"])
+extra_hosts = [host.strip() for host in os.environ.get("HEMOBOT_ALLOWED_HOSTS", "").split(",") if host.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver", *extra_hosts])
 app.include_router(agent_router)
 app.include_router(evo2_router)
 
