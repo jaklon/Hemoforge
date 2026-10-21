@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.agent_routes import router as agent_router
+from backend.evo2_routes import router as evo2_router
 from backend.http_limits import BodyLimitMiddleware
 
 from backend.models import ExperimentRequest, GrowthRequest
@@ -17,6 +18,7 @@ app = FastAPI(title="HemoForge research API · HemoBot", version="1.1.0")
 app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"])
 app.include_router(agent_router)
+app.include_router(evo2_router)
 
 
 @app.exception_handler(RequestValidationError)

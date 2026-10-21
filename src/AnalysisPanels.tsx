@@ -18,6 +18,7 @@ import { Button, Panel, Badge, PageTitle, Details } from "./workspace-ui"
 import { csv, downloadFile } from "./workspace-utils"
 
 import type { ForecastHorizon } from "./culture-forecast"
+import Evo2Preparation from "./Evo2Preparation"
 
 export function SimulationPanel({
   replicate,
@@ -790,6 +791,7 @@ export function MarkerScreen({
           </p>
         </Details>
       </Panel>
+      <Evo2Preparation />
     </>
   )
 }

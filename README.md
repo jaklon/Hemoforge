@@ -3,6 +3,10 @@
 An erythroid research workspace with Bioreactor Guard, ErythroPilot, CulturePlan,
 RareMatch, and **HemoBot**, an evidence-bound Biomedical English assistant.
 
+[EVO2.md](EVO2.md) documents the bundled **1,000 public KEL/SLC14A1 sequence pairs**,
+provenance, offline verification, and preparation-only Evo 2 workflow. Model
+inference, automatic downloads, and paid providers remain disabled for that workflow.
+
 ## Local development on Windows
 
 ```powershell
