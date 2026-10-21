@@ -18,6 +18,7 @@ RUN useradd --system --uid 10001 --create-home hemobot && mkdir -p /app/data /ap
 COPY backend ./backend
 COPY streamlit_app.py ./
 COPY public/examples ./public/examples
+COPY public/datasets/evo2 ./public/datasets/evo2
 COPY --from=frontend /app/dist ./dist
 USER hemobot
 ENV HEMOBOT_DATABASE_PATH=/app/data/hemobot.sqlite3 \

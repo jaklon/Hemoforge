@@ -156,10 +156,10 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
         <div className="bot-body">{card.statements.map((text, index) => <p key={index}>{text}</p>)}</div>
       </Panel>)}</div>
       <Panel title="Manual review actions"><ul className="bot-actions">{result.suggested_actions.map(action => <li key={action}>{action}</li>)}</ul></Panel>
-      <Panel title="RareMatch v2.0 · Evo 2" action={<Badge>Roadmap preview only</Badge>}>
-        <div className="bot-body"><p>Planned sequence-level variant scoring and post-harvest genomic investigation. No Evo 2 inference or sequence audit has run.</p>
-          <p>Offline input preparation is available in RareMatch. Model execution, external providers, downloads, and GPU provisioning remain disabled.</p>
-          <a className="button" href="#match">Prepare Evo 2 inputs</a>
+      <Panel title="RareMatch v2.0 · Evo 2" action={<Badge>Local data ready · inference disabled</Badge>}>
+        <div className="bot-body"><p>Browse 1,000 public KEL/SLC14A1 reference/alternate pairs, inspect DNA and prepare local batches. No Evo 2 model inference has run.</p>
+          <p>Model execution, external providers, model downloads, and GPU provisioning remain disabled.</p>
+          <a className="button" href="#evo2">Open Evo 2 dataset workspace</a>
           <p>A sequence likelihood score alone would not establish pathogenicity or genomic stability.</p></div>
       </Panel>
       <Details title="Sources, literature & scientific limits">

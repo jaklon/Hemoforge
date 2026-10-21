@@ -1,35 +1,29 @@
 import { useEffect, useRef, useState } from "react"
 import { useWorkspace } from "./workspace-context"
 import { Badge, Button, Details, Panel } from "./workspace-ui"
-import { emptyEvo2Draft, evo2ExportUrl, evo2Payload, type Evo2Draft } from "./evo2-data"
+import { emptyEvo2Draft, evo2Payload, type Evo2Draft, type Evo2Prepared } from "./evo2-data"
+import Evo2DatasetBrowser from "./Evo2DatasetBrowser"
+import Evo2PreparedResult from "./Evo2PreparedResult"
 
 interface PublicExample { id: string; gene: string; request: Omit<Evo2Draft, "start" | "vcf_text"> & { reference_start_1based: number } }
-interface Prepared {
-  preparation_id: string
-  manifest_fingerprint: string
-  execution_status: "prepared_only"
-  manifest: { tasks: { task_id: string; gene: string; sequence_length: number; score_status: "not_run" }[]; warnings: string[] }
-}
 
 export default function Evo2Preparation() {
   const { inputs } = useWorkspace()
   const source = inputs.markers
   const [draft, setDraft] = useState<Evo2Draft>(emptyEvo2Draft)
   const [examples, setExamples] = useState<PublicExample[]>([])
-  const [catalog, setCatalog] = useState<{ sequence_pair_count: number; gene_count: number } | null>(null)
   const [readiness, setReadiness] = useState<{ profile_count: number; profiles_with_unknown_calls: number; missing_requirements: string[] } | null>(null)
-  const [prepared, setPrepared] = useState<Prepared | null>(null)
+  const [prepared, setPrepared] = useState<Evo2Prepared | null>(null)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const controller = useRef<AbortController | null>(null)
   const epoch = useRef(0)
   useEffect(() => {
     const requestController = new AbortController()
-    void Promise.all([fetch("/datasets/evo2/catalog.json", { signal: requestController.signal }),
-      fetch("/datasets/evo2/examples.json", { signal: requestController.signal })]).then(async ([summary, examples]) => {
-      if (!summary.ok || !examples.ok) return
-      const [summaryData, examplesData] = await Promise.all([summary.json(), examples.json()])
-      if (!requestController.signal.aborted) { setCatalog(summaryData); setExamples(examplesData) }
+    void fetch("/datasets/evo2/examples.json", { signal: requestController.signal }).then(async response => {
+      if (!response.ok) return
+      const examplesData = await response.json()
+      if (!requestController.signal.aborted) setExamples(examplesData)
     }).catch(() => { /* Bundled public data is optional; no external download fallback. */ })
     return () => { requestController.abort(); controller.current?.abort(); epoch.current++ }
   }, [])
@@ -82,14 +76,12 @@ export default function Evo2Preparation() {
       <p>The active marker file contains two SNP calls per profile. These do not reconstruct DNA sequences or donor haplotypes.</p>
       <div className="bot-export-actions"><Button disabled={busy} onClick={() => void request("readiness", { markers: {
         name: source.name, sha256: source.sha256, evidence: source.evidence, rows: source.rows } })}>Check marker readiness</Button>
-        {catalog && <a className="button" href="/datasets/evo2/sequence_pairs.jsonl" download>Download {catalog.sequence_pair_count} public sequence pairs</a>}
-        {catalog && <a className="button" href="/datasets/evo2/variants.csv" download>Download public variants CSV</a>}
       </div>
-      {catalog && <p className="panel-note">Public GRCh38 reference examples across {catalog.gene_count} genes. Alternate sequences are derived from reported alleles; donor genotypes, clinical labels, and model scores are unavailable.</p>}
       {readiness && <div className="bot-fallback"><p>{readiness.profile_count} marker profiles; {readiness.profiles_with_unknown_calls} have unresolved calls. Sequence data are still required.</p>
         <ul>{readiness.missing_requirements.map(text => <li key={text}>{text}</li>)}</ul></div>}
       <p className="panel-note">Preparation runs locally. No paid provider, GPU provisioning, or model download is enabled. Sequence preparation saves normalized tasks to the local audit database; raw sequences are not sent to HemoBot/Ollama.</p>
     </div>
+    <Evo2DatasetBrowser />
     <Details title="Validate FASTA / VCF and prepare an offline task">
       <div className="evo2-fields"><label>Public reference example<select defaultValue="" disabled={busy} onChange={event => {
         const example = examples.find(row => row.id === event.target.value)
@@ -111,10 +103,6 @@ export default function Evo2Preparation() {
         {busy ? "Validating locally…" : "Validate & prepare without inference"}</Button>
     </Details>
     {error && <p role="alert" className="import-error">{error}</p>}
-    {prepared && <div className="bot-body" aria-live="polite"><Badge>Prepared only · scores not run</Badge>
-      <p>{prepared.manifest.tasks.length} validated task(s). Fingerprint: <code>{prepared.manifest_fingerprint}</code></p>
-      <a className="button" href={evo2ExportUrl(prepared.preparation_id)} download>Download prepared manifest</a>
-      <Details title="Preparation limits"><ul>{prepared.manifest.warnings.map(text => <li key={text}>{text}</li>)}</ul></Details>
-    </div>}
+    {prepared && <Evo2PreparedResult prepared={prepared} />}
   </Panel>
 }
