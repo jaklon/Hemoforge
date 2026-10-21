@@ -21,6 +21,7 @@ import { downloadFile, csv, escapeHtml } from "./workspace-utils"
 import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
 import DataWorkspace from "./DataWorkspace"
+import Evo2Preparation from "./Evo2Preparation"
 import HemoBot, { useHemoBot } from "./HemoBot"
 import type { BotAnalysis, BotModule } from "./hemobot-api"
 
@@ -44,7 +45,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "guard" | "pilot" | "plan" | "match" | "workflow" | "report" | "bot"
+type View = "data" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot"
 
 interface NavigationItem {
   id: View
@@ -99,6 +100,7 @@ const navigation: NavigationItem[] = [
   },
 
   { id: "match", name: "RareMatch", purpose: "Screen markers", icon: "dna" },
+  { id: "evo2", name: "Evo 2", purpose: "Prepare public sequences", icon: "dna" },
 
   {
     id: "workflow",
@@ -1841,6 +1843,9 @@ function ResearchWorkspaceContent() {
             checks={checks}
             setChecks={setChecks}
           />
+        ) : view === "evo2" ? (
+          <><PageTitle title="Evo 2 · sequence workspace" description="Browse public GRCh38 variants, prepare local tasks or explicitly score one public variant through the optional NVIDIA trial." />
+            <Evo2Preparation /></>
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />
         ) : (

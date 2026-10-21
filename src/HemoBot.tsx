@@ -156,8 +156,10 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
         <div className="bot-body">{card.statements.map((text, index) => <p key={index}>{text}</p>)}</div>
       </Panel>)}</div>
       <Panel title="Manual review actions"><ul className="bot-actions">{result.suggested_actions.map(action => <li key={action}>{action}</li>)}</ul></Panel>
-      <Panel title="RareMatch v2.0 · Evo 2" action={<Badge>Roadmap preview only</Badge>}>
-        <div className="bot-body"><p>Planned sequence-level variant scoring and post-harvest genomic investigation. No Evo 2 inference or sequence audit has run.</p>
+      <Panel title="RareMatch v2.0 · Evo 2" action={<Badge>Local data · optional NVIDIA trial</Badge>}>
+        <div className="bot-body"><p>Browse 1,000 public KEL/SLC14A1 reference/alternate pairs, inspect DNA and prepare local batches. Optional NVIDIA trial scoring is available in the Evo 2 workspace.</p>
+          <p>Local model execution, model downloads, GPU provisioning and paid fallback remain disabled. HemoBot does not automatically consume NVIDIA results.</p>
+          <a className="button" href="#evo2">Open Evo 2 dataset workspace</a>
           <p>A sequence likelihood score alone would not establish pathogenicity or genomic stability.</p></div>
       </Panel>
       <Details title="Sources, literature & scientific limits">

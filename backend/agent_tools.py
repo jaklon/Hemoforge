@@ -6,6 +6,7 @@ from backend.agent_models import AnalyzeRequest, Citation, EvidenceClaim
 from backend.agent_store import fingerprint
 from backend.models import ExperimentRequest
 from backend.predictions import predict_experiments
+from backend.marker_calls import normalize_call
 
 MODULE_NAMES = {"guard": "Bioreactor Guard", "pilot": "ErythroPilot", "plan": "CulturePlan", "match": "RareMatch"}
 CHANNEL_UNITS = {"ph": "", "temperature_c": "degrees C", "do_percent": "%",
@@ -97,12 +98,8 @@ def cultureplan_state(source, objective):
     return plan
 
 
-def normalize_call(call):
-    normalized = call.strip().upper().replace("|", "/")
-    return "G/A" if normalized == "A/G" else normalized
-
-
 def rarematch_state(source, active):
+    from backend.evo2_service import marker_readiness
     results = []
     for row in source.rows:
         kel, slc = normalize_call(row.kel), normalize_call(row.slc)
@@ -112,7 +109,8 @@ def rarematch_state(source, active):
     return {"status": "pending_lab_verification", "target": {"kel": active.kel, "slc": active.slc},
             "profile_count": len(results), "counts": {s: sum(r["status"] == s for r in results) for s in ["match", "excluded", "unknown"]},
             "results": results, "verification_requests": active.verification_requests,
-            "actual_lab_results": None, "evo2_status": "roadmap_preview_only"}
+            "actual_lab_results": None, "evo2_status": "roadmap_preview_only",
+            "evo2_readiness": marker_readiness(source)}
 
 
 def collect_context(request: AnalyzeRequest):
@@ -185,5 +183,5 @@ def claim_catalog(context):
     counts = match["counts"]
     add("match_screen", "match", f"Marker screening includes {match['profile_count']} profiles: {counts['match']} match, {counts['excluded']} excluded, and {counts['unknown']} unknown for the selected marker signature. Culture and marker inputs remain independent.")
     add("match_lab", "match", "Post-harvest status remains pending_lab_verification. Checklist selections record laboratory requests, never completed genotyping or serology.")
-    add("match_evo2", "match", "Evo 2 sequence scoring is a roadmap preview only. No sequence model, variant effect score, or genomic stability audit has been executed.")
+    add("match_evo2", "match", "Evo 2 input preparation is available offline, but two-marker calls do not provide reference/alternate DNA sequences. This marker analysis does not run Evo 2 or ingest sequence scores. Optional NVIDIA trial scoring of bundled public variants is configured separately in the Evo 2 workspace. Local model execution, downloads, GPU provisioning and paid fallback remain disabled. No donor genomic stability audit is established.")
     return claims

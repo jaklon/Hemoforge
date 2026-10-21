@@ -1,0 +1,230 @@
+{
+  "schema_version": "hemoforge-evo2-public-data-v1",
+  "created_at": "2026-10-21T09:04:44.837146+00:00",
+  "provider": "Ensembl REST (public, no API key)",
+  "release_info": {
+    "releases": [
+      116
+    ]
+  },
+  "genome_build": "GRCh38",
+  "evidence": "public_reference_unverified",
+  "gene_count": 2,
+  "sequence_pair_count": 1000,
+  "window_bases": 257,
+  "selection_seed": 42,
+  "selection": "round-robin consequence annotation, deterministic hash order",
+  "split_method": "gene-specific 4096-base genomic blocks; complete windows stay within blocks; no base overlaps across splits",
+  "split_counts": {
+    "train": 645,
+    "test": 283,
+    "validation": 72
+  },
+  "genes": [
+    {
+      "gene": "KEL",
+      "ensembl_gene_id": "ENSG00000197993",
+      "contig": "7",
+      "gene_start": 142941114,
+      "gene_end": 142962369,
+      "gene_strand": -1,
+      "reference_window_start_1based": 142940986,
+      "reference_bases": 21512,
+      "overlap_records_received": 7864,
+      "eligible_snv_count": 5862,
+      "selected_count": 500,
+      "excluded_counts": {
+        "not_supported_biallelic_forward_grch38_snv": 1633,
+        "split_boundary_buffer": 369
+      },
+      "consequence_counts": {
+        "3_prime_UTR_variant": 47,
+        "stop_lost": 1,
+        "missense_variant": 77,
+        "synonymous_variant": 77,
+        "splice_acceptor_variant": 10,
+        "splice_region_variant": 44,
+        "splice_polypyrimidine_tract_variant": 52,
+        "intron_variant": 78,
+        "splice_donor_5th_base_variant": 9,
+        "splice_donor_region_variant": 24,
+        "splice_donor_variant": 7,
+        "stop_gained": 24,
+        "start_lost": 1,
+        "5_prime_UTR_variant": 49
+      }
+    },
+    {
+      "gene": "SLC14A1",
+      "ensembl_gene_id": "ENSG00000141469",
+      "contig": "18",
+      "gene_start": 45687025,
+      "gene_end": 45752521,
+      "gene_strand": 1,
+      "reference_window_start_1based": 45686897,
+      "reference_bases": 65753,
+      "overlap_records_received": 24809,
+      "eligible_snv_count": 17893,
+      "selected_count": 500,
+      "excluded_counts": {
+        "not_supported_biallelic_forward_grch38_snv": 5611,
+        "split_boundary_buffer": 1305
+      },
+      "consequence_counts": {
+        "intron_variant": 65,
+        "splice_region_variant": 48,
+        "splice_donor_region_variant": 6,
+        "splice_donor_5th_base_variant": 7,
+        "splice_donor_variant": 13,
+        "non_coding_transcript_exon_variant": 65,
+        "splice_polypyrimidine_tract_variant": 30,
+        "5_prime_UTR_variant": 40,
+        "start_lost": 4,
+        "synonymous_variant": 65,
+        "missense_variant": 65,
+        "splice_acceptor_variant": 8,
+        "stop_gained": 18,
+        "stop_lost": 1,
+        "3_prime_UTR_variant": 65
+      }
+    }
+  ],
+  "model_inference_run": false,
+  "model_scores_available": false,
+  "donor_profiles_available": false,
+  "clinical_labels_available": false,
+  "free_public_data_only": true,
+  "sources": [
+    {
+      "url": "https://rest.ensembl.org/info/data?content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:56:50.161319+00:00",
+      "sha256": "86e87c46ae1a424702676493d024d0508ce60f6c951b0b2803ce10269e09c20c",
+      "bytes": 18
+    },
+    {
+      "url": "https://rest.ensembl.org/lookup/symbol/homo_sapiens/KEL?content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:57:26.604396+00:00",
+      "sha256": "846d5c9101efb0e46e28161570b28339bc222f880728db65d12ffc9ad966965d",
+      "bytes": 455
+    },
+    {
+      "url": "https://rest.ensembl.org/sequence/region/homo_sapiens/7:142940986..142962497:1?content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:57:55.090815+00:00",
+      "sha256": "343f54e097634df42da514d3e54326a3c5e42568e88de2f549a45bf9428d8b22",
+      "bytes": 21623
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/7:142941114-142957113?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:58:45.359273+00:00",
+      "sha256": "29316484e4de8ebbb705b60d29dffa5003bf858fbecb25491c84a8aa50e731ed",
+      "bytes": 1426329
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/7:142957114-142962369?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:58:57.696494+00:00",
+      "sha256": "3c6eff2cbe747908302710ae9df94240a8361e87c9a4f9273359637a91dd7677",
+      "bytes": 484584
+    },
+    {
+      "url": "https://rest.ensembl.org/lookup/symbol/homo_sapiens/SLC14A1?content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:59:06.833933+00:00",
+      "sha256": "d8d6499e1158c86ae011afd1bfc8c9335ccfa23c6882b56ba5df0be8170597eb",
+      "bytes": 465
+    },
+    {
+      "url": "https://rest.ensembl.org/sequence/region/homo_sapiens/18:45686897..45752649:1?content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:59:21.814150+00:00",
+      "sha256": "49a778c1cd224645020c8faabb5e5ecad7b510b7177980a5d391f7b2ac9153e9",
+      "bytes": 65862
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/18:45687025-45703024?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:59:36.711638+00:00",
+      "sha256": "4b5f2b28a831327cf8b803d75b12fe61f5c7635da7d2d39adaa0ea0c8b41411d",
+      "bytes": 1566628
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/18:45703025-45719024?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:59:41.891075+00:00",
+      "sha256": "2ca320e0d30bcd99d605a8d0ef02faed59578cac9e89ee90f506507bad284afd",
+      "bytes": 1445575
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/18:45719025-45735024?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T08:59:52.614333+00:00",
+      "sha256": "b8c383e510fc8e2b9ef68182fb37893849daed700027c34ba0d2acdfac30b542",
+      "bytes": 1440121
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/18:45735025-45751024?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T09:00:27.460384+00:00",
+      "sha256": "56360fa9d58c08184dc7f8faaafb556e9d0dd4db76fb16c212d0369ca3c3f51a",
+      "bytes": 1407919
+    },
+    {
+      "url": "https://rest.ensembl.org/overlap/region/homo_sapiens/18:45751025-45752521?feature=variation&content-type=application%2Fjson",
+      "retrieved_at": "2026-10-21T09:01:37.619177+00:00",
+      "sha256": "853c2a751f353330aac5e4dc04defd2651f9b4555825c87d550947a743e55dfa",
+      "bytes": 139771
+    }
+  ],
+  "files": [
+    {
+      "path": "KEL/reference.fasta",
+      "sha256": "a1a1d2c896aa4eca8515a808928110f9ef9db3d448b692d43286413ce672a53a",
+      "bytes": 21784
+    },
+    {
+      "path": "KEL/gene.json",
+      "sha256": "318dcb06986ba2ea8c87f7cfa490d55137e9632a031f02bca9a8af56c2319388",
+      "bytes": 728
+    },
+    {
+      "path": "KEL/variants.vcf",
+      "sha256": "f577b0888981097698598eef600559a3d4ab2da4909e270a6a7a47f7119980cf",
+      "bytes": 17426
+    },
+    {
+      "path": "SLC14A1/reference.fasta",
+      "sha256": "9fc3dbd162c9d667d5cb6dd66a9202460526c4f591164eb7f19b46c26fe4a4c9",
+      "bytes": 66579
+    },
+    {
+      "path": "SLC14A1/gene.json",
+      "sha256": "9e7c6494abdb67f282df7b1255a876bb247a24fc7e6dcbd6ae869550ad738dcb",
+      "bytes": 735
+    },
+    {
+      "path": "SLC14A1/variants.vcf",
+      "sha256": "755aceea4931eab81851f8f6008c98b1e43940e72e7d119e9690b16ae0476583",
+      "bytes": 17455
+    },
+    {
+      "path": "anchor_markers.json",
+      "sha256": "468368d5beabef27ab3e42b0ac7621b0bfc9dc6b50e09b7d8e1db2f818445a91",
+      "bytes": 1002
+    },
+    {
+      "path": "sequence_pairs.jsonl",
+      "sha256": "fdaf60602ef6799e6a8aea207cd098b51fbc63f9579ab09f8f037d54a055a628",
+      "bytes": 1145977
+    },
+    {
+      "path": "variants.csv",
+      "sha256": "8557e3a0b6f8daa2fe78b1d54e23350858b432993a318a8c2061c4f174e6b722",
+      "bytes": 80078
+    },
+    {
+      "path": "examples.json",
+      "sha256": "6df3324848ec84710a144861b48f205fee90fe364820be38904bfc83922172a3",
+      "bytes": 6279
+    }
+  ],
+  "limitations": [
+    "Public reference/variant records, not donor sequences or verified antigen phenotypes.",
+    "Consequence annotations are source metadata, not clinical labels or Evo 2 predictions.",
+    "Alternate windows are derived in silico from reported alleles; no donor haplotype is reconstructed.",
+    "Each retained variant has a reference allele checked against the downloaded forward GRCh38 window.",
+    "Preparation splits support software development; this is not a clinically validated benchmark."
+  ]
+}

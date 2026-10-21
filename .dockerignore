@@ -1,5 +1,7 @@
 .git
 .venv
+.cache
+.tmp-*
 node_modules
 dist
 data
