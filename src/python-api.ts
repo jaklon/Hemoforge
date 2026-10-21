@@ -2,6 +2,12 @@ import type { CultureForecast, ForecastHorizon } from "./culture-forecast"
 import type { Measurement } from "./culture-monitoring"
 import type { ExperimentRow } from "./workspace-data"
 import type { fitExperimentPlan } from "./experiment-model"
+import {
+  growthSettingsError,
+  planSettingsError,
+  type GrowthSettings,
+  type PlanSettings,
+} from "./research-settings"
 
 export interface PredictionEnvelope<T> {
   engine: string
@@ -70,29 +76,39 @@ export async function pythonHealth() {
 export function predictGrowth(
   samples: Measurement[],
   hour: number,
-  horizon: ForecastHorizon,
-  seed: number,
+  settings: GrowthSettings,
   sourceHash: string,
 ) {
+  const error = growthSettingsError(settings)
+  if (error) throw new PythonServiceError(error, 422)
   return request<PredictionEnvelope<CultureForecast>>("predict/growth", {
     samples: samples.map(({ hour, count, unit }) => ({ hour, count, unit })),
     as_of_hour: hour,
-    horizon,
-    seed,
+    horizon: settings.horizon,
+    seed: settings.seed,
+    path_count: settings.paths,
+    lookback_hours: settings.lookbackHours,
+    drift_override: settings.drift,
+    volatility_override: settings.volatility,
     source_hash: sourceHash,
   })
 }
 
 export function predictExperiments(
   rows: ExperimentRow[],
-  objective: "maximize" | "minimize",
+  settings: PlanSettings,
   sourceHash: string,
 ) {
+  const error = planSettingsError(settings)
+  if (error) throw new PythonServiceError(error, 422)
   return request<PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>>(
     "predict/experiments",
     {
       rows,
-      objective,
+      objective: settings.objective,
+      length_scale: settings.lengthScale,
+      noise_sd: settings.noise,
+      exploration: settings.exploration,
       source_hash: sourceHash,
     },
   )

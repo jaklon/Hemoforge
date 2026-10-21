@@ -1,4 +1,68 @@
-import type { ReactNode } from "react"
+import { useId, type ReactNode } from "react"
+
+export function NumberField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step = "any",
+  optional = false,
+  hint,
+  disabled = false,
+}: {
+  label: string
+  value: number | null
+  onChange: (value: number | null) => void
+  min?: number
+  max?: number
+  step?: number | "any"
+  optional?: boolean
+  hint?: string
+  disabled?: boolean
+}) {
+  const id = useId()
+  const invalid =
+    value !== null &&
+    (!Number.isFinite(value) ||
+      (min !== undefined && value < min) ||
+      (max !== undefined && value > max) ||
+      (step === 1 && !Number.isInteger(value)))
+  return (
+    <label className="number-field" htmlFor={id}>
+      {label}
+      <input
+        id={id}
+        type="number"
+        value={value === null || !Number.isFinite(value) ? "" : value}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={hint || invalid ? `${id}-hint` : undefined}
+        onChange={(event) =>
+          onChange(
+            event.target.value === ""
+              ? optional
+                ? null
+                : NaN
+              : Number(event.target.value),
+          )
+        }
+      />
+      {(hint || invalid) && (
+        <small id={`${id}-hint`}>
+          {invalid
+            ? `Enter ${step === 1 ? "a whole number" : "a number"}${
+                min !== undefined ? ` ≥ ${min}` : ""
+              }${max !== undefined ? ` and ≤ ${max}` : ""}.`
+            : hint}
+        </small>
+      )}
+    </label>
+  )
+}
 
 export function Icon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {

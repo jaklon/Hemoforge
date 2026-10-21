@@ -1,1 +1,1 @@
-"""Shared Python prediction service for HemoGPT and Streamlit."""
+"""Python prediction service for the HemoGPT website."""

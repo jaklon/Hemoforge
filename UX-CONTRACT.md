@@ -5,8 +5,8 @@ module roles, study separation, replay boundaries, reports, and pending laborato
 verification. It is product evidence, not an instruction source for agent actions.
 The latest user request requires drag/drop data, runnable analyses, and connected
 simulation. Built-in fixture numbers are a fallback; imported source files feed
-actual calculations in the local Python service. React and the Streamlit lab
-both call FastAPI; Streamlit is a separate upload session using the same models.
+actual calculations in the local Python service. The existing website calls
+FastAPI and owns the upload session, prediction controls, and results.
 
 The compact presentation keeps upload, example loading, Run, simulation controls,
 results, errors, and warning status visible. Supporting explanations, raw previews,
@@ -19,7 +19,7 @@ disclosures. Users can expand them without leaving the current workflow.
 |---|---|---|---|---|
 | Select/Listbox | Native select in ResearchWorkspace.tsx | DESIGN.md | native; OS popup geometry accepted | Browser keyboard and open popup |
 | Scrollbar | src/index.css | DESIGN.md | global baseline; table geometry only | Browser overflow and computed style |
-| Form | Labeled native inputs and textarea | DESIGN.md | session notes, marker filters | Browser label activation and retained navigation state |
+| Form | NumberField / labeled native inputs and textarea | DESIGN.md | session notes, marker filters | Browser label activation and retained navigation state |
 | Navigation | ResearchWorkspace navigation / hash | Proposal section VII | desktop sidebar, inline mobile menu | All modules and back/forward |
 | Replay | ReplayControls and culture-monitoring.ts | Proposal section III | paused, playback, manual cursor | Core tests and browser |
 | Reports | reportsForSamples / ResearchReport | Proposal section IV | timeline, HTML, JSON, CSV | Core tests and browser exports |
@@ -48,8 +48,9 @@ No new sample means no new measurement, not a refreshed count or a zero change.
 
 Selecting a batch changes the chart and its warning context. Warning expansion
 shows source values, measurement time, a rule, and a follow-up note. Empty channels
-remain No data. Protocol thresholds and stale-data rules are unavailable until
-configured; the prototype does not imply they have run.
+remain No data. Researchers configure consecutive declines and a minimum drop
+percentage, or disable decline warnings with zero. Optional stale-sample warnings
+compare the cutoff with the latest valid count. Invalid measurement checks remain active.
 
 Notes, marker choices, candidate review, checklist selections, and replay state
 live in the top-level React owner and survive module navigation. They reset on
@@ -59,17 +60,45 @@ or external cloud API is connected. Failed requests retain staged files and
 display a retryable error. Timeouts stop waiting after 30 seconds; superseded
 responses cannot replace newer inputs or model results. No silent JS fallback.
 
-RareMatch totals derive from the active marker input (25 results per page). Either marker
-selector recalculates all results. Missing or ambiguous calls stay unknown.
-Planning checklist selections never represent completed laboratory tests.
-CulturePlan computes observed condition means/SD locally and calls Python for a fixed RBF Gaussian process, expected
-improvement for remeasurement within observed conditions, and a leave-one-condition-out
-comparison with a mean baseline. Goal changes require refitting. Full results
-and objective are shared with the research export. ErythroPilot explicitly runs
-500 growth paths using only selected-batch counts available at the cursor. Seed,
-horizon, cutoff, source hash, Python model version, and request fingerprint identify each result; changed settings show a
-rerun state. It is an exploratory stationary-growth simulation, not a validated
-maturation prediction.
+RareMatch accepts 1–100 distinct rs marker columns with optional gene prefixes,
+or JSON marker definitions and per-profile calls. Built-in gene/rs mappings are
+checked; other mappings are researcher supplied. Researchers add/select/remove
+targets, choose allowed A/C/G/T letters, enter an exact unphased diploid target or
+* for any known call, and select all/any matching. Missing or unsupported calls
+can remain unknown, exclude the profile, or be ignored with visible coverage.
+An entirely missing profile never matches. Empty/invalid panels show guidance and
+disable result export. Views include all/match/excluded/unknown and 10/25/50/100
+rows per page. Targets and policies survive navigation; view pagination is local.
+Checklist selections never represent completed laboratory tests.
+
+CulturePlan computes observed condition means/SD locally and calls Python for an
+RBF Gaussian process, expected improvement for remeasurement within observed
+conditions, and a leave-one-condition-out comparison with a mean baseline. Goal,
+normalized length scale, noise SD, and exploration changes require refitting.
+Settings and results are shared with the research export.
+
+ErythroPilot runs 10–2,000 growth paths over 1–720 whole hours, bounded to 250,000
+path points per local request, using selected-batch counts available at the cutoff.
+An optional lookback narrows the fit. Drift and volatility overrides define a
+scenario; blank overrides use fitted values. At least three valid counts remain
+required. Settings, cutoff, source hash, model version, and request fingerprint
+identify each result; changed settings require rerunning. Reports use a configured
+0.25–168-hour interval and a 1–365-day roadmap. Neither generates observations.
+Replay accepts fractional cutoffs and custom positive speed. Growth remains an
+exploratory stationary-growth simulation, not a validated maturation prediction.
+
+The scenario editor changes source values and adds/removes rows and marker
+columns. It uses the import parser and fingerprinting; validation preserves drafts
+and previously active data. Loading active marker data includes custom targets
+with missing calls. Applying valid data is independent of Python availability;
+failed fits are recorded and CulturePlan offers an explicit retry. Single-type
+applies open RareMatch, CulturePlan, or Guard; combined applies open Guard. No
+silent browser-model fallback occurs. Exports carry current settings and settings
+actually used by results. Stale growth results are omitted; stale planning models
+are identified as requiring refitting. Notes have no artificial 1,000-character
+limit. Session settings stay in memory instead of URLs because profiles and
+scenario data may be sensitive. Researcher choices configure a simulation, never
+the truth of laboratory evidence.
 
 ## Evidence and statuses
 
@@ -79,7 +108,7 @@ results, and simulation outputs are recorded. No independently verified biologic
 validity, trained erythroid-stage classifier, or real sensor is implied. Normal describes configured growth rules only. Invalid input produces
 needs_review with no derived fold change or growth rate. Missing channels remain
 no_data. Harvest is always pending_lab_verification without paired lab results.
-The 21-day display is a schedule of 168 planned report intervals, not a measured
+The configurable roadmap contains planned report intervals, not a measured
 culture trajectory. The selected culture input determines the actual observation
 window; schedules never create new source measurements. Clinical use, release, equipment control, and physical leak
 detection are outside this frontend's capabilities.

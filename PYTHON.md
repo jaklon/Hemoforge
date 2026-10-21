@@ -1,9 +1,8 @@
 # HemoGPT Python prediction service
 
-The React website and Streamlit lab both call the same local Python API. The
-website keeps its connected workflow; Streamlit is a separate workspace for
-uploading files and inspecting predictions. Their browser sessions do not share
-uploaded files automatically.
+Use the existing HemoGPT website for uploads, predictions, simulations, and
+results. Python runs behind it as a local API; there is no separate prediction
+interface or second upload session.
 
 ## Start on Windows
 
@@ -19,12 +18,11 @@ The existing Vite server uses port 8443. If it is stopped, run `npm run dev`.
 | Interface | Address |
 |---|---|
 | Website | http://localhost:8443/#data |
-| Streamlit lab | http://127.0.0.1:8501 |
 | API documentation | http://127.0.0.1:8000/docs |
 | API health | http://127.0.0.1:8000/api/health |
 
-The Python services bind to loopback. They have no authentication or database;
-keep them local. Logs are in `logs/` and do not contain prediction input bodies.
+The Python service binds to loopback. It has no authentication or database;
+keep it local. Logs are in `logs/` and do not contain prediction input bodies.
 
 ## Use it
 
@@ -35,10 +33,9 @@ simulation. CulturePlan fits experiment data through the Python API. Python
 connection errors keep staged inputs available for retry; no JavaScript fallback
 is presented as a Python prediction.
 
-Streamlit: choose Cell growth or Experiment response, upload CSV/TSV/JSON or keep
-the synthetic example selected, choose settings, and press Run prediction.
-Download the result as JSON. Changing the file or settings requires a new run.
-Examples are in `public/examples/` and can be downloaded from either interface.
+Download results from Research report as JSON or HTML. Changing prediction
+settings requires a new run. Examples are in `public/examples/` and can be
+downloaded from Data & runs.
 
 Culture columns: `batch_id, elapsed_hours, cell_count_million`. Counts use
 absolute millions of cells. Select one batch; its times must strictly increase.
@@ -63,8 +60,6 @@ must use identical settings. File limits: 2 MB and 10,000 rows.
 - `backend/models.py`: validated request schemas and data limits.
 - `backend/api.py`: HTTP routes and health check. Add future Python models here
   and call them through `src/python-api.ts`.
-- `streamlit_app.py`: upload, prediction, visualization, export. It calls the API;
-  it does not duplicate the model implementation.
 
 Results include engine, model version, UTC execution time, provided source-file
 hash, and a SHA-256 fingerprint of the actual request. A fingerprint identifies
@@ -73,16 +68,15 @@ validated harvest/maturation or clinical prediction. RareMatch remains a
 deterministic marker comparison in the website.
 
 Inputs are processed in memory on this computer. The API saves no datasets or
-model artifacts; browser and Streamlit session data reset when their sessions end.
+model artifacts; browser session data resets when the session ends.
 Export what you need before refreshing or restarting.
 
 ## Development and checks
 
-Run services in separate foreground terminals for development; Ctrl+C stops each:
+Run the Python service in a foreground terminal for development; Ctrl+C stops it:
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn backend.api:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend
-.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 ```
 
 Vite proxies `/api` to Python. After `npm run build`, the API also serves `dist/`
@@ -97,6 +91,4 @@ node node_modules/typescript/bin/tsc --noEmit
 npm run build
 ```
 
-Framework references: [Streamlit uploads](https://docs.streamlit.io/develop/api-reference/widgets/st.file_uploader),
-[Streamlit testing](https://docs.streamlit.io/develop/api-reference/app-testing/st.testing.v1.apptest),
-[FastAPI request validation](https://fastapi.tiangolo.com/tutorial/body/).
+Framework reference: [FastAPI request validation](https://fastapi.tiangolo.com/tutorial/body/).

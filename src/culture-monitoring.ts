@@ -1,4 +1,8 @@
 import { cultureMeasurements } from "./culture-data.ts"
+import {
+  defaultMonitoringSettings,
+  type MonitoringSettings,
+} from "./research-settings.ts"
 
 // shortcut: the inherited prototype numbers have no source manifest; verify a workbook before using them as research evidence.
 export const demoSource = {
@@ -38,7 +42,11 @@ export function batchMeasurements(replicate: number): Measurement[] {
   }))
 }
 
-export function analyzeMeasurements(samples: Measurement[], cursor: number) {
+export function analyzeMeasurements(
+  samples: Measurement[],
+  cursor: number,
+  settings: MonitoringSettings = defaultMonitoringSettings,
+) {
   const visible = samples.filter(
     (sample) => Number.isFinite(sample.hour) && sample.hour <= cursor,
   )
@@ -67,29 +75,55 @@ export function analyzeMeasurements(samples: Measurement[], cursor: number) {
       })
     } else {
       valid.push(sample)
-      const last = valid.length - 1
-      // Only adjacent, valid source rows may establish consecutive declines.
+      const window = visible.slice(
+        Math.max(0, index - settings.declineCount),
+        index + 1,
+      )
+      // Missing rows break a sequence; a warning must use adjacent source measurements.
       if (
-        index >= 2 &&
-        last >= 2 &&
-        visible[index - 1] === valid[last - 1] &&
-        visible[index - 2] === valid[last - 2] &&
-        sample.count! < valid[last - 1].count! &&
-        valid[last - 1].count! < valid[last - 2].count!
+        settings.declineCount > 0 &&
+        window.length === settings.declineCount + 1 &&
+        window.every((row) => valid.includes(row)) &&
+        window
+          .slice(1)
+          .every(
+            (row, i) =>
+              row.count! < window[i].count! &&
+              ((window[i].count! - row.count!) / window[i].count!) * 100 >=
+                settings.dropPercent,
+          )
       ) {
         events.push({
           id: `drop-${sample.hour}`,
           hour: sample.hour,
           variable: "cell_count",
           value: sample.count,
-          rule: "two_consecutive_declines",
+          rule:
+            settings.declineCount === 2 && settings.dropPercent === 0
+              ? "two_consecutive_declines"
+              : "configured_consecutive_declines",
           status: "warning",
-          reason: `${valid[last - 2].count!.toFixed(2)} → ${valid[last - 1].count!.toFixed(2)} → ${sample.count!.toFixed(2)} million cells at ${valid[last - 2].hour}, ${valid[last - 1].hour}, and ${sample.hour}h. Review source measurements and culture notes; this does not establish a cause.`,
+          reason: `${window.map((row) => row.count!.toFixed(2)).join(" → ")} million cells at ${window.map((row) => `${row.hour}h`).join(", ")}. ${settings.declineCount} successive declines of at least ${settings.dropPercent}%. Review source measurements and culture notes; this does not establish a cause.`,
         })
       }
     }
   }
   const latest = valid[valid.length - 1] ?? null
+  if (
+    settings.staleHours !== null &&
+    latest &&
+    cursor - latest.hour > settings.staleHours
+  ) {
+    events.push({
+      id: `stale-${latest.hour}`,
+      hour: cursor,
+      variable: "sample_age",
+      value: cursor - latest.hour,
+      rule: "configured_stale_sample",
+      status: "warning",
+      reason: `Last valid count is ${cursor - latest.hour}h old, beyond the configured ${settings.staleHours}h limit.`,
+    })
+  }
   const previous = valid[valid.length - 2] ?? null
   const hasIssue = events.some((event) => event.status === "needs_review")
   const canDerive = !hasIssue && latest !== null

@@ -5,6 +5,8 @@ import {
   parseInput,
   type DataKind,
   type InputFile,
+  type CultureRow,
+  type MarkerRow,
 } from "./workspace-data"
 import { Button, Panel, Badge, PageTitle, Icon, Details } from "./workspace-ui"
 import { downloadFile } from "./workspace-utils"
@@ -13,8 +15,13 @@ const kindNames: Record<DataKind, string> = {
   experiments: "Experiment results",
   markers: "Genetic marker calls",
 }
-export default function DataWorkspace({ onRun }: { onRun: () => void }) {
+export default function DataWorkspace({
+  onRun,
+}: {
+  onRun: (kind?: DataKind) => void
+}) {
   const workspace = useWorkspace()
+  const { editor, setEditor } = workspace
   const inputRef = useRef<HTMLInputElement>(null)
   const generation = useRef(0)
   const [staged, setStaged] = useState<InputFile[]>([])
@@ -85,7 +92,7 @@ export default function DataWorkspace({ onRun }: { onRun: () => void }) {
     try {
       await workspace.apply(staged)
       setStaged([])
-      onRun()
+      onRun(staged.length === 1 ? staged[0].kind : undefined)
     } catch (error) {
       setErrors([
         error instanceof Error
@@ -118,7 +125,7 @@ export default function DataWorkspace({ onRun }: { onRun: () => void }) {
     <>
       <PageTitle
         title="Data & runs"
-        description="Upload data or try an example, then run."
+        description="Import data, edit a scenario, or start from an example."
         action={
           <div className="header-actions">
             <Badge
@@ -141,17 +148,149 @@ export default function DataWorkspace({ onRun }: { onRun: () => void }) {
                 Retry
               </Button>
             )}
-            <a
-              className="button"
-              href="http://127.0.0.1:8501"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Python lab ↗
-            </a>
           </div>
         }
       />
+      <Panel
+        title="Scenario editor"
+        caption="Change sample IDs, marker columns, cell counts, environment values, factor levels, responses, and replicate rows."
+      >
+        <div className="settings-grid panel-note">
+          <label>
+            Data type
+            <select
+              value={editor.kind}
+              disabled={busy || running}
+              onChange={(event) =>
+                setEditor({ ...editor, kind: event.target.value as DataKind })
+              }
+            >
+              {(Object.keys(kindNames) as DataKind[]).map((kind) => (
+                <option key={kind} value={kind}>
+                  {kindNames[kind]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Scenario filename
+            <input
+              value={editor.name}
+              disabled={busy || running}
+              onChange={(event) =>
+                setEditor({ ...editor, name: event.target.value })
+              }
+            />
+          </label>
+        </div>
+        <div className="run-actions">
+          <Button
+            disabled={busy || running}
+            onClick={() => {
+              const file =
+                staged.find((file) => file.kind === editor.kind) ??
+                workspace.inputs[editor.kind]
+              const markers =
+                file.kind === "markers"
+                  ? [
+                      ...new Map(
+                        [
+                          ...(file.markers ?? []),
+                          ...workspace.markerSettings.targets,
+                        ].map(({ gene, rsId, alleles }) => [
+                          rsId,
+                          { gene, rsId, alleles },
+                        ]),
+                      ).values(),
+                    ]
+                  : undefined
+              const rows =
+                file.kind === "culture"
+                  ? (file.rows as CultureRow[]).map((row) => ({
+                      batch_id: row.batch_id,
+                      cell_line: row.cell_line,
+                      elapsed_hours: row.hour,
+                      cell_count_million: row.count,
+                      ...row.channels,
+                    }))
+                  : markers
+                    ? (file.rows as MarkerRow[]).map((row) => ({
+                        ...row,
+                        calls: Object.fromEntries(
+                          markers.map((marker) => [
+                            marker.rsId,
+                            row.calls[marker.rsId] ?? "./.",
+                          ]),
+                        ),
+                      }))
+                    : file.rows
+              setEditor({
+                ...editor,
+                name: `researcher-${editor.kind}.json`,
+                text: JSON.stringify(
+                  { ...(markers ? { markers } : {}), rows },
+                  null,
+                  2,
+                ),
+              })
+            }}
+          >
+            Load active data into editor
+          </Button>
+          <Button
+            disabled={busy || running}
+            onClick={() =>
+              setEditor({
+                ...editor,
+                text: exampleFiles[editor.kind],
+                name: `researcher-${editor.kind}.csv`,
+              })
+            }
+          >
+            Load example into editor
+          </Button>
+        </div>
+        <label className="scenario-editor">
+          Scenario data (CSV, TSV, or JSON)
+          <textarea
+            className="resize-none"
+            spellCheck={false}
+            disabled={busy || running}
+            value={editor.text}
+            onChange={(event) =>
+              setEditor({ ...editor, text: event.target.value })
+            }
+            placeholder="Load active data or an example, then edit any value or add/remove rows."
+          />
+        </label>
+        <div className="run-actions">
+          <Button
+            primary
+            disabled={
+              busy || running || !editor.text.trim() || !editor.name.trim()
+            }
+            onClick={() =>
+              void readFiles([new File([editor.text], editor.name)])
+            }
+          >
+            Validate & stage scenario
+          </Button>
+          <Button
+            icon="download"
+            disabled={!editor.text.trim() || !editor.name.trim()}
+            onClick={() =>
+              downloadFile(editor.name, editor.text, "text/plain;charset=utf-8")
+            }
+          >
+            Download scenario
+          </Button>
+        </div>
+        <p className="panel-note">
+          Edits become a researcher-supplied scenario. Validate and stage, then
+          apply below. Drafts and active inputs stay in this session; model
+          failures preserve applied data for correction and retry.
+        </p>
+      </Panel>
       <Panel
         title="Import data"
         caption="CSV, TSV, or JSON · up to 2 MB and 10,000 rows per file"
@@ -274,13 +413,19 @@ export default function DataWorkspace({ onRun }: { onRun: () => void }) {
             {running
               ? "Running analyses…"
               : staged.length
-                ? "Run imported data"
+                ? "Apply staged data"
                 : "Run current workspace"}
           </Button>
           <span>
             {staged.length
               ? `${staged.length} files ready`
               : "Using active inputs"}
+            {workspace.run?.planError && (
+              <span role="status">
+                Data applied. CulturePlan needs a new fit:{" "}
+                {workspace.run.planError}
+              </span>
+            )}
           </span>
         </div>
       </Panel>
@@ -391,10 +536,13 @@ export default function DataWorkspace({ onRun }: { onRun: () => void }) {
             . One row per replicate. Keep the same response unit throughout.
           </p>
           <p>
-            <b>Markers:</b>{" "}
-            <code>sample_id, kel_rs8176058, slc14a1_rs1058396</code>. Calls such
-            as G/G, G/A, A/A; blank or ambiguous calls become unknown. These are
-            marker comparisons, not clinical blood matching.
+            <b>Markers:</b> <code>sample_id</code> plus any number of{" "}
+            <code>GENE_rs123</code> or <code>rs123</code> columns. Calls use
+            A/C/G/T pairs such as G/G, A/G, C/T, or phased A|G. JSON can supply
+            a <code>markers</code> array with gene, rsId, and alleles, plus rows
+            with a calls object. Missing or unsupported calls follow your
+            selected screening rule. These are marker comparisons, not clinical
+            blood matching.
           </p>
         </div>
         <p>

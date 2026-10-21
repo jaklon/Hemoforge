@@ -14,6 +14,7 @@ import {
 } from "./workspace-data.ts"
 import { fitExperimentPlan, conditionSummary } from "./experiment-model.ts"
 import { simulateMeasurementsForecast } from "./culture-forecast.ts"
+import { defaultMarkerSettings } from "./marker-screening.ts"
 const file = (kind: keyof typeof exampleFiles): InputFile => ({
   ...parseInput(exampleFiles[kind], "example.csv"),
   name: `${kind}.csv`,
@@ -137,11 +138,116 @@ test("uploaded marker rows normalize phased calls and never match unknown genoty
     "sample_id,kel_rs8176058,slc14a1_rs1058396\nS,A|G,G/G\nT,./.,G/G\n",
     "calls.csv",
   )
-  const rows = filterMarkers(input.rows as MarkerRow[], "G/A", "G/G")
+  const rows = filterMarkers(input.rows as MarkerRow[], defaultMarkerSettings)
   assert.equal(rows[0].status, "match")
   assert.equal(rows[1].status, "unknown")
   assert.equal(
-    filterMarkers(input.rows as MarkerRow[], "A/A", "G/G")[0].status,
+    filterMarkers(input.rows as MarkerRow[], {
+      ...defaultMarkerSettings,
+      targets: defaultMarkerSettings.targets.map((target, i) =>
+        i ? target : { ...target, genotype: "A/A" },
+      ),
+    })[0].status,
     "excluded",
+  )
+})
+
+test("marker imports accept arbitrary rs columns, sparse calls, and explicit JSON mappings", () => {
+  const input = parseInput(
+    "sample_id,ACKR1_rs12075,rs99999\nS,A|G,C/T\nT,,T/C",
+    "custom.csv",
+  )
+  assert.deepEqual(
+    input.markers?.map((marker) => marker.rsId),
+    ["rs12075", "rs99999"],
+  )
+  const settings = {
+    ...defaultMarkerSettings,
+    targets: input.markers!.map((marker) => ({
+      ...marker,
+      genotype: marker.rsId === "rs12075" ? "G/A" : "T/C",
+    })),
+  }
+  const results = filterMarkers(input.rows as MarkerRow[], settings)
+  assert.equal(results[0].status, "match")
+  assert.equal(results[1].status, "unknown")
+  const roundTrip = parseInput(
+    JSON.stringify({ markers: input.markers, rows: input.rows }),
+    "custom.json",
+  )
+  assert.deepEqual(roundTrip, input)
+  assert.throws(
+    () => parseInput("sample_id,WRONG_rs8176058\nS,A/G", "wrong.csv"),
+    /belongs to KEL/,
+  )
+  assert.throws(
+    () =>
+      parseInput(
+        "sample_id,KEL_rs8176058,rs8176058\nS,A/G,G/G",
+        "duplicate.csv",
+      ),
+    /duplicate marker/,
+  )
+})
+
+test("configurable marker rules retain coverage and never match all-missing profiles", () => {
+  const rows: MarkerRow[] = [
+    { sample_id: "partial", calls: { rs8176058: "A/G" } },
+    { sample_id: "empty", calls: {} },
+  ]
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, missing: "ignore" })[0]
+      .status,
+    "match",
+  )
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, missing: "ignore" })[1]
+      .status,
+    "unknown",
+  )
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, missing: "exclude" })[0]
+      .status,
+    "excluded",
+  )
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, mode: "any" })[0].status,
+    "match",
+  )
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, targets: [] })[0].status,
+    "unknown",
+  )
+  assert.equal(
+    filterMarkers(rows, { ...defaultMarkerSettings, missing: "ignore" })[0]
+      .checkedMarkers,
+    1,
+  )
+})
+
+test("report intervals and monitoring rules change actual summaries without future leakage", () => {
+  const input = file("culture")
+  const samples = getBatches(input)[0].measurements
+  const reports = reportsForSamples(samples, 120, "B", input, "test", 12, {
+    declineCount: 0,
+    dropPercent: 0,
+    staleHours: 6,
+  })
+  assert.equal(reports.length, 10)
+  assert.deepEqual(reports[0].data_window, { from_hour: 0, through_hour: 12 })
+  assert.ok(
+    reports[0].open_warnings.some(
+      (event) => event.rule === "configured_stale_sample",
+    ),
+  )
+  assert.ok(
+    !reports
+      .at(-1)!
+      .open_warnings.some((event) => event.rule.includes("declines")),
+  )
+  assert.equal(reports.at(-1)!.last_count, 3.31)
+  assert.throws(
+    () => reportsForSamples(samples, 120, "B", input, "test", 0),
+    /interval/,
   )
 })

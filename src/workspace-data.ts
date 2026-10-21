@@ -3,6 +3,22 @@ import { cultureMeasurements } from "./culture-data.ts"
 import { doeConditions } from "./culture-doe.ts"
 
 import {
+  builtInMarkers,
+  normalizeCall,
+  type MarkerDefinition,
+  type MarkerRow,
+} from "./marker-screening.ts"
+
+import {
+  defaultMonitoringSettings,
+  type MonitoringSettings,
+} from "./research-settings.ts"
+
+export { filterMarkers } from "./marker-screening.ts"
+
+export type { MarkerRow } from "./marker-screening.ts"
+
+import {
   screeningProfiles,
   analyzeMeasurements,
   type Measurement,
@@ -30,14 +46,6 @@ export interface ExperimentRow {
   response_unit: string
 }
 
-export interface MarkerRow {
-  sample_id: string
-
-  kel: string
-
-  slc: string
-}
-
 export interface InputFile {
   kind: DataKind
 
@@ -50,6 +58,8 @@ export interface InputFile {
   evidence: "software_test_only" | "user_supplied"
 
   rows: (CultureRow | ExperimentRow | MarkerRow)[]
+
+  markers?: MarkerDefinition[]
 }
 
 export interface WorkspaceInputs {
@@ -101,6 +111,8 @@ const fixtureFile = (kind: DataKind, rows: InputFile["rows"]): InputFile => ({
   loaded_at: "",
 
   evidence: "software_test_only",
+
+  ...(kind === "markers" ? { markers: builtInMarkers } : {}),
 })
 
 export const initialInputs: WorkspaceInputs = {
@@ -146,9 +158,7 @@ export const initialInputs: WorkspaceInputs = {
     screeningProfiles.map((row) => ({
       sample_id: row.id,
 
-      kel: row.kel,
-
-      slc: row.slc,
+      calls: { rs8176058: row.kel, rs1058396: row.slc },
     })),
   ),
 }
@@ -264,8 +274,10 @@ export function parseInput(
   text: string,
 
   name: string,
-): Pick<InputFile, "kind" | "rows"> {
+): Pick<InputFile, "kind" | "rows" | "markers"> {
   let objects: Record<string, unknown>[]
+
+  let markerDefinitions: MarkerDefinition[] | undefined
 
   if (/\.json$/i.test(name)) {
     const json = JSON.parse(text)
@@ -287,6 +299,50 @@ export function parseInput(
         Object.entries(row).map(([key, value]) => [header(key), value]),
       ),
     )
+
+    if (!Array.isArray(json) && json.markers !== undefined) {
+      if (!Array.isArray(json.markers))
+        throw new Error(
+          "markers must be an array of gene / rsId / alleles definitions.",
+        )
+
+      markerDefinitions = json.markers.map((marker: MarkerDefinition) => {
+        if (
+          !marker ||
+          typeof marker.gene !== "string" ||
+          !/^rs[1-9]\d*$/i.test(marker.rsId) ||
+          !Array.isArray(marker.alleles) ||
+          !marker.alleles.length ||
+          marker.alleles.some(
+            (a) => typeof a !== "string" || !/^[ACGT]$/i.test(a),
+          )
+        )
+          throw new Error(
+            "Each marker needs a gene label, valid rsId, and allowed A/C/G/T alleles.",
+          )
+
+        const rsId = marker.rsId.toLowerCase()
+
+        const gene = marker.gene.trim().toUpperCase()
+
+        const known = builtInMarkers.find((entry) => entry.rsId === rsId)
+
+        if (known && gene !== known.gene)
+          throw new Error(`${rsId} belongs to ${known.gene}.`)
+
+        return {
+          gene,
+          rsId,
+          alleles: [...new Set(marker.alleles.map((a) => a.toUpperCase()))],
+        }
+      })
+
+      if (
+        new Set(markerDefinitions!.map((marker) => marker.rsId)).size !==
+        markerDefinitions!.length
+      )
+        throw new Error("Marker rs IDs must be unique.")
+    }
   } else {
     const table = parseDelimited(text, /\.tsv$/i.test(name) ? "\t" : ",")
 
@@ -399,9 +455,7 @@ export function parseInput(
         batch_id: id(row.batch_id, `${line} batch_id`),
 
         cell_line:
-          typeof row.cell_line === "string"
-            ? row.cell_line.slice(0, 120)
-            : "Not specified",
+          typeof row.cell_line === "string" ? row.cell_line : "Not specified",
 
         hour,
 
@@ -474,33 +528,67 @@ export function parseInput(
     )
       throw new Error("All experimental responses must use the same unit.")
   } else {
-    const call = (value: unknown) => {
-      const text = String(value ?? "./.")
+    const keys = [
+      ...new Set(objects.flatMap((row) => Object.keys(row))),
+    ].filter((key) => /^(?:.+_)?rs[1-9]\d*$/.test(key))
 
-        .trim()
+    if (!markerDefinitions)
+      markerDefinitions = keys.map((key) => {
+        const match = key.match(/^(?:(.+)_)?(rs[1-9]\d*)$/)!
 
-        .toUpperCase()
+        const rsId = match[2]
 
-        .replace(/\|/g, "/")
+        const known = builtInMarkers.find((marker) => marker.rsId === rsId)
 
-      return text === "A/G" ? "G/A" : text
-    }
+        const gene = match[1]?.toUpperCase() ?? known?.gene ?? ""
+
+        if (known && gene !== known.gene)
+          throw new Error(
+            `${rsId} belongs to ${known.gene}; correct the column header.`,
+          )
+
+        return { gene, rsId, alleles: known?.alleles ?? ["A", "C", "G", "T"] }
+      })
+
+    if (!markerDefinitions.length)
+      throw new Error(
+        "Include at least one marker column such as KEL_rs8176058 or rs8176058.",
+      )
+
+    if (markerDefinitions.length > 100)
+      throw new Error("Use at most 100 markers per local panel.")
+
+    if (
+      new Set(markerDefinitions.map((marker) => marker.rsId)).size !==
+      markerDefinitions.length
+    )
+      throw new Error(
+        "Use one column per rs ID; duplicate marker columns are ambiguous.",
+      )
 
     rows = objects.map((row, index) => ({
       sample_id: id(row.sample_id, `Row ${index + 2} sample_id`),
 
-      kel: call(row.kel_rs8176058),
+      calls: Object.fromEntries(
+        markerDefinitions!.map((marker) => {
+          const key = keys.find(
+            (key) => key === marker.rsId || key.endsWith(`_${marker.rsId}`),
+          )
 
-      slc: call(row.slc14a1_rs1058396),
+          const calls =
+            row.calls &&
+            typeof row.calls === "object" &&
+            !Array.isArray(row.calls)
+              ? row.calls as Record<string, unknown>
+              : {}
+
+          return [
+            marker.rsId,
+            normalizeCall(key ? row[key] : calls[marker.rsId]),
+          ]
+        }),
+      ),
     }))
-
-    if (
-      !Object.prototype.hasOwnProperty.call(first, "kel_rs8176058") ||
-      !Object.prototype.hasOwnProperty.call(first, "slc14a1_rs1058396")
-    )
-      throw new Error(
-        "Marker files need kel_rs8176058 and slc14a1_rs1058396 columns.",
-      )
 
     if (
       new Set((rows as MarkerRow[]).map((row) => row.sample_id)).size !==
@@ -509,7 +597,11 @@ export function parseInput(
       throw new Error("Marker sample_id values must be unique.")
   }
 
-  return { kind, rows }
+  return {
+    kind,
+    rows,
+    ...(kind === "markers" ? { markers: markerDefinitions } : {}),
+  }
 }
 
 export function getBatches(file: InputFile) {
@@ -542,17 +634,26 @@ export function reportsForSamples(
   source: InputFile,
 
   generatedAt = new Date().toISOString(),
+
+  interval = 3,
+
+  monitoring: MonitoringSettings = defaultMonitoringSettings,
 ) {
+  if (!Number.isFinite(interval) || interval < 0.25 || interval > 168)
+    throw new Error("Report interval must be between 0.25 and 168 hours.")
+
   const end = Math.min(cursor, samples.at(-1)?.hour ?? 0)
 
-  return Array.from({ length: Math.floor(end / 3) }, (_, i) => {
-    const hour = (i + 1) * 3
+  return Array.from({ length: Math.floor(end / interval) }, (_, i) => {
+    const hour = (i + 1) * interval
 
-    const current = analyzeMeasurements(samples, hour)
+    const current = analyzeMeasurements(samples, hour, monitoring)
 
-    const prior = analyzeMeasurements(samples, hour - 3)
+    const prior = analyzeMeasurements(samples, hour - interval, monitoring)
 
-    const fresh = current.visible.filter((sample) => sample.hour > hour - 3)
+    const fresh = current.visible.filter(
+      (sample) => sample.hour > hour - interval,
+    )
 
     const change =
       fresh.length &&
@@ -567,7 +668,7 @@ export function reportsForSamples(
 
       checkpoint_hour: hour,
 
-      data_window: { from_hour: hour - 3, through_hour: hour },
+      data_window: { from_hour: hour - interval, through_hour: hour },
 
       batch_id: batchId,
 
@@ -606,21 +707,4 @@ export function reportsForSamples(
         : "Await the next source measurement; no equipment action is inferred.",
     }
   })
-}
-
-export function filterMarkers(rows: MarkerRow[], kel: string, slc: string) {
-  const known = (call: string) => ["G/G", "G/A", "A/A"].includes(call)
-
-  return rows.map((row) => ({
-    id: row.sample_id,
-
-    ...row,
-
-    status:
-      !known(row.kel) || !known(row.slc)
-        ? "unknown"
-        : row.kel === kel && row.slc === slc
-          ? "match"
-          : "excluded",
-  }))
 }

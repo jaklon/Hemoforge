@@ -249,9 +249,27 @@ td strong { font-weight: 550; }
 .effect-grid span { font-size: var(--text-caption); }
 .effect-grid strong { display: block; font-size: var(--text-section); font-weight: 550; color: #334155; margin: 5px 0; }
 .marker-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-.marker-controls label { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 18px; font-weight: 550; font-size: var(--text-md); }
+.marker-controls label { display: block; font-weight: 550; font-size: var(--text-caption); }
 .marker-controls select { display: block; width: 100%; margin: 10px 0 7px; }
 .marker-controls small { color: var(--muted); font-size: var(--text-xs); font-weight: 400; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px; align-items: start; }
+.settings-grid label, .number-field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: var(--text-caption); min-width: 0; }
+.settings-grid input, .marker-card input, .speed-select input, .replay-precise input { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 5px; background: var(--surface); color: var(--navy); }
+.settings-grid small, .number-field small { font-size: var(--text-xs); font-weight: 400; }
+input[aria-invalid="true"] { border-color: var(--red); }
+.marker-controls { padding: 18px; margin: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.marker-card { min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 12px; }
+.marker-card legend { color: var(--navy); font-weight: 600; padding: 0 5px; }
+.marker-card select { margin: 6px 0 0; }
+.marker-card input { margin-top: 6px; }
+.marker-card .button { justify-self: start; }
+.custom-marker-form { padding: 18px; border-top: 1px solid var(--line); }
+.custom-marker-form .panel-note { padding: 12px 0; border: 0; }
+.scenario-editor { display: block; padding: 0 18px; font-size: var(--text-caption); color: var(--muted); }
+.scenario-editor textarea { margin-top: 8px; min-height: 280px; font-family: var(--font-mono, monospace); white-space: pre; overflow: auto; }
+.replay-precise { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--text-xs); }
+.replay-precise input { width: 120px; }
+.context-strip a { margin-left: auto; }
 .screening-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 0 0 20px; color: #526174; font-size: var(--text-caption); }
 .screening-stats b { font-size: var(--text-section); font-weight: 550; color: #172033; margin-right: 7px; }
 .table-filter { padding: 15px 18px 5px; }

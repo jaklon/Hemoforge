@@ -13,11 +13,18 @@ import {
 
 import { fitExperimentPlan, conditionSummary } from "./experiment-model"
 
-import { Button, Panel, Badge, PageTitle, Details } from "./workspace-ui"
+import {
+  Button,
+  Panel,
+  Badge,
+  PageTitle,
+  Details,
+  NumberField,
+} from "./workspace-ui"
 
 import { csv, downloadFile } from "./workspace-utils"
 
-import type { ForecastHorizon } from "./culture-forecast"
+import { growthSettingsError, planSettingsError } from "./research-settings"
 
 export function SimulationPanel({
   replicate,
@@ -28,37 +35,47 @@ export function SimulationPanel({
 
   hour: number
 }) {
-  const { simulate, simulation } = useWorkspace()
+  const {
+    simulate,
+    simulation,
+    growthSettings: settings,
+    setGrowthSettings: setSettings,
+  } = useWorkspace()
 
-  const { batchMeasurements, batchId, source } = useCultureData()
+  const { batchMeasurements, batchId, source, analyze } = useCultureData()
 
-  const [horizon, setHorizon] = useState<ForecastHorizon>(
-    simulation?.horizon ?? 72,
-  )
-
-  const [seed, setSeed] = useState(simulation?.result.seed ?? 42)
+  const { horizon, seed } = settings
 
   const [error, setError] = useState("")
+
   const [predicting, setPredicting] = useState(false)
 
   const samples = batchMeasurements(replicate)
 
-  const state = analyzeMeasurements(samples, hour)
+  const state = analyze(samples, hour)
+
+  const settingError = growthSettingsError(settings)
+
+  const fitState = analyze(
+    samples.filter(
+      (sample) =>
+        settings.lookbackHours === null ||
+        sample.hour >= hour - settings.lookbackHours,
+    ),
+    hour,
+  )
 
   const blocked =
-    state.valid.length < 3 ||
-    state.status === "needs_review" ||
-    !Number.isInteger(seed) ||
-    seed < 0 ||
-    seed > 2147483647
+    fitState.valid.length < 3 ||
+    fitState.status === "needs_review" ||
+    !!settingError
 
   const current =
     simulation &&
     simulation.batchId === batchId(replicate) &&
     simulation.sourceHash === source.sha256 &&
     simulation.result.fromHour === hour &&
-    simulation.horizon === horizon &&
-    simulation.result.seed === seed
+    JSON.stringify(simulation.settings) === JSON.stringify(settings)
       ? simulation
       : null
 
@@ -113,46 +130,45 @@ export function SimulationPanel({
   return (
     <Panel title="Simulate future growth">
       <div className="simulation-controls">
-        <label>
-          Future period
-          <select
-            value={horizon}
-            disabled={predicting}
-            onChange={(event) =>
-              setHorizon(Number(event.target.value) as ForecastHorizon)
-            }
-          >
-            <option value="24">24 hours</option>
-            <option value="48">48 hours</option>
-            <option value="72">72 hours</option>
-          </select>
-        </label>
-        <label>
-          Random seed
-          <input
-            type="number"
-            disabled={predicting}
-            min="0"
-            max="2147483647"
-            step="1"
-            value={Number.isNaN(seed) ? "" : seed}
-            onChange={(event) =>
-              setSeed(
-                event.target.value === "" ? NaN : Number(event.target.value),
-              )
-            }
-          />
-        </label>
+        <NumberField
+          label="Future period (hours)"
+          value={horizon}
+          onChange={(value) => setSettings({ ...settings, horizon: value! })}
+          min={1}
+          max={720}
+          step={1}
+          disabled={predicting}
+        />
+        <NumberField
+          label="Simulation paths"
+          value={settings.paths}
+          onChange={(value) => setSettings({ ...settings, paths: value! })}
+          min={10}
+          max={2000}
+          step={1}
+          disabled={predicting}
+        />
+        <NumberField
+          label="Random seed"
+          value={seed}
+          onChange={(value) => setSettings({ ...settings, seed: value! })}
+          min={0}
+          max={2147483647}
+          step={1}
+          disabled={predicting}
+        />
         <Button
           primary
           disabled={blocked || predicting}
           onClick={async () => {
             if (predicting) return
+
             setPredicting(true)
+
             setError("")
 
             try {
-              await simulate(replicate, hour, horizon, seed)
+              await simulate(replicate, hour, { ...settings })
             } catch (failure) {
               setError(
                 failure instanceof Error
@@ -167,10 +183,52 @@ export function SimulationPanel({
           {predicting ? "Running in Python…" : "Run growth simulation"}
         </Button>
       </div>
+      <Details title="Growth assumptions & fitting window">
+        <div className="settings-grid">
+          <NumberField
+            label="Lookback window (hours)"
+            value={settings.lookbackHours}
+            optional
+            min={0.01}
+            max={100000}
+            disabled={predicting}
+            hint="Blank uses all samples available at the replay cutoff."
+            onChange={(value) =>
+              setSettings({ ...settings, lookbackHours: value })
+            }
+          />
+          <NumberField
+            label="Log-growth rate override (per hour)"
+            value={settings.drift}
+            optional
+            min={-1}
+            max={1}
+            disabled={predicting}
+            hint="Blank fits from data. An override creates a researcher-defined scenario."
+            onChange={(value) => setSettings({ ...settings, drift: value })}
+          />
+          <NumberField
+            label="Volatility override (per √hour)"
+            value={settings.volatility}
+            optional
+            min={0}
+            max={2}
+            disabled={predicting}
+            hint="Blank fits from data; 0 produces deterministic growth."
+            onChange={(value) =>
+              setSettings({ ...settings, volatility: value })
+            }
+          />
+        </div>
+        <p>
+          Local runs support at most 250,000 path points. Change the path count
+          or period to adjust the workload.
+        </p>
+      </Details>
       {blocked && (
-        <p className="panel-note">
-          Needs 3 valid samples and an integer seed (0–2147483647). Advance
-          replay if needed.
+        <p className="panel-note" role="status">
+          {settingError ||
+            "Needs 3 valid samples in the chosen window. Review invalid counts, advance replay, or widen the lookback."}
         </p>
       )}
       {error && (
@@ -204,7 +262,7 @@ export function SimulationPanel({
             className="simulation-chart"
             viewBox={`0 0 ${width} 265`}
             role="img"
-            aria-label={`500 simulated growth paths from ${hour}h, using only ${result.measurementCount} source samples. Dashed median and shaded 95 percent range.`}
+            aria-label={`${result.simulationCount} simulated growth paths from ${hour}h, using only ${result.measurementCount} source samples. Up to 24 paths shown; all paths contribute to the median and 95 percent range.`}
           >
             <text x="58" y="24">
               Cell count · ×10⁶
@@ -309,17 +367,18 @@ export function SimulationPanel({
           </p>
         )}
         <p>
-          Changing input, time, horizon, or seed requires a new run. Later
+          Changing input, time, or any growth setting requires a new run. Later
           recorded samples are excluded. Results are included in the JSON/HTML
           export.
         </p>
         <p>
           The model estimates average log growth and variability from the counts
-          available at the selected hour, then draws 500 positive random paths.
-          It assumes those growth patterns continue. Feeding, contamination,
-          interventions, and maturation are not modeled. Simulated intervals
-          have no demonstrated predictive coverage. This is a working
-          mathematical simulation, not a validated harvest forecast.
+          available in the fitting window, then draws {settings.paths} positive
+          random paths. Rate and volatility overrides define a scenario instead
+          of using the fitted values. It assumes those growth patterns continue.
+          Feeding, contamination, interventions, and maturation are not modeled.
+          Simulated intervals have no demonstrated predictive coverage. This is
+          a working mathematical simulation, not a validated harvest forecast.
         </p>
       </Details>
     </Panel>
@@ -330,12 +389,20 @@ export function ExperimentPlanner({
   candidate,
 
   setCandidate,
+  onEditData,
 }: {
   candidate: number | null
 
   setCandidate: (value: number) => void
+  onEditData: () => void
 }) {
-  const { inputs, run, refitPlan } = useWorkspace()
+  const {
+    inputs,
+    run,
+    refitPlan,
+    planSettings: settings,
+    setPlanSettings: setSettings,
+  } = useWorkspace()
 
   const source = inputs.experiments
 
@@ -343,9 +410,9 @@ export function ExperimentPlanner({
 
   const summary = conditionSummary(rows)
 
-  const [objective, setObjective] = useState<"maximize" | "minimize">(
-    run?.plan?.objective ?? "maximize",
-  )
+  const objective = settings.objective
+
+  const settingError = planSettingsError(settings)
 
   const [model, setModel] =
     useState<ReturnType<typeof fitExperimentPlan> | null>(null)
@@ -355,11 +422,14 @@ export function ExperimentPlanner({
   const [fitting, setFitting] = useState(false)
 
   useEffect(() => {
-    setModel(run?.plan ?? null)
-    setObjective(run?.plan?.objective ?? "maximize")
+    setModel(
+      run?.plan && JSON.stringify(run.settings) === JSON.stringify(settings)
+        ? run.plan
+        : null,
+    )
 
     setError(run?.planError ?? "")
-  }, [run?.id, source])
+  }, [run?.id, source, settings])
 
   const selected = candidate === null ? null : summary[candidate]
 
@@ -387,7 +457,10 @@ export function ExperimentPlanner({
             value={objective}
             disabled={fitting}
             onChange={(event) => {
-              setObjective(event.target.value as "maximize" | "minimize")
+              setSettings({
+                ...settings,
+                objective: event.target.value as "maximize" | "minimize",
+              })
 
               setModel(null)
             }}
@@ -398,12 +471,12 @@ export function ExperimentPlanner({
         </label>
         <Button
           primary
-          disabled={summary.length < 3 || fitting}
+          disabled={summary.length < 3 || fitting || !!settingError}
           onClick={async () => {
             setFitting(true)
 
             try {
-              await refitPlan(objective)
+              await refitPlan({ ...settings })
 
               setError("")
             } catch (failure) {
@@ -418,6 +491,58 @@ export function ExperimentPlanner({
           {fitting ? "Running analysis…" : "Fit GP & rank conditions"}
         </Button>
       </div>
+      <Details title="Model settings">
+        <div className="settings-grid">
+          <NumberField
+            label="Normalized length scale"
+            value={settings.lengthScale}
+            min={0.001}
+            max={100}
+            disabled={fitting}
+            onChange={(value) =>
+              setSettings({ ...settings, lengthScale: value! })
+            }
+          />
+          <NumberField
+            label="Normalized noise SD"
+            value={settings.noise}
+            min={0.0001}
+            max={10}
+            disabled={fitting}
+            onChange={(value) => setSettings({ ...settings, noise: value! })}
+          />
+          <NumberField
+            label="Exploration margin (response units)"
+            value={settings.exploration}
+            min={0}
+            max={1000000}
+            disabled={fitting}
+            onChange={(value) =>
+              setSettings({ ...settings, exploration: value! })
+            }
+          />
+        </div>
+        <p>
+          Changing any parameter requires a new fit. Edit factor levels,
+          responses, and replicates in{" "}
+          <a
+            href="#data"
+            onClick={(event) => {
+              event.preventDefault()
+              onEditData()
+            }}
+          >
+            scenario data
+          </a>
+          .
+        </p>
+      </Details>
+      {settingError && (
+        <p role="alert" className="import-error">
+          {settingError}
+        </p>
+      )}
+
       {error && (
         <p role="alert" className="import-error">
           {error}
@@ -538,7 +663,7 @@ export function ExperimentPlanner({
               <p>All replicates of each condition are left out together.</p>
               <p>
                 Lower error is better. These are calculated from the uploaded
-                outcomes. Small datasets and fixed model settings limit
+                outcomes. Small datasets and the chosen model settings limit
                 conclusions; repeated-measurement rankings are not validated
                 production recipes.
               </p>
@@ -550,249 +675,7 @@ export function ExperimentPlanner({
   )
 }
 
-export function MarkerScreen({
-  kel,
-
-  setKel,
-
-  slc,
-
-  setSlc,
-
-  checks,
-
-  setChecks,
-}: {
-  kel: string
-
-  setKel: (value: string) => void
-
-  slc: string
-
-  setSlc: (value: string) => void
-
-  checks: boolean[]
-
-  setChecks: (value: boolean[]) => void
-}) {
-  const { inputs } = useWorkspace()
-
-  const source = inputs.markers
-
-  const rows = filterMarkers(source.rows as MarkerRow[], kel, slc)
-
-  const [matchesOnly, setMatchesOnly] = useState(false)
-
-  const [page, setPage] = useState(0)
-
-  const filtered = matchesOnly
-    ? rows.filter((row) => row.status === "match")
-    : rows
-
-  const maxPage = Math.max(0, Math.ceil(filtered.length / 25) - 1)
-
-  const safePage = Math.min(page, maxPage)
-
-  useEffect(() => setPage(0), [kel, slc, matchesOnly, source])
-
-  return (
-    <>
-      <PageTitle
-        title="RareMatch"
-        description="Find profiles with your selected markers."
-        action={
-          <Badge>
-            {source.evidence === "user_supplied"
-              ? "Imported marker data"
-              : "Synthetic demo"}
-          </Badge>
-        }
-      />
-      <p className="context-strip">
-        Source: <b>{source.name}</b>
-      </p>
-      <div className="marker-controls">
-        {[
-          { label: "KEL · rs8176058", value: kel, set: setKel },
-
-          { label: "SLC14A1 · rs1058396", value: slc, set: setSlc },
-        ].map((marker) => (
-          <label key={marker.label}>
-            {marker.label}
-            <select
-              value={marker.value}
-              onChange={(event) => marker.set(event.target.value)}
-            >
-              <option>G/G</option>
-              <option>G/A</option>
-              <option>A/A</option>
-            </select>
-          </label>
-        ))}
-      </div>
-      <div className="screening-stats">
-        <span>
-          <b>{rows.length}</b> profiles
-        </span>
-        <span>
-          <b>{rows.filter((r) => r.status === "match").length}</b> matches
-        </span>
-        <span>
-          <b>{rows.filter((r) => r.status === "excluded").length}</b> excluded
-        </span>
-        <span>
-          <b>{rows.filter((r) => r.status === "unknown").length}</b> unknown
-        </span>
-      </div>
-      <Panel
-        title="Marker screening results"
-        caption="Missing or ambiguous calls remain unknown"
-        action={
-          <Button
-            icon="download"
-            onClick={() =>
-              downloadFile(
-                "hemogpt-marker-results.csv",
-
-                csv([
-                  ["sample_id", "kel", "slc", "status", "source", "sha256"],
-
-                  ...filtered.map((row) => [
-                    row.id,
-
-                    row.kel,
-
-                    row.slc,
-
-                    row.status,
-
-                    source.name,
-
-                    source.sha256,
-                  ]),
-                ]),
-
-                "text/csv;charset=utf-8",
-              )
-            }
-          >
-            Export results CSV
-          </Button>
-        }
-      >
-        <label className="inline-check table-filter">
-          <input
-            type="checkbox"
-            checked={matchesOnly}
-            onChange={(event) => setMatchesOnly(event.target.checked)}
-          />
-          Show signature matches only
-        </label>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Sample ID</th>
-                <th>KEL rs8176058</th>
-                <th>SLC14A1 rs1058396</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length ? (
-                filtered.slice(safePage * 25, safePage * 25 + 25).map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.id}</td>
-                    <td>{row.kel}</td>
-                    <td>{row.slc}</td>
-                    <td>
-                      <Badge
-                        tone={
-                          row.status === "match"
-                            ? "brand"
-                            : row.status === "unknown"
-                              ? "warning"
-                              : "neutral"
-                        }
-                      >
-                        {row.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4}>
-                    No profiles match this signature. Change the target or clear
-                    the filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="pagination">
-          <Button
-            disabled={safePage === 0}
-            onClick={() => setPage(safePage - 1)}
-          >
-            Previous
-          </Button>
-          <span>
-            {filtered.length} results · page {safePage + 1} / {maxPage + 1}
-          </span>
-          <Button
-            disabled={safePage === maxPage}
-            onClick={() => setPage(safePage + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </Panel>
-      <Panel
-        title="Post-harvest verification"
-        caption="Laboratory requests"
-        action={<Badge tone="warning">Lab results pending</Badge>}
-      >
-        <div className="qc-checklist">
-          {[
-            "Request paired post-harvest genotyping / sequencing",
-
-            "Request phenotype / serology confirmation",
-
-            "Reconcile laboratory results with the initial marker profile",
-          ].map((text, i) => (
-            <label key={text}>
-              <input
-                type="checkbox"
-                checked={checks[i]}
-                onChange={(event) =>
-                  setChecks(
-                    checks.map((checked, j) =>
-                      i === j ? event.target.checked : checked,
-                    ),
-                  )
-                }
-              />
-              <span>{text}</span>
-            </label>
-          ))}
-        </div>
-        <Details title="Screening limits">
-          <p>
-            Marker inputs are independent of culture batches. Allele orientation
-            requires independent verification.
-          </p>
-          <p>
-            Two SNPs do not determine full blood type, genetic stability, or
-            transfusion compatibility. Those questions need additional
-            laboratory tests. The app cannot pass QC through a checklist.
-          </p>
-        </Details>
-      </Panel>
-    </>
-  )
-}
+export { default as MarkerScreen } from "./MarkerScreen"
 
 export function ChannelPanel({
   replicate,

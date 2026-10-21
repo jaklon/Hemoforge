@@ -6,13 +6,25 @@ import {
   useEffect,
   useState,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
 } from "react"
+import { defaultMarkerSettings, type MarkerSettings } from "./marker-screening"
+import {
+  defaultGrowthSettings,
+  defaultPlanSettings,
+  defaultMonitoringSettings,
+  type GrowthSettings,
+  type PlanSettings,
+  type MonitoringSettings,
+} from "./research-settings"
 import {
   initialInputs,
   getBatches,
   reportsForSamples,
   type InputFile,
   type WorkspaceInputs,
+  type DataKind,
 } from "./workspace-data"
 import { type CultureForecast, type ForecastHorizon } from "./culture-forecast"
 import type { fitExperimentPlan } from "./experiment-model"
@@ -24,6 +36,7 @@ import {
   type PredictionEnvelope,
 } from "./python-api"
 import type { ExperimentRow } from "./workspace-data"
+import { analyzeMeasurements, type Measurement } from "./culture-monitoring"
 export interface SimulationResult {
   batchId: string
   sourceHash: string
@@ -33,6 +46,7 @@ export interface SimulationResult {
   engine: string
   modelVersion: string
   requestId: string
+  settings: GrowthSettings
 }
 export interface RunRecord {
   id: string
@@ -40,21 +54,43 @@ export interface RunRecord {
   plan: ReturnType<typeof fitExperimentPlan> | null
   planError: string | null
   prediction: Omit<PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>, "result"> | null
+  settings: PlanSettings
 }
 interface WorkspaceContextValue {
   inputs: WorkspaceInputs
   run: RunRecord | null
   simulation: SimulationResult | null
+  growthSettings: GrowthSettings
+  setGrowthSettings: Dispatch<SetStateAction<GrowthSettings>>
+  planSettings: PlanSettings
+  setPlanSettings: Dispatch<SetStateAction<PlanSettings>>
+  markerSettings: MarkerSettings
+  setMarkerSettings: Dispatch<SetStateAction<MarkerSettings>>
+  monitoring: MonitoringSettings
+  setMonitoring: Dispatch<SetStateAction<MonitoringSettings>>
+  reportInterval: number
+  setReportInterval: Dispatch<SetStateAction<number>>
+  roadmapDays: number
+  setRoadmapDays: Dispatch<SetStateAction<number>>
+  editor: {
+    kind: DataKind
+    text: string
+    name: string
+  }
+  setEditor: Dispatch<SetStateAction<{
+    kind: DataKind
+    text: string
+    name: string
+  }>>
   backendStatus: "checking" | "online" | "offline"
   checkBackend: () => Promise<void>
   apply: (files: InputFile[]) => Promise<void>
   simulate: (
     batchIndex: number,
     hour: number,
-    horizon: ForecastHorizon,
-    seed: number,
+    settings: GrowthSettings,
   ) => Promise<void>
-  refitPlan: (objective: "maximize" | "minimize") => Promise<void>
+  refitPlan: (settings: PlanSettings) => Promise<void>
 }
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 export async function checksum(value: BufferSource) {
@@ -66,6 +102,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [inputs, setInputs] = useState(initialInputs)
   const [run, setRun] = useState<RunRecord | null>(null)
   const [simulation, setSimulation] = useState<SimulationResult | null>(null)
+  const [growthSettings, setGrowthSettings] = useState(defaultGrowthSettings)
+  const [planSettings, setPlanSettings] = useState(defaultPlanSettings)
+  const [markerSettings, setMarkerSettings] = useState(defaultMarkerSettings)
+  const [monitoring, setMonitoring] = useState(defaultMonitoringSettings)
+  const [reportInterval, setReportInterval] = useState(3)
+  const [roadmapDays, setRoadmapDays] = useState(21)
+  const [editor, setEditor] = useState<{
+    kind: DataKind
+    text: string
+    name: string
+  }>({ kind: "markers", text: "", name: "researcher-markers.csv" })
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
   const activeInputs = useRef(inputs)
@@ -97,25 +144,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     for (const file of files) next[file.kind] = file
     const id = await checksum(
       new TextEncoder().encode(
-        JSON.stringify({ inputs: next, version: "python-1", seed: 42 }),
+        JSON.stringify({
+          inputs: next,
+          version: "python-2",
+          settings: planSettings,
+        }),
       ),
     )
-    let plan: RunRecord["plan"] = null
-    let planError: string | null = null
-    let prediction: RunRecord["prediction"] = null
+    const refit =
+      !files.length || files.some((file) => file.kind === "experiments")
+    let plan: RunRecord["plan"] = refit ? null : (run?.plan ?? null)
+    let planError: string | null = refit ? null : (run?.planError ?? null)
+    let prediction: RunRecord["prediction"] = refit
+      ? null
+      : (run?.prediction ?? null)
     try {
-      const { result, ...metadata } = await predictExperiments(
-        next.experiments.rows as ExperimentRow[],
-        "maximize",
-        next.experiments.sha256,
-      )
-      plan = result
-      prediction = metadata
-      setBackendStatus("online")
+      if (refit) {
+        const { result, ...metadata } = await predictExperiments(
+          next.experiments.rows as ExperimentRow[],
+          planSettings,
+          next.experiments.sha256,
+        )
+        plan = result
+        prediction = metadata
+        setBackendStatus("online")
+      }
     } catch (error) {
       recordFailure(error)
-      if (!(error instanceof PythonServiceError) || error.status !== 422)
-        throw error
       planError =
         error instanceof Error ? error.message : "Experimental model failed."
     }
@@ -130,14 +185,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       plan,
       planError,
       prediction,
+      settings: refit
+        ? { ...planSettings }
+        : (run?.settings ?? { ...planSettings }),
     })
-    setSimulation(null)
+    if (files.some((file) => file.kind === "culture")) setSimulation(null)
+    const markerFile = files.find((file) => file.kind === "markers")
+    if (markerFile?.markers)
+      setMarkerSettings((old) => ({
+        ...old,
+        targets: markerFile.markers!.map((marker) => {
+          const previous = old.targets.find(
+            (target) => target.rsId === marker.rsId,
+          )
+          return { ...marker, genotype: previous?.genotype ?? "*" }
+        }),
+      }))
   }
   async function simulate(
     batchIndex: number,
     hour: number,
-    horizon: ForecastHorizon,
-    seed: number,
+    settings: GrowthSettings,
   ) {
     const batch = getBatches(inputs.culture)[batchIndex - 1]
     if (!batch) throw new Error("Select an available batch.")
@@ -147,8 +215,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       response = await predictGrowth(
         batch.measurements,
         hour,
-        horizon,
-        seed,
+        settings,
         inputs.culture.sha256,
       )
       setBackendStatus("online")
@@ -166,19 +233,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sourceHash: inputs.culture.sha256,
       generatedAt: response.generatedAt,
       result: response.result,
-      horizon,
+      horizon: settings.horizon,
+      settings: { ...settings },
       engine: response.engine,
       modelVersion: response.modelVersion,
       requestId: response.requestId,
     })
   }
-  async function refitPlan(objective: "maximize" | "minimize") {
+  async function refitPlan(settings: PlanSettings) {
     const sequence = ++planSequence.current
     let response: PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>
     try {
       response = await predictExperiments(
         inputs.experiments.rows as ExperimentRow[],
-        objective,
+        settings,
         inputs.experiments.sha256,
       )
       setBackendStatus("online")
@@ -194,7 +262,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         JSON.stringify({
           inputs,
           version: "python-1",
-          objective,
+          settings,
           method: plan.method,
         }),
       ),
@@ -207,6 +275,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       plan,
       planError: null,
       prediction,
+      settings: { ...settings },
     })
   }
   return (
@@ -215,6 +284,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         inputs,
         run,
         simulation,
+        growthSettings,
+        setGrowthSettings,
+        planSettings,
+        setPlanSettings,
+        markerSettings,
+        setMarkerSettings,
+        monitoring,
+        setMonitoring,
+        reportInterval,
+        setReportInterval,
+        roadmapDays,
+        setRoadmapDays,
+        editor,
+        setEditor,
         apply,
         simulate,
         refitPlan,
@@ -232,7 +315,7 @@ export function useWorkspace() {
   return context
 }
 export function useCultureData() {
-  const { inputs } = useWorkspace()
+  const { inputs, monitoring, reportInterval } = useWorkspace()
   const batches = useMemo(() => getBatches(inputs.culture), [inputs.culture])
   const batchIndexes = batches.map((_, index) => index + 1)
   const replayEndHour = Math.max(
@@ -246,7 +329,15 @@ export function useCultureData() {
   const batchMeasurements = (index: number) =>
     batches[index - 1]?.measurements ?? []
   const checkpointReports = (index: number, hour: number) =>
-    reportsForSamples(batchMeasurements(index), hour, batchId(index), source)
+    reportsForSamples(
+      batchMeasurements(index),
+      hour,
+      batchId(index),
+      source,
+      undefined,
+      reportInterval,
+      monitoring,
+    )
   const demoSource = {
     dataset_id: source.sha256 || "software_test_only",
     study_id: source.name,
@@ -265,5 +356,9 @@ export function useCultureData() {
     replayEndHour,
     demoSource,
     source,
+    analyze: (samples: Measurement[], hour: number) =>
+      analyzeMeasurements(samples, hour, monitoring),
+    monitoring,
+    reportInterval,
   }
 }

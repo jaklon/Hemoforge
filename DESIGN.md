@@ -102,13 +102,25 @@ marker filtering. `src/workspace-context.tsx` holds the active input files and
 computed run for all pages. Built-in examples remain labeled software_test_only;
 user imports are labeled user_supplied, with a real SHA-256 file fingerprint.
 `backend/predictions.py` owns executed growth and experiment predictions via the
-local FastAPI service; both React and Streamlit call it. `src/python-api.ts` owns
+local FastAPI service; the existing React website calls it. `src/python-api.ts` owns
 HTTP requests, timeouts, and readable connection/validation failures.
 `src/culture-forecast.ts` and `src/experiment-model.ts` retain earlier reference
 calculations/types and support local observed summaries. The Python engine fits
 positive stochastic growth paths and a fixed RBF GP, ranks remeasurements within
 observed conditions, and computes held-out condition errors. Source
 fingerprints identify files; they do not certify biological validity.
+
+Researcher controls extend the established panels and native fields. `NumberField`
+in `src/workspace-ui.tsx` owns numeric entry and range guidance.
+`src/MarkerScreen.tsx` owns configurable marker panels; `src/marker-screening.ts`
+owns marker identity, call normalization, coverage, and matching rules. Gene/rs
+selections stay linked for built-in and imported mappings. Custom mappings remain
+researcher supplied. `src/research-settings.ts` owns model defaults and validation.
+Growth and planning settings, marker targets, monitoring rules, report interval,
+roadmap, and scenario editor drafts live in the workspace provider for the session.
+The scenario editor loads active JSON or example CSV. New custom panel markers
+are included with missing calls ready to populate. Single-type applies open the
+owning module. Preserve the existing navy/red palette and native popup ownership.
 
 Native `details`/`summary` supports secondary evidence and starts collapsed.
 Keep primary actions, results, units, validation errors, and actionable warnings
@@ -124,7 +136,7 @@ version, request fingerprint, engine, and execution time. Inputs, computed resul
 the current session. JSON/HTML exports include inputs, source hashes, model
 results, simulation settings, and pending QC. Python processes inputs in memory;
 there is no backend persistence. Data & runs shows a compact connection badge,
-Retry when disconnected, and a link to the separate Streamlit lab. Preserve
+and Retry when disconnected. All prediction controls and results stay in the website. Preserve
 staged files on failure and never silently fall back to browser predictions.
 
 The global scrollbar baseline is in `src/index.css`; all overflow inherits its

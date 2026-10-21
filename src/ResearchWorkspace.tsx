@@ -22,6 +22,8 @@ import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
 import DataWorkspace from "./DataWorkspace"
 
+import MonitoringControls from "./MonitoringControls"
+
 import {
   SimulationPanel,
   ExperimentPlanner,
@@ -147,6 +149,10 @@ function GrowthChart({
     demoSource,
 
     source,
+
+    analyze: analyzeMeasurements,
+    monitoring,
+    reportInterval,
   } = useCultureData()
 
   const ref = useRef<SVGSVGElement>(null)
@@ -182,8 +188,6 @@ function GrowthChart({
 
   const series = compare
     ? [replicate, ...batchIndexes.filter((n) => n !== replicate)]
-
-        .slice(0, 3)
 
         .sort((a, b) => a - b)
     : [replicate]
@@ -318,6 +322,10 @@ function ReplayControls({
     demoSource,
 
     source,
+
+    analyze: analyzeMeasurements,
+    monitoring,
+    reportInterval,
   } = useCultureData()
 
   function move(next: number) {
@@ -357,10 +365,30 @@ function ReplayControls({
           type="range"
           min="0"
           max={replayEndHour}
-          step="1"
+          step="any"
           value={hour}
           onChange={(e) => move(Number(e.target.value))}
         />
+        <label className="replay-precise">
+          Exact cutoff (hours)
+          <input
+            type="number"
+            min="0"
+            max={replayEndHour}
+            step="any"
+            value={hour}
+            onChange={(event) => {
+              const value = Number(event.target.value)
+
+              if (
+                Number.isFinite(value) &&
+                value >= 0 &&
+                value <= replayEndHour
+              )
+                move(value)
+            }}
+          />
+        </label>
         <div className="range-labels">
           <span>Start · 0h</span>
           <span>Original sample times</span>
@@ -369,14 +397,20 @@ function ReplayControls({
       </div>
       <label className="speed-select">
         Replay speed
-        <select
+        <input
+          type="number"
+          aria-label="Replay speed (hours per second)"
+          min="0.01"
+          max="10000"
+          step="any"
           value={speed}
-          onChange={(e) => setSpeed(Number(e.target.value))}
-        >
-          <option value="1">1 hour / second</option>
-          <option value="6">6 hours / second</option>
-          <option value="24">24 hours / second</option>
-        </select>
+          onChange={(event) => {
+            const value = Number(event.target.value)
+            if (Number.isFinite(value) && value > 0 && value <= 10000)
+              setSpeed(value)
+          }}
+        />
+        <small>hours / second</small>
       </label>
     </section>
   )
@@ -423,6 +457,10 @@ function Guard({
     demoSource,
 
     source,
+
+    analyze: analyzeMeasurements,
+    monitoring,
+    reportInterval,
   } = useCultureData()
 
   const [compare, setCompare] = useState(true)
@@ -500,7 +538,7 @@ function Guard({
                 checked={compare}
                 onChange={(e) => setCompare(e.target.checked)}
               />
-              Compare up to 3 batches
+              Compare all batches
             </label>
           }
         >
@@ -532,8 +570,6 @@ function Guard({
             <div className="series-key">
               {(compare
                 ? [replicate, ...batchIndexes.filter((n) => n !== replicate)]
-
-                    .slice(0, 3)
 
                     .sort((a, b) => a - b)
                 : [replicate]
@@ -595,10 +631,17 @@ function Guard({
                 <dl>
                   <div>
                     <dt>Value</dt>
-                    <dd>{event.value} ×10⁶ cells</dd>
+                    <dd>
+                      {event.value}{" "}
+                      {event.variable === "sample_age" ? "hours" : "×10⁶ cells"}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Measured at</dt>
+                    <dt>
+                      {event.variable === "sample_age"
+                        ? "Evaluated at"
+                        : "Measured at"}
+                    </dt>
                     <dd>{event.hour}h relative</dd>
                   </div>
                   <div>
@@ -610,7 +653,6 @@ function Guard({
                   Follow-up note
                   <textarea
                     className="resize-none"
-                    maxLength={1000}
                     value={eventNotes[`R${replicate}-${event.id}`] ?? ""}
                     onChange={(e) =>
                       setEventNotes({
@@ -631,19 +673,21 @@ function Guard({
           </div>
           <Details title="Monitoring rules">
             <p>
-              Positive counts, consistent units, increasing timestamps, and two
-              successive declines. Protocol limits and stale-data thresholds
-              require a configured source.
+              Positive counts, consistent units, and increasing timestamps are
+              required. Decline and stale-sample warnings follow your configured
+              settings.
             </p>
           </Details>
         </Panel>
         <ChannelPanel replicate={replicate} hour={hour} />
         <Panel
           title="ErythroPilot handoff"
-          caption="A summary every 3 hours from Guard data"
+          caption={`A summary every ${reportInterval} hours from Guard data`}
           action={
             <Badge>
-              {report ? `${report.checkpoint_hour}h checkpoint` : "Awaiting 3h"}
+              {report
+                ? `${report.checkpoint_hour}h checkpoint`
+                : `Awaiting ${reportInterval}h`}
             </Badge>
           }
         >
@@ -658,7 +702,7 @@ function Guard({
             </div>
             <p>
               {report?.summary ??
-                "The first scheduled report is at 3h. The initial sample is available in Guard."}
+                `The first scheduled report is at ${reportInterval}h. The initial sample is available in Guard.`}
             </p>
             <div className="handoff-meta">
               <span>
@@ -669,7 +713,7 @@ function Guard({
               </span>
             </div>
             <Button onClick={() => navigate("pilot")} icon="report">
-              Open three-hour reports
+              Open checkpoint reports
             </Button>
           </div>
         </Panel>
@@ -771,12 +815,18 @@ function Pilot({
     demoSource,
 
     source,
+
+    analyze: analyzeMeasurements,
+    monitoring,
+    reportInterval,
   } = useCultureData()
+
+  const { roadmapDays } = useWorkspace()
 
   const reports = useMemo(
     () => checkpointReports(replicate, hour),
 
-    [replicate, hour, source],
+    [replicate, hour, source, reportInterval, monitoring],
   )
 
   const [page, setPage] = useState(0)
@@ -857,9 +907,9 @@ function Pilot({
       </div>
       <div className="pilot-grid">
         <Panel
-          title="Three-hour reports"
+          title="Checkpoint reports"
           caption={`${reports.length} checkpoints reached · 8 per page`}
-          action={<Badge>Every 3h</Badge>}
+          action={<Badge>Every {reportInterval}h</Badge>}
         >
           <div className="report-timeline">
             {shown.length ? (
@@ -893,7 +943,10 @@ function Pilot({
             ) : (
               <div className="empty-state">
                 <strong>No checkpoints reached</strong>
-                <p>Advance replay to 3h to generate the first report.</p>
+                <p>
+                  Advance replay to {reportInterval}h to generate the first
+                  report.
+                </p>
               </div>
             )}
           </div>
@@ -992,9 +1045,12 @@ function Pilot({
         </Panel>
       </div>
       <SimulationPanel replicate={replicate} hour={hour} />
-      <Details title="21-day reporting roadmap · planned">
-        <div className="roadmap-days" aria-label="21-day checkpoint roadmap">
-          {Array.from({ length: 21 }, (_, i) => (
+      <Details title={`${roadmapDays}-day reporting roadmap · planned`}>
+        <div
+          className="roadmap-days"
+          aria-label={`${roadmapDays}-day checkpoint roadmap`}
+        >
+          {Array.from({ length: roadmapDays }, (_, i) => (
             <div key={i} className={(i + 1) * 24 <= hour ? "reached" : ""}>
               <span>D{i + 1}</span>
               <i />
@@ -1005,9 +1061,10 @@ function Pilot({
           ))}
         </div>
         <p className="panel-note">
-          21 days × 8 reports per day = 168 intervals. The culture input stops
-          at {replayEndHour}h; observations are not invented after it ends.
-          Harvest and QC remain pending.
+          {roadmapDays} days · {Math.floor((roadmapDays * 24) / reportInterval)}{" "}
+          planned report intervals. The culture input stops at {replayEndHour}h;
+          observations are not invented after it ends. Harvest and QC remain
+          pending.
         </p>
       </Details>
       <Details title="Erythroid stage reference · GSE53983">
@@ -1162,7 +1219,7 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
 
               role: "Interpret",
 
-              text: "Summarize every three hours",
+              text: `Summarize every ${workspaceData.reportInterval} hours`,
 
               view: "pilot" as View,
             },
@@ -1236,11 +1293,11 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
           </div>
           <Icon name="arrow" />
           <div>
-            <strong>FastAPI + Streamlit</strong>
+            <strong>Python prediction service</strong>
             <p>
               The local Python API runs growth simulations and experiment
-              predictions. Streamlit provides a second interface to the same
-              models. Inputs are processed in memory.
+              predictions directly from this website. Inputs are processed in
+              memory.
             </p>
           </div>
         </div>
@@ -1265,10 +1322,6 @@ function ResearchReport({
 
   eventNotes,
 
-  kel,
-
-  slc,
-
   candidate,
 
   checks,
@@ -1282,10 +1335,6 @@ function ResearchReport({
   setNotes: (v: string) => void
 
   eventNotes: Record<string, string>
-
-  kel: string
-
-  slc: string
 
   candidate: number | null
 
@@ -1309,6 +1358,10 @@ function ResearchReport({
     demoSource,
 
     source,
+
+    analyze: analyzeMeasurements,
+    monitoring,
+    reportInterval,
   } = useCultureData()
 
   const [format, setFormat] = useState("HTML")
@@ -1322,9 +1375,7 @@ function ResearchReport({
   const rows = filterMarkers(
     workspaceData.inputs.markers.rows as MarkerRow[],
 
-    kel,
-
-    slc,
+    workspaceData.markerSettings,
   )
 
   const bundle = {
@@ -1332,7 +1383,9 @@ function ResearchReport({
 
     generated_at: new Date().toISOString(),
 
-    execution_status: "succeeded",
+    execution_status: workspaceData.run?.planError
+      ? "partial_success"
+      : "succeeded",
 
     evidence_status: "source_labeled",
 
@@ -1343,7 +1396,9 @@ function ResearchReport({
     simulation:
       workspaceData.simulation?.batchId === batchId(replicate) &&
       workspaceData.simulation.sourceHash === source.sha256 &&
-      workspaceData.simulation.result.fromHour === hour
+      workspaceData.simulation.result.fromHour === hour &&
+      JSON.stringify(workspaceData.simulation.settings) ===
+        JSON.stringify(workspaceData.growthSettings)
         ? workspaceData.simulation
         : null,
 
@@ -1363,7 +1418,17 @@ function ResearchReport({
 
     researcher_notes: notes,
 
-    target_signature: { kel, slc },
+    target_signature: workspaceData.markerSettings,
+
+    researcher_settings: {
+      growth: workspaceData.growthSettings,
+      planning: workspaceData.planSettings,
+
+      monitoring: workspaceData.monitoring,
+      report_interval_hours: workspaceData.reportInterval,
+
+      roadmap_days: workspaceData.roadmapDays,
+    },
 
     screening: rows,
 
@@ -1375,7 +1440,14 @@ function ResearchReport({
               workspaceData.inputs.experiments.rows as ExperimentRow[],
             )[candidate]?.id ?? null),
 
-      gp_status: workspaceData.run?.plan ? "fitted" : "not_fitted",
+      gp_status: workspaceData.run?.plan
+        ? JSON.stringify(workspaceData.run.settings) ===
+          JSON.stringify(workspaceData.planSettings)
+          ? "fitted"
+          : "settings_changed_refit_required"
+        : "not_fitted",
+
+      settings_used: workspaceData.run?.settings ?? null,
 
       model: workspaceData.run?.plan ?? null,
     },
@@ -1422,6 +1494,10 @@ function ResearchReport({
       "warning_follow_up",
 
       "lab_status",
+
+      "researcher_settings",
+
+      "target_signature",
     ],
 
     ...reports.map((r) => [
@@ -1446,6 +1522,10 @@ function ResearchReport({
       JSON.stringify(eventNotes),
 
       "pending_lab_verification",
+
+      JSON.stringify(bundle.researcher_settings),
+
+      JSON.stringify(bundle.target_signature),
     ]),
   ])
 
@@ -1473,7 +1553,7 @@ function ResearchReport({
           <strong>{hour}h</strong>
         </div>
         <div>
-          <span>Three-hour reports</span>
+          <span>Checkpoint reports · {reportInterval}h</span>
           <strong>{reports.length}</strong>
         </div>
         <div>
@@ -1490,14 +1570,11 @@ function ResearchReport({
             <textarea
               className="resize-none"
               id="research-notes"
-              maxLength={1000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Document observations, limitations, and the next checks to run…"
             />
-            <small>
-              {notes.length} / 1000 characters · included in exports
-            </small>
+            <small>{notes.length} characters · included in exports</small>
             <label htmlFor="export-format">Export format</label>
             <select
               id="export-format"
@@ -1590,10 +1667,6 @@ function ResearchWorkspaceContent() {
   const [eventNotes, setEventNotes] = useState<Record<string, string>>({})
 
   const [notes, setNotes] = useState("")
-
-  const [kel, setKel] = useState("G/A")
-
-  const [slc, setSlc] = useState("G/G")
 
   const [candidate, setCandidate] = useState<number | null>(null)
 
@@ -1784,8 +1857,19 @@ function ResearchWorkspaceContent() {
             setSpeed={setSpeed}
           />
         )}
+        {(view === "guard" || view === "pilot") && <MonitoringControls />}
         {view === "data" ? (
-          <DataWorkspace onRun={() => navigate("guard")} />
+          <DataWorkspace
+            onRun={(kind) =>
+              navigate(
+                kind === "markers"
+                  ? "match"
+                  : kind === "experiments"
+                    ? "plan"
+                    : "guard",
+              )
+            }
+          />
         ) : view === "guard" ? (
           <Guard
             hour={hour}
@@ -1804,17 +1888,15 @@ function ResearchWorkspaceContent() {
           />
         ) : view === "plan" ? (
           <ExperimentPlanner
+            onEditData={() => navigate("data")}
             candidate={candidate}
             setCandidate={setCandidate}
           />
         ) : view === "match" ? (
           <MarkerScreen
-            kel={kel}
-            setKel={setKel}
-            slc={slc}
-            setSlc={setSlc}
             checks={checks}
             setChecks={setChecks}
+            onEditData={() => navigate("data")}
           />
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />
@@ -1825,8 +1907,6 @@ function ResearchWorkspaceContent() {
             notes={notes}
             setNotes={setNotes}
             eventNotes={eventNotes}
-            kel={kel}
-            slc={slc}
             candidate={candidate}
             checks={checks}
           />

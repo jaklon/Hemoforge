@@ -26,8 +26,10 @@ def envelope(request, result, model_version):
 
 def predict_growth(request: GrowthRequest):
     observations = [sample for sample in request.samples if sample.hour <= request.as_of_hour]
+    if request.lookback_hours is not None:
+        observations = [sample for sample in observations if sample.hour >= request.as_of_hour - request.lookback_hours]
     if len(observations) < 3:
-        raise ValueError("Advance replay to at least the third valid measurement.")
+        raise ValueError("Use a cutoff and lookback window containing at least three valid measurements.")
     if request.as_of_hour > max(sample.hour for sample in request.samples):
         raise ValueError("Start time must be within the observed input window.")
     if any(sample.count is None or sample.count <= 0 for sample in observations):
@@ -40,13 +42,18 @@ def predict_growth(request: GrowthRequest):
     changes = np.diff(np.log(counts))
     drift = float(changes.sum() / durations.sum())
     volatility = float(np.sqrt(np.sum((changes - drift * durations) ** 2 / durations) / (len(durations) - 1)))
+    fitted_drift, fitted_volatility = drift, volatility
+    if request.drift_override is not None:
+        drift = request.drift_override
+    if request.volatility_override is not None:
+        volatility = request.volatility_override
     rng = np.random.default_rng(request.seed)
-    values = np.full(500, counts[-1])
+    values = np.full(request.path_count, counts[-1])
 
     def advance(duration):
         nonlocal values
         with np.errstate(over="ignore", under="ignore", invalid="ignore"):
-            values = values * np.exp(drift * duration + volatility * math.sqrt(duration) * rng.standard_normal(500))
+            values = values * np.exp(drift * duration + volatility * math.sqrt(duration) * rng.standard_normal(request.path_count))
         if not np.all(np.isfinite(values)) or np.any(values <= 0):
             raise ValueError("Prediction exceeded the numeric range. Review extreme counts or shorten the horizon.")
 
@@ -69,13 +76,16 @@ def predict_growth(request: GrowthRequest):
         "observedHour": float(hours[-1]),
         "observedCount": float(counts[-1]),
         "measurementCount": len(observations),
-        "simulationCount": 500,
+        "simulationCount": request.path_count,
         "paths": np.array(paths).T.tolist(),
         "distribution": distribution,
         "logDrift": drift,
         "volatility": volatility,
+        "fittedLogDrift": fitted_drift,
+        "fittedVolatility": fitted_volatility,
+        "scenarioOverrides": request.drift_override is not None or request.volatility_override is not None,
         "seed": request.seed,
-    }, "growth-lognormal-v1")
+    }, "growth-lognormal-v2")
 
 
 def predict_experiments(request: ExperimentRequest):
@@ -94,12 +104,12 @@ def predict_experiments(request: ExperimentRequest):
     factors = np.array([[r["lactate"], r["ammonia"]] for r in conditions])
     factors /= np.maximum(factors.max(axis=0), 1)
     targets = np.array([r["mean"] for r in conditions])
-    kernel = np.exp(-0.5 * np.sum((factors[:, None] - factors[None, :]) ** 2, axis=2) / 0.6**2)
+    kernel = np.exp(-0.5 * np.sum((factors[:, None] - factors[None, :]) ** 2, axis=2) / request.length_scale**2)
 
     def predict(indices, target):
         training = targets[indices]
         offset, scale = training.mean(), training.std() or 1.0
-        covariance = kernel[np.ix_(indices, indices)] + np.eye(len(indices)) * 0.05**2
+        covariance = kernel[np.ix_(indices, indices)] + np.eye(len(indices)) * request.noise_sd**2
         k = kernel[indices, target]
         alpha = np.linalg.solve(covariance, (training - offset) / scale)
         weights = np.linalg.solve(covariance, k)
@@ -114,7 +124,7 @@ def predict_experiments(request: ExperimentRequest):
         validation.append({"condition": condition["id"], "actual": condition["mean"],
                            "predicted": held_out, "baseline": float(targets[training].mean())})
         mean, sd = predict(indices, i)
-        improvement = (mean - best if request.objective == "maximize" else best - mean) - 0.01
+        improvement = (mean - best if request.objective == "maximize" else best - mean) - request.exploration
         z = improvement / sd if sd > 0 else 0
         ei = (improvement * 0.5 * (1 + math.erf(z / math.sqrt(2))) +
               sd * math.exp(-0.5 * z**2) / math.sqrt(2 * math.pi)) if sd > 0 else max(0, improvement)
@@ -124,9 +134,9 @@ def predict_experiments(request: ExperimentRequest):
         "validation": validation,
         "mae": float(np.mean([abs(row["actual"] - row["predicted"]) for row in validation])),
         "baselineMAE": float(np.mean([abs(row["actual"] - row["baseline"]) for row in validation])),
-        "method": "RBF Gaussian process; fixed normalized length scale 0.6; noise SD 0.05; candidate remeasurement within observed conditions",
+        "method": f"RBF Gaussian process; normalized length scale {request.length_scale}; noise SD {request.noise_sd}; exploration margin {request.exploration}; candidate remeasurement within observed conditions",
         "objective": request.objective,
     }
     if not all(math.isfinite(value) for row in ranked for value in [row["prediction"], row["uncertainty"], row["ei"]]):
         raise ValueError("Model exceeded the numeric range. Review extreme response values.")
-    return envelope(request, result, "experiment-rbf-gp-v1")
+    return envelope(request, result, "experiment-rbf-gp-v2")

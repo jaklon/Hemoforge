@@ -1,7 +1,7 @@
 import { cultureMeasurements } from "./culture-data.ts"
 import type { Measurement } from "./culture-monitoring.ts"
 
-export type ForecastHorizon = 24 | 48 | 72
+export type ForecastHorizon = number
 
 export const forecastStartMinHour = cultureMeasurements[2].hour
 
@@ -76,9 +76,14 @@ export function simulateMeasurementsForecast(
 
   asOfHour = samples[samples.length - 1]?.hour ?? 0,
 ) {
-  if (!Number.isFinite(asOfHour) || ![24, 48, 72].includes(horizonHours))
+  if (
+    !Number.isFinite(asOfHour) ||
+    !Number.isInteger(horizonHours) ||
+    horizonHours < 1 ||
+    horizonHours > 720
+  )
     throw new Error(
-      "Choose a finite start time and a 24, 48, or 72 hour horizon.",
+      "Choose a finite start time and a whole-number horizon from 1 to 720 hours.",
     )
 
   const fromHour = asOfHour
