@@ -6,7 +6,7 @@ services:
       EVO2_NVIDIA_FREE_API_CONFIRMED: "true"
       EVO2_NVIDIA_KEY_FILE: /run/secrets/nvidia_api_key
       EVO2_NVIDIA_DAILY_REQUEST_LIMIT: "20"
-      EVO2_NVIDIA_LOGITS_LAYER: output_layer
+      EVO2_NVIDIA_LOGITS_LAYER: unembed
     secrets:
       - nvidia_api_key
 secrets:

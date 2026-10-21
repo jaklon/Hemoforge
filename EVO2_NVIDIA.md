@@ -6,9 +6,10 @@ GPU, download weights, start a model container, subscribe to a paid plan, or fal
 back to a paid provider. It starts disabled until an operator installs a key and
 confirms that the account has free trial access to this particular endpoint.
 
-No real NVIDIA request was made while implementing/testing this integration.
-Tests use explicitly synthetic logits with a mock HTTP transport. Provider access,
-availability, and tensor compatibility still need validation with your own key.
+The integration has now been validated with one public variant against NVIDIA's
+hosted trial endpoint; see [live validation](EVO2_LIVE_VALIDATION.md). Automated
+tests continue to use explicitly synthetic logits with a mock HTTP transport.
+Access/availability can still vary by account and provider deployment.
 
 ## Obtain the API key
 
@@ -50,7 +51,7 @@ It writes non-secret configuration to ignored `data/evo2-nvidia.local.json`:
   "free_api_confirmed": true,
   "key_file": "deploy/secrets/nvidia_api_key.txt",
   "daily_request_limit": 20,
-  "logits_layer": "output_layer"
+  "logits_layer": "unembed"
 }
 ```
 
@@ -88,7 +89,7 @@ Optional server-only environment overrides are `EVO2_NVIDIA_CONFIG` (config path
 `EVO2_NVIDIA_ENABLED`, `EVO2_NVIDIA_FREE_API_CONFIRMED`, `EVO2_NVIDIA_KEY_FILE`,
 `EVO2_NVIDIA_DAILY_REQUEST_LIMIT`, and `EVO2_NVIDIA_LOGITS_LAYER`. The key file is
 preferred to a secret environment variable. Allowed logits layers are only
-`output_layer` and `unembed`; no provider URL override exists.
+`unembed` (the hosted default) and `output_layer`; no provider URL override exists.
 
 For an already configured application Compose deployment, an optional override is
 `deploy/compose.evo2-nvidia.yml`, combined with `deploy/compose.app.yml`. It mounts
@@ -136,14 +137,19 @@ repeatedly retry. The backend permits one scoring action at a time per process.
 
 ## Scoring contract and limits
 
-The request sends `sequence` plus `output_layers: ["output_layer"]`, as documented
-by NVIDIA. A legacy deployment may instead expose `unembed`; if HTTP 422 indicates
-a layer mismatch, an operator can review the model's current API example, set
-`logits_layer` to `unembed`, and explicitly try again. This is never an automatic
-fallback/probe. Each attempt still counts. If the hosted model is unavailable,
-stop; the project does not silently substitute a different model.
+The request sends `sequence` plus `output_layers: ["unembed"]`, matching the hosted
+deployment observed in the live test and NVIDIA's
+[NIM 1.x contract](https://docs.nvidia.com/nim/bionemo/evo2/1.0.2/endpoints.html).
+Some NIM 2.x deployments use `output_layer` instead. If HTTP 422 indicates a layer
+mismatch, an operator must review the deployment contract and explicitly adjust
+the server-only setting. There is no automatic layer fallback/probe. Each attempt
+still counts. If the hosted model is unavailable, stop; the project does not
+silently substitute a different model.
 
-The response must be a bounded base64 NPZ in JSON or raw NPZ. ZIP sizes, NPY headers,
+The response must be a bounded base64 NPZ in JSON or raw NPZ. Hosted Base64 can
+contain ASCII transport whitespace (space, tab, CR or LF); only those characters
+are removed before strict decoding. Other invalid/non-ASCII characters still fail.
+The encoded-size cap applies before normalization. ZIP sizes, NPY headers,
 floating dtypes, finiteness, layer key, exact sequence length and vocabulary size
 are checked before computing a score; pickle is disabled. No tensor archive is
 extracted to disk and no error body is echoed to the UI/logs.
@@ -178,7 +184,7 @@ stored in those tables.
 | HTTP 401 | Check/revoke/replace the key; no automatic authentication retry occurs |
 | HTTP 402/403 | Stop and review trial eligibility; do not enable payment as a workaround |
 | HTTP 404/410 | Hosted model may be unavailable/deprecated; leave scoring disabled |
-| HTTP 422 from NVIDIA | Review documented layer name; an explicit server-only `unembed` setting may be appropriate |
+| HTTP 422 from NVIDIA | Review deployment contract; the tested hosted endpoint uses `unembed`, while some NIM 2.x deployments use `output_layer` |
 | HTTP 429 / daily cap | Wait for provider/local limits; no paid escalation or retry loop |
 | Invalid tensor | Stop and review provider contract; the API returns no fabricated score |
 

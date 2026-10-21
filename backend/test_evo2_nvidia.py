@@ -47,7 +47,7 @@ class NvidiaTrialTests(unittest.TestCase):
         self.key = "nvapi-SYNTHETIC_TEST_KEY_NEVER_REAL"
         key_file = Path(self.directory.name) / "key.txt"
         key_file.write_text(self.key)
-        self.settings = NvidiaSettings(enabled=True, free_api_confirmed=True, key_file=str(key_file))
+        self.settings = NvidiaSettings(enabled=True, free_api_confirmed=True, key_file=str(key_file), logits_layer="output_layer")
         self.row = self.dataset.rows[0]
         self.request = NvidiaScoreRequest(variant_id=row_id(self.row))
         self.client = TestClient(app)
@@ -111,7 +111,7 @@ class NvidiaTrialTests(unittest.TestCase):
             self.assertNotIn("reference_sequence", export.text)
             self.assertEqual(self.client.post("/api/v1/evo2/score").status_code, 409)
             self.assertEqual(self.client.get("/api/v1/evo2/nvidia/status").json()["requests_used_today"], 2)
-            with patch("backend.evo2_routes.get_nvidia_settings", return_value=NvidiaSettings()):
+            with patch("backend.evo2_routes.get_nvidia_settings", return_value=NvidiaSettings(logits_layer="output_layer")):
                 saved = self.client.get("/api/v1/evo2/nvidia/results/latest", params={"variant_id": self.request.variant_id})
                 self.assertEqual(saved.status_code, 200)
                 self.assertTrue(saved.json()["cache_hit"])
@@ -206,6 +206,23 @@ class NvidiaTrialTests(unittest.TestCase):
         with patch("backend.evo2_nvidia.httpx.Client", side_effect=lambda **kwargs:
                 original(transport=httpx.MockTransport(lambda _: httpx.Response(200, content=b"x" * (MAX_BYTES + 1))), **kwargs)), self.assertRaises(TrialError):
             forward(sequence, self.key, "output_layer")
+
+    def test_hosted_multiline_base64_float64_unembed_output_is_supported_strictly(self):
+        sequence = self.row["reference_sequence"]
+        logits = np.zeros((1, len(sequence), 512), dtype=np.float64)
+        output = io.BytesIO()
+        np.savez_compressed(output, **{"unembed.output": logits})
+        encoded = base64.encodebytes(output.getvalue()).decode("ascii")
+        self.assertIn("\n", encoded)
+        raw = json.dumps({"data": encoded, "elapsed_ms": 1}).encode()
+        score = decode_logits(raw, "application/json", sequence, "unembed")
+        self.assertAlmostEqual(score["log_likelihood"], -256 * math.log(512))
+        self.assertEqual(score["tensor_shape"], [1, 257, 512])
+        self.assertEqual(NvidiaSettings().logits_layer, "unembed")
+        # Do not broadly ignore invalid characters when accepting line-wrapped Base64.
+        for extra in ["!", "\u200b", "\u00a0"]:
+            with self.subTest(extra=ord(extra)), self.assertRaises(TrialError):
+                decode_logits(json.dumps({"data": encoded + extra}).encode(), "application/json", sequence, "unembed")
 
     def test_configuration_is_opt_in_validated_and_never_includes_a_provider_url(self):
         config = Path(self.directory.name) / "config.json"
