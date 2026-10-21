@@ -153,7 +153,6 @@ export default function DataWorkspace({
       />
       <Panel
         title="Scenario editor"
-        caption="Change sample IDs, marker columns, cell counts, environment values, factor levels, responses, and replicate rows."
       >
         <div className="settings-grid panel-note">
           <label>
@@ -285,11 +284,6 @@ export default function DataWorkspace({
             Download scenario
           </Button>
         </div>
-        <p className="panel-note">
-          Edits become a researcher-supplied scenario. Validate and stage, then
-          apply below. Drafts and active inputs stay in this session; model
-          failures preserve applied data for correction and retry.
-        </p>
       </Panel>
       <Panel
         title="Import data"

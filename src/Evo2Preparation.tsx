@@ -71,18 +71,16 @@ export default function Evo2Preparation() {
   }
   const fields = [["sample_id", "Sample or reference-example label"], ["study_id", "Independent study/source ID"],
     ["reference_label", "Reference identity / accession"], ["contig", "Reference FASTA contig ID"], ["start", "First reference base (one-based; optional for paired FASTA)"]] as const
-  return <Panel title="Evo 2 · sequence workspace" action={<Badge>Local preparation · optional NVIDIA trial</Badge>}>
+  return <Panel title="Marker readiness" caption="KEL rs8176058 and SLC14A1 rs1058396 anchor calls in the active marker file" action={<Badge>Local · optional NVIDIA</Badge>}>
     <div className="bot-body">
-      <p>Marker calls do not reconstruct DNA sequences or donor haplotypes. Readiness checks the KEL rs8176058 and SLC14A1 rs1058396 anchor calls in the active marker file.</p>
       <div className="bot-export-actions"><Button disabled={busy} onClick={() => void request("readiness", { markers: {
         name: source.name, sha256: source.sha256, evidence: source.evidence, rows: source.rows } })}>Check marker readiness</Button>
       </div>
       {readiness && <div className="bot-fallback"><p>{readiness.profile_count} marker profiles; {readiness.profiles_with_unknown_calls} have unresolved calls. Sequence data are still required.</p>
         <ul>{readiness.missing_requirements.map(text => <li key={text}>{text}</li>)}</ul></div>}
-      <p className="panel-note">Preparation runs locally. No paid provider, GPU provisioning, or model download is enabled. Sequence preparation saves normalized tasks to the local audit database; raw sequences are not sent to HemoBot/Ollama.</p>
     </div>
     <Evo2DatasetBrowser />
-    <Details title="Validate FASTA / VCF and prepare an offline task">
+    <Details title="Prepare your own FASTA / VCF">
       <div className="evo2-fields"><label>Public reference example<select defaultValue="" disabled={busy} onChange={event => {
         const example = examples.find(row => row.id === event.target.value)
         if (example) edit({ ...example.request, start: String(example.request.reference_start_1based), vcf_text: "" })

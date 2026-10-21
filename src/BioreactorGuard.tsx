@@ -344,10 +344,6 @@ function GrowthChart({
             </small>
           </strong>
         </div>
-        <p>
-          Points are source measurements. Lines guide the eye; gaps stay
-          visible.{hour < end ? " Grey area is not yet replayed." : ""}
-        </p>
       </div>
     </>
   )
@@ -488,11 +484,6 @@ export default function BioreactorGuard({
         description="See what changed, what needs review, and which sample to check next."
         action={
           <div className="header-actions">
-            <Badge>
-              {source.evidence === "software_test_only"
-                ? "Synthetic replay"
-                : "Imported observations"}
-            </Badge>
             <Button onClick={configure}>Monitoring rules</Button>
           </div>
         }
@@ -520,11 +511,6 @@ export default function BioreactorGuard({
                   ? "Waiting for source measurements"
                   : "No configured warnings at this cutoff"}
             </h2>
-            <p>
-              {attention.length
-                ? "Review recorded warnings alongside the original measurements."
-                : "Status reflects your configured rules and available data."}
-            </p>
           </div>
         </div>
         <dl className="guard-fleet-stats">
@@ -575,7 +561,6 @@ export default function BioreactorGuard({
           <Icon name="data" />
           {source.name}
         </span>
-        <span>Source measurements · cutoff {number(hour)}h</span>
         <button
           type="button"
           className="text-button"
@@ -587,7 +572,6 @@ export default function BioreactorGuard({
       <div className="section-heading guard-batch-heading">
         <div>
           <h2>Batch overview</h2>
-          <p>Select a batch to inspect its measurements and warnings.</p>
         </div>
         <label className="inline-check">
           <input
@@ -777,11 +761,9 @@ export default function BioreactorGuard({
                     ? "No warnings recorded"
                     : "No valid samples yet"}
                 </strong>
-                <p>
-                  {state.latest
-                    ? "Keep reviewing new source measurements as replay advances."
-                    : "Advance to a source sample or import measurements."}
-                </p>
+                {!state.latest && (
+                  <p>Advance to a source sample or import measurements.</p>
+                )}
               </div>
             )}
           </div>
@@ -847,10 +829,6 @@ export default function BioreactorGuard({
               </Button>
             </div>
           )}
-          <p className="panel-note">
-            Warnings form a history. A later rise does not erase an earlier
-            flag; follow-up notes record your review.
-          </p>
         </section>
       </div>
       <div className="guard-secondary-grid">
@@ -861,7 +839,6 @@ export default function BioreactorGuard({
         />
         <Panel
           title="Continue in ErythroPilot"
-          caption="The same selected batch and replay cutoff"
           className="guard-handoff-panel"
           action={<Icon name="pilot" />}
         >
@@ -880,7 +857,7 @@ export default function BioreactorGuard({
             </h3>
             <p>
               {report?.summary ??
-                `Advance replay to ${reportInterval}h for the first report. Source measurements remain available here.`}
+                `Advance replay to ${reportInterval}h for the first report.`}
             </p>
             <dl>
               <div>

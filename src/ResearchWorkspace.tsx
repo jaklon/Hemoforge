@@ -207,11 +207,6 @@ function ReplayControls({
             }}
           />
         </label>
-        <div className="range-labels">
-          <span>Start · 0h</span>
-          <span>Original sample times</span>
-          <span>End · {replayEndHour}h</span>
-        </div>
       </div>
       <label className="speed-select">
         Replay speed
@@ -430,7 +425,6 @@ function Pilot({
           title={
             selected ? `Report · ${selected.checkpoint_hour}h` : "Report detail"
           }
-          caption="Only samples available at this checkpoint"
           action={selected && <Status status={selected.status} />}
         >
           {selected ? (
@@ -973,11 +967,9 @@ function ResearchReport({
               <option>JSON</option>
               <option>CSV</option>
             </select>
-            <p>
-              {format === "CSV"
-                ? "Checkpoints and notes. Full workspace: JSON or HTML."
-                : "Full workspace snapshot, including notes."}
-            </p>
+            {format === "CSV" && (
+              <p>Checkpoints and notes. Full workspace: JSON or HTML.</p>
+            )}
             <Button
               primary
               icon="download"
@@ -1220,15 +1212,6 @@ function ResearchWorkspaceContent() {
             </div>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div>
-            <span className="status-dot" />
-            <strong>Local analysis workspace</strong>
-          </div>
-          <span className="version-label">
-            Prototype · no sensor connection
-          </span>
-        </div>
       </aside>
       <header className="topbar">
         <div className="breadcrumb">
@@ -1274,7 +1257,6 @@ function ResearchWorkspaceContent() {
         {view === "pilot" && <MonitoringControls />}
         {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
           <div className="bot-module-handoff">
-            <span>Interpret the current evidence with HemoBot.</span>
             <Button
               onClick={() => {
                 bot.prepare(view as BotModule)
@@ -1360,8 +1342,8 @@ function ResearchWorkspaceContent() {
         ) : view === "evo2" ? (
           <>
             <PageTitle
-              title="RareMatch · sequence workspace"
-              description="Browse public GRCh38 variants, prepare local tasks or explicitly score one public variant through the optional NVIDIA trial."
+              title="RareMatch"
+              description="Browse public KEL/SLC14A1 variants, prepare tasks, and optionally score them with Evo 2."
             />
             <Evo2Preparation />
           </>
@@ -1379,10 +1361,6 @@ function ResearchWorkspaceContent() {
             checks={checks}
           />
         )}
-        <footer className="workspace-footer">
-          <span>HemoForge</span>
-          <span>Research decision support · Harvest & QC pending</span>
-        </footer>
       </main>
     </div>
   )

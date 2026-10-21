@@ -599,7 +599,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 }
 
 /* HemoBot uses the same evidence panels and status vocabulary as the research modules. */
-.bot-module-handoff { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: var(--text-caption); }
+.bot-module-handoff { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; color: var(--muted); font-size: var(--text-caption); }
 .bot-composer, .bot-body { padding: 18px; }
 .bot-composer > label { display: block; margin: 20px 0 8px; font-weight: 600; }
 .bot-composer textarea { width: 100%; resize: none; min-height: 100px; border: 1px solid var(--line); border-radius: 5px; padding: 12px; line-height: 1.6; }
@@ -660,3 +660,21 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .team-grid small { color: var(--muted); font-size: var(--text-caption); font-style: italic; }
 .team-grid a { font-size: var(--text-caption); overflow-wrap: anywhere; }
 .team-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.evo2-dataset-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.evo2-dataset .evo2-dataset-head h3 { margin: 0; }
+.evo2-downloads { display: flex; gap: 16px; font-size: var(--text-caption); }
+.evo2-table { border: 1px solid var(--line); border-radius: 6px; max-height: 560px; overflow-y: auto; }
+.evo2-table table { font-size: var(--text-caption); }
+.evo2-table th { position: sticky; top: 0; z-index: 1; padding: 9px 12px; background: #f4f6f9; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.evo2-table td { padding: 7px 12px; vertical-align: middle; white-space: nowrap; }
+.evo2-table tbody tr:hover { background: #f8fafc; }
+.evo2-table tr.is-selected { background: #fdf2f2; }
+.evo2-table th:first-child, .evo2-table td:first-child { width: 36px; padding-right: 0; }
+.evo2-table code { font-family: Consolas, monospace; font-size: var(--text-caption); }
+.evo2-consequence { white-space: normal; text-transform: capitalize; color: #44566a; }
+.gene-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; background: #eef2f7; color: #334b67; font-size: var(--text-xs); font-weight: 600; }
+.allele-change { padding: 2px 6px; border-radius: 4px; background: #f4f6f9; }
+.evo2-preview-row > td { white-space: normal; background: #fbfcfd; }
+.evo2-preview-row .evo2-preview { margin: 4px 0; }
+.evo2-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; font-size: var(--text-caption); color: var(--muted); }
+.evo2-pager > span { margin-right: auto; }

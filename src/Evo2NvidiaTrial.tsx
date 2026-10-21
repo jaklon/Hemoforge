@@ -92,13 +92,12 @@ export default function Evo2NvidiaTrial({ selected }: { selected: Evo2Variant[] 
   }
 
   return <div className="evo2-trial">
-    <h3>NVIDIA trial · real Evo 2 inference</h3>
+    <h3>Score with Evo 2 · NVIDIA trial</h3>
     <div className="bot-badges"><Badge tone={status?.ready ? "success" : "warning"}>{status?.ready ? "NVIDIA trial configured" : status?.status.replace(/_/g, " ") ?? "Checking backend configuration…"}</Badge>
       <Badge>One public variant per action · no paid fallback</Badge></div>
-    <p className="panel-note">This optional action sends only the selected bundled public reference/alternate DNA to NVIDIA. Uploaded FASTA, VCF and donor records cannot be submitted here. Your API key stays on the backend.</p>
-    {status && <p className="panel-note">Reserved today: {status.requests_used_today}/{status.daily_request_limit} requests (UTC {status.quota_day_utc}); {status.requests_remaining} remain. One uncached pair needs two requests. Cached sequence scores reuse their original results.</p>}
+    <p className="panel-note">Sends only the selected public reference/alternate DNA to NVIDIA; uploaded files and donor records are never sent.{status && ` ${status.requests_remaining}/${status.daily_request_limit} requests left today (2 per uncached pair).`}</p>
     {!status?.ready && <p className="panel-note">On the backend machine, confirm free API access in your NVIDIA account, then run <code>.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial</code> in PowerShell. The key prompt is hidden. Refresh status afterward. Never paste a key into this page or chat.</p>}
-    <p className="panel-note">Model: <code>{status?.model ?? "arc/evo2-7b-forward"}</code>. Select exactly one variant above. The hosted model and no-BOS scoring differ from the local worker. Results are exploratory, with laboratory verification pending.</p>
+    <p className="panel-note">Select exactly one variant · model <code>{status?.model ?? "arc/evo2-7b-forward"}</code> · exploratory results</p>
     <div className="bot-export-actions"><Button disabled={busy || loadingSaved} onClick={() => setRefresh(value => value + 1)}>Refresh NVIDIA status</Button>
       <Button disabled={busy || loadingSaved || !selectedId} onClick={() => void loadSaved()}>{loadingSaved ? "Reading local result…" : "Load saved result · local only"}</Button>
       <Button primary disabled={busy || loadingSaved || !status?.ready || !selectedId} onClick={() => void score()}>

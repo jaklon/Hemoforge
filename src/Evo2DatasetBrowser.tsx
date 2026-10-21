@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { Badge, Button, Details } from "./workspace-ui"
 import { evo2DatasetPayload, evo2VariantsUrl, type Evo2Prepared, type Evo2Variant } from "./evo2-data"
 import Evo2PreparedResult from "./Evo2PreparedResult"
@@ -104,47 +104,55 @@ export default function Evo2DatasetBrowser() {
   }
 
   return <div className="evo2-dataset">
-    <h3>Try the public sequence dataset</h3>
-    {catalog && <><div className="bot-badges"><Badge tone="success">{catalog.sequence_pair_count.toLocaleString()} pairs · verified local snapshot</Badge>
-      <Badge>{catalog.genes.map(row => `${row.gene}: ${row.selected_count}`).join(" · ")}</Badge>
-      <Badge>GRCh38 · {catalog.window_bases} bp · Ensembl {catalog.release_info.releases.join(", ")}</Badge></div>
-      <p className="panel-note">Select up to 20 variants, then prepare a batch. Reference/alternate sequences come from the bundled dataset. These are public variant examples; donor genotypes and clinical labels are unavailable.</p>
-      <div className="bot-export-actions"><a className="button" href="/datasets/evo2/sequence_pairs.jsonl" download>Download {catalog.sequence_pair_count} sequence pairs</a>
-        <a className="button" href="/datasets/evo2/variants.csv" download>Download variants CSV</a></div></>}
+    <div className="evo2-dataset-head">
+      <h3>Public sequence dataset</h3>
+      {catalog && <div className="evo2-downloads"><a className="text-button" href="/datasets/evo2/sequence_pairs.jsonl" download>Sequence pairs (JSONL)</a>
+        <a className="text-button" href="/datasets/evo2/variants.csv" download>Variants (CSV)</a></div>}
+    </div>
+    {catalog && <div className="bot-badges"><Badge tone="success">{catalog.sequence_pair_count.toLocaleString()} verified pairs</Badge>
+      <Badge>{catalog.genes.map(row => `${row.gene} ${row.selected_count}`).join(" · ")}</Badge>
+      <Badge>GRCh38 · {catalog.window_bases} bp · Ensembl {catalog.release_info.releases.join(", ")}</Badge></div>}
     <div className="evo2-fields evo2-filters">
       <label>Gene<select value={gene} disabled={busy} onChange={event => { setGene(event.target.value); setOffset(0) }}>
         <option value="">All genes</option><option>KEL</option><option>SLC14A1</option></select></label>
-      <label>Development split<select value={split} disabled={busy} onChange={event => { setSplit(event.target.value); setOffset(0) }}>
+      <label>Split<select value={split} disabled={busy} onChange={event => { setSplit(event.target.value); setOffset(0) }}>
         <option value="">All splits</option>{["train", "validation", "test"].map(value => <option key={value} value={value}>{value}{catalog ? ` (${catalog.split_counts[value]})` : ""}</option>)}</select></label>
-      <label>Search variant, position or consequence<input type="search" maxLength={120} value={query} disabled={busy}
-        onChange={event => { setQuery(event.target.value); setOffset(0) }} placeholder="For example rs1010453097 or missense" /></label>
+      <label>Search<input type="search" maxLength={120} value={query} disabled={busy}
+        onChange={event => { setQuery(event.target.value); setOffset(0) }} placeholder="rs ID, position or consequence" /></label>
     </div>
-    <p role="status" className="panel-note">{loading ? "Loading local variants…" : page ? `${page.total} matching variants · ${selected.length}/20 selected` : "Dataset list unavailable"}</p>
-    {page && <><div className="table-scroll"><table><caption className="sr-only">Public Evo 2 sequence variants</caption>
-      <thead><tr><th>Select</th><th>Variant / gene</th><th>Position / alleles</th><th>Source consequence</th><th>Split</th><th>Preview</th></tr></thead>
+    {page && <><div className="table-scroll evo2-table"><table><caption className="sr-only">Public sequence variants</caption>
+      <thead><tr><th><input type="checkbox" aria-label="Select this page (up to 20)" disabled={busy || !page.items.length}
+        checked={page.items.length > 0 && page.items.every(row => selected.some(item => item.id === row.id))}
+        onChange={event => select(event.target.checked
+          ? [...selected, ...page.items.filter(row => !selected.some(item => item.id === row.id))].slice(0, 20)
+          : selected.filter(item => !page.items.some(row => row.id === item.id)))} /></th>
+        <th>Variant</th><th>Gene</th><th className="numeric">Position</th><th>Change</th><th>Consequence</th><th>Split</th><th><span className="sr-only">DNA preview</span></th></tr></thead>
       <tbody>{page.items.map(row => { const checked = selected.some(item => item.id === row.id)
-        return <tr key={row.id}><td><input type="checkbox" aria-label={`Select ${row.variant_id} ${row.gene}`} checked={checked}
+        const open = previewId === row.id
+        return <Fragment key={row.id}><tr className={checked ? "is-selected" : ""}><td><input type="checkbox" aria-label={`Select ${row.variant_id} ${row.gene}`} checked={checked}
           disabled={busy || (!checked && selected.length >= 20)} onChange={() => select(checked ? selected.filter(item => item.id !== row.id) : [...selected, row])} /></td>
-          <td>{row.variant_id}<br /><small>{row.gene}</small></td><td>{row.contig}:{row.position_1based}<br /><code>{row.ref} → {row.alt}</code></td>
-          <td>{row.consequence_annotation.replace(/_/g, " ")}</td><td>{row.split}</td><td><Button disabled={busy} onClick={() => setPreviewId(row.id)}>View DNA</Button></td></tr> })}</tbody>
-    </table></div>{!page.items.length && <p className="panel-note">No variants match these filters. Try another gene or search.</p>}
-      <div className="bot-export-actions"><Button disabled={busy || loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button>
-        <span>{page.total ? `${offset + 1}–${Math.min(offset + 20, page.total)} of ${page.total}` : "0 variants"}</span>
-        <Button disabled={busy || loading || offset + 20 >= page.total} onClick={() => setOffset(offset + 20)}>Next</Button>
-        <Button disabled={busy || !page.items.length} onClick={() => select(page.items)}>Select this page (up to 20)</Button></div></>}
-    {preview && <div className="evo2-preview"><h4>{preview.gene} · {preview.variant_id} · {preview.ref} → {preview.alt}</h4>
-      <p>Forward GRCh38 · {preview.split} · {preview.reference_sequence.length} bases · Evo 2 score: not run</p>
-      {(["reference_sequence", "alternate_sequence"] as const).map(key => <div key={key}><h4>{key === "reference_sequence" ? "Reference DNA" : "Alternate DNA"}</h4>
-        <pre>{preview[key].slice(0, 128)}<mark>{preview[key][128]}</mark>{preview[key].slice(129)}</pre></div>)}
-      <Details title="Sequence hashes"><p>Reference: <code>{preview.reference_sha256}</code></p><p>Alternate: <code>{preview.alternate_sha256}</code></p></Details>
-      <Button onClick={() => setPreviewId("")}>Close preview</Button></div>}
-    {selected.length > 0 && <div className="evo2-selection"><p>{selected.length} selected across pages and filters:</p>
+          <td><code>{row.variant_id}</code></td><td><span className="gene-tag">{row.gene}</span></td>
+          <td className="numeric">{row.contig}:{row.position_1based.toLocaleString()}</td>
+          <td><code className="allele-change">{row.ref} → {row.alt}</code></td>
+          <td className="evo2-consequence">{row.consequence_annotation.replace(/_/g, " ")}</td><td>{row.split}</td>
+          <td><button type="button" className="text-button" aria-expanded={open} disabled={busy} onClick={() => setPreviewId(open ? "" : row.id)}>{open ? "Hide DNA" : "DNA"}</button></td></tr>
+          {open && <tr className="evo2-preview-row"><td colSpan={8}>{preview?.id === row.id ? <div className="evo2-preview">
+            <p>Forward GRCh38 · {preview.reference_sequence.length} bases · variant base highlighted</p>
+            {(["reference_sequence", "alternate_sequence"] as const).map(key => <div key={key}><h4>{key === "reference_sequence" ? "Reference" : "Alternate"}</h4>
+              <pre>{preview[key].slice(0, 128)}<mark>{preview[key][128]}</mark>{preview[key].slice(129)}</pre></div>)}
+            <Details title="Sequence hashes"><p>Reference: <code>{preview.reference_sha256}</code></p><p>Alternate: <code>{preview.alternate_sha256}</code></p></Details>
+          </div> : <p className="panel-note">Loading DNA…</p>}</td></tr>}</Fragment> })}</tbody>
+    </table></div>{!page.items.length && <p className="panel-note">No variants match these filters.</p>}
+      <div className="evo2-pager"><span role="status">{loading ? "Loading…" : `${page.total ? `${offset + 1}–${Math.min(offset + 20, page.total)} of ${page.total}` : "0 variants"} · ${selected.length}/20 selected`}</span>
+        <Button disabled={busy || loading || offset === 0} onClick={() => setOffset(Math.max(0, offset - 20))}>Previous</Button>
+        <Button disabled={busy || loading || offset + 20 >= page.total} onClick={() => setOffset(offset + 20)}>Next</Button></div></>}
+    {!page && <p role="status" className="panel-note">{loading ? "Loading local variants…" : "Dataset list unavailable"}</p>}
+    {selected.length > 0 && <div className="evo2-selection"><p>{selected.length} selected:</p>
       <ul>{selected.map(row => <li key={row.id}>{row.gene} · {row.variant_id} · {row.split} <button type="button" disabled={busy}
         aria-label={`Remove ${row.variant_id} ${row.gene}`} onClick={() => select(selected.filter(item => item.id !== row.id))}>Remove</button></li>)}</ul></div>}
     <div className="bot-export-actions"><Button primary disabled={busy || !selected.length || !catalog} onClick={() => void prepare()}>
       {busy ? "Preparing locally…" : `Prepare ${selected.length || "selected"} variant(s) · no inference`}</Button>
       <Button disabled={busy || !selected.length} onClick={() => select([])}>Clear selection</Button></div>
-    <p className="panel-note">Only local validation and export run here. No model download, GPU provisioning or paid API call. Prepared tasks are saved in the local audit database.</p>
     {error && <div role="alert" className="import-error"><p>{error}</p><Button disabled={busy} onClick={() => { setError(""); setRetry(value => value + 1) }}>Retry local dataset</Button></div>}
     {prepared && <Evo2PreparedResult prepared={prepared} />}
     <Evo2NvidiaTrial selected={selected} />

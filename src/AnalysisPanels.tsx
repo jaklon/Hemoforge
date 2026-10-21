@@ -92,7 +92,6 @@ export function SimulationPanel({
   return (
     <Panel
       title="Simulate future growth"
-      caption="Runs in Python using measurements available at the cutoff."
       action={
         <a className="method-link" href="#methods/growth">
           Equations &amp; references

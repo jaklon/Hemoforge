@@ -294,8 +294,7 @@ export default function InteractivePlot({
       </svg>
       <div className="plot-footer">
         <p id={`${id}-help`}>
-          Scroll to zoom · Drag to pan · Pinch on touch · Double-click to
-          reset. Keyboard: arrows pan, + / − zoom.
+          Scroll to zoom · Drag to pan · Double-click to reset
         </p>
         <span id={`${id}-range`} aria-live="polite">
           {plotNumber(current.x[0])}–{plotNumber(current.x[1])}h ·{" "}

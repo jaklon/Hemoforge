@@ -116,7 +116,7 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
       {batchChoices.map(id => <option key={id}>{id}</option>)}</select></label><span>Replay <b>{context.replay_elapsed_hours}h</b> · Biomedical English</span>
       <Button onClick={() => void refresh()}>Check connection</Button></div>
     {statusError && <p role="alert" className="import-error">{statusError}</p>}
-    <Panel title="Ask HemoBot" caption="Uses the current source data and replay cutoff.">
+    <Panel title="Ask HemoBot">
       <div className="bot-composer">
         <div className="bot-quick-actions" aria-label="Analysis shortcuts">
           {(["all", "guard", "pilot", "plan", "match"] as BotModule[]).map((item, index) =>
@@ -181,6 +181,6 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
           {exportError && <p role="alert" className="import-error">{exportError}</p>}
         </div>
       </Panel>
-    </div> : !bot.busy && <div className="bot-empty"><h2>Start with the evidence</h2><p>Select a question above, then analyze the current batch. Missing measurements and pending laboratory verification remain explicit.</p></div>}
+    </div> : !bot.busy && <div className="bot-empty"><h2>Start with the evidence</h2><p>Select a question above, then analyze the current batch.</p></div>}
   </>
 }
