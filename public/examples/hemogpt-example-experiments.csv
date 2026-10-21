@@ -1,0 +1,13 @@
+condition_id,lactate_mg_l,ammonia_mg_l,response,response_unit
+L0-A0,0,0,7.5,fold_change
+L0-A0,0,0,7.8,fold_change
+L0-A0,0,0,8.1,fold_change
+L850-A0,850,0,4.9,fold_change
+L850-A0,850,0,5.3,fold_change
+L850-A0,850,0,5.6,fold_change
+L0-A41,0,41,6.1,fold_change
+L0-A41,0,41,6.4,fold_change
+L0-A41,0,41,6.7,fold_change
+L850-A41,850,41,3.6,fold_change
+L850-A41,850,41,3.9,fold_change
+L850-A41,850,41,4.2,fold_change
