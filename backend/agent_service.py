@@ -29,6 +29,7 @@ ACTIONS = {
 }
 ROADMAP = {"name": "RareMatch v2.0", "foundation_model": "Evo 2", "current_mvp_status": "roadmap_preview_only",
            "preparation_status": "available_offline", "inference_enabled": False, "external_providers_enabled": False,
+           "optional_nvidia_trial": "separate_workspace_no_automatic_result_ingestion",
            "planned_capability": "Sequence-level variant scoring and post-harvest genomic investigation.",
            "result": None, "limitation": "A sequence likelihood score alone would not establish pathogenicity or genetic stability."}
 

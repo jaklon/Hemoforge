@@ -479,4 +479,6 @@ td strong { font-weight: 550; }
 .evo2-selection ul { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; margin-top: 8px; }
 .evo2-selection li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; font-size: var(--text-caption); }
 .evo2-selection button { margin-left: 8px; cursor: pointer; text-decoration: underline; }
+.evo2-trial { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 24px; }
+.evo2-trial h4 { margin-block: 12px; }
 @media (max-width: 740px) { .evo2-filters { grid-template-columns: 1fr; } .evo2-dataset { padding: 18px; } }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Badge, Button, Details } from "./workspace-ui"
 import { evo2DatasetPayload, evo2VariantsUrl, type Evo2Prepared, type Evo2Variant } from "./evo2-data"
 import Evo2PreparedResult from "./Evo2PreparedResult"
+import Evo2NvidiaTrial from "./Evo2NvidiaTrial"
 
 interface Catalog {
   sequence_pair_count: number
@@ -146,5 +147,6 @@ export default function Evo2DatasetBrowser() {
     <p className="panel-note">Only local validation and export run here. No model download, GPU provisioning or paid API call. Prepared tasks are saved in the local audit database.</p>
     {error && <div role="alert" className="import-error"><p>{error}</p><Button disabled={busy} onClick={() => { setError(""); setRetry(value => value + 1) }}>Retry local dataset</Button></div>}
     {prepared && <Evo2PreparedResult prepared={prepared} />}
+    <Evo2NvidiaTrial selected={selected} />
   </div>
 }

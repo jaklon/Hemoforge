@@ -1844,7 +1844,7 @@ function ResearchWorkspaceContent() {
             setChecks={setChecks}
           />
         ) : view === "evo2" ? (
-          <><PageTitle title="Evo 2 · local sequence workspace" description="Browse public GRCh38 variants, inspect DNA pairs and export validated tasks. Model inference remains disabled." />
+          <><PageTitle title="Evo 2 · sequence workspace" description="Browse public GRCh38 variants, prepare local tasks or explicitly score one public variant through the optional NVIDIA trial." />
             <Evo2Preparation /></>
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />

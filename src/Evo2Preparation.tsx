@@ -71,7 +71,7 @@ export default function Evo2Preparation() {
   }
   const fields = [["sample_id", "Sample or reference-example label"], ["study_id", "Independent study/source ID"],
     ["reference_label", "Reference identity / accession"], ["contig", "Reference FASTA contig ID"], ["start", "First reference base (one-based; optional for paired FASTA)"]] as const
-  return <Panel title="Evo 2 · prepare data" action={<Badge tone="warning">Inference disabled · no model calls</Badge>}>
+  return <Panel title="Evo 2 · sequence workspace" action={<Badge>Local preparation · optional NVIDIA trial</Badge>}>
     <div className="bot-body">
       <p>The active marker file contains two SNP calls per profile. These do not reconstruct DNA sequences or donor haplotypes.</p>
       <div className="bot-export-actions"><Button disabled={busy} onClick={() => void request("readiness", { markers: {

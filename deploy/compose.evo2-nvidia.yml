@@ -1,0 +1,14 @@
+# Optional override after confirming free trial eligibility. Never starts a model/GPU service.
+services:
+  app:
+    environment:
+      EVO2_NVIDIA_ENABLED: "true"
+      EVO2_NVIDIA_FREE_API_CONFIRMED: "true"
+      EVO2_NVIDIA_KEY_FILE: /run/secrets/nvidia_api_key
+      EVO2_NVIDIA_DAILY_REQUEST_LIMIT: "20"
+      EVO2_NVIDIA_LOGITS_LAYER: output_layer
+    secrets:
+      - nvidia_api_key
+secrets:
+  nvidia_api_key:
+    file: ./secrets/nvidia_api_key.txt
