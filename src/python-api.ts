@@ -1,7 +1,7 @@
 import type { CultureForecast, ForecastHorizon } from "./culture-forecast"
 import type { Measurement } from "./culture-monitoring"
 import type { ExperimentRow } from "./workspace-data"
-import type { fitExperimentPlan } from "./experiment-model"
+import type { ExperimentPlan } from "./experiment-model"
 import {
   growthSettingsError,
   planSettingsError,
@@ -101,7 +101,7 @@ export function predictExperiments(
 ) {
   const error = planSettingsError(settings)
   if (error) throw new PythonServiceError(error, 422)
-  return request<PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>>(
+  return request<PredictionEnvelope<ExperimentPlan>>(
     "predict/experiments",
     {
       rows,

@@ -43,7 +43,7 @@ class ExperimentRequest(InputModel):
     rows: list[ExperimentRow] = Field(min_length=3, max_length=10_000)
     objective: Literal["maximize", "minimize"] = "maximize"
     length_scale: float = Field(default=0.6, ge=0.001, le=100)
-    noise_sd: float = Field(default=0.05, ge=0.0001, le=10)
+    noise_sd: float | None = Field(default=None, ge=0.0001, le=10)
     exploration: float = Field(default=0.01, ge=0, le=1_000_000)
     source_hash: str = Field(default="", max_length=64, pattern=r"^([a-fA-F0-9]{64})?$")
 

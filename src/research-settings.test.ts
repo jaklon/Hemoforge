@@ -29,6 +29,7 @@ test("custom settings validate numeric boundaries and bounded local workloads", 
   assert.ok(growthSettingsError({ ...defaultGrowthSettings, seed: NaN }))
   assert.ok(growthSettingsError({ ...defaultGrowthSettings, lookbackHours: 0 }))
   assert.ok(planSettingsError({ ...defaultPlanSettings, noise: 0 }))
+  assert.equal(planSettingsError({ ...defaultPlanSettings, noise: null }), "")
   assert.equal(
     planSettingsError({
       ...defaultPlanSettings,

@@ -13,7 +13,7 @@ import {
   type MarkerRow,
 } from "./workspace-data"
 
-import { fitExperimentPlan, conditionSummary } from "./experiment-model"
+import { conditionSummary, type ExperimentPlan } from "./experiment-model"
 
 import {
   Button,
@@ -338,7 +338,7 @@ export function ExperimentPlanner({
   const settingError = planSettingsError(settings)
 
   const [model, setModel] =
-    useState<ReturnType<typeof fitExperimentPlan> | null>(null)
+    useState<ExperimentPlan | null>(null)
 
   const [error, setError] = useState("")
 
@@ -431,12 +431,14 @@ export function ExperimentPlanner({
             }
           />
           <NumberField
-            label="Normalized noise SD"
+            label="Noise SD override (normalized)"
             value={settings.noise}
+            optional
             min={0.0001}
             max={10}
             disabled={fitting}
-            onChange={(value) => setSettings({ ...settings, noise: value! })}
+            hint="Blank estimates noise from the pooled replicate SD."
+            onChange={(value) => setSettings({ ...settings, noise: value })}
           />
           <NumberField
             label="Exploration margin (response units)"
@@ -542,8 +544,9 @@ export function ExperimentPlanner({
               <p>
                 A condition is a combination of lab settings. The response is
                 what the experiment produced. The fitted model estimates
-                response and uncertainty; expected improvement ranks possible
-                repeat measurements within the uploaded conditions.
+                response and uncertainty; expected improvement ranks new
+                lactate/ammonia combinations on a grid inside the tested range,
+                alongside the tested conditions.
               </p>
             </Details>
           </div>
@@ -552,13 +555,59 @@ export function ExperimentPlanner({
       {model && (
         <>
           <Panel
-            title="GP estimates & next-test rankings"
+            title="Suggested next conditions"
+            caption={`${model.candidates.length}-point grid inside the tested range · ${
+              model.noise.source === "replicates"
+                ? `noise from pooled replicate SD ${model.noise.sd.toPrecision(3)} (${model.noise.dof} df)`
+                : model.noise.source === "setting"
+                  ? "noise from your override"
+                  : "no replicates: noise assumed"
+            }`}
             action={
               <a className="method-link" href="#methods/improvement">
                 Expected improvement equation
               </a>
             }
           >
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="numeric">Lactate mg/L</th>
+                    <th className="numeric">Ammonia mg/L</th>
+                    <th className="numeric">GP mean ± SD</th>
+                    <th className="numeric">Expected improvement</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {model.candidates.slice(0, 8).map((row) => (
+                    <tr key={`${row.lactate}-${row.ammonia}`}>
+                      <td className="numeric">{plotNumber(row.lactate)}</td>
+                      <td className="numeric">{plotNumber(row.ammonia)}</td>
+                      <td className="numeric">
+                        {row.prediction.toFixed(3)} ±{" "}
+                        {row.uncertainty.toFixed(3)}
+                      </td>
+                      <td className="numeric">{row.ei.toPrecision(3)}</td>
+                      <td>
+                        <Badge tone={row.tested ? "neutral" : "success"}>
+                          {row.tested ? "Tested" : "New"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {model.noise.source === "default" && (
+              <p className="panel-note">
+                No condition has replicates, so measurement noise is assumed.
+                Repeat at least one condition to estimate it.
+              </p>
+            )}
+          </Panel>
+          <Panel title="GP estimates at tested conditions">
             <div className="table-scroll">
               <table>
                 <thead>

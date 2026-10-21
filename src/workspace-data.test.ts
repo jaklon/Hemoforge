@@ -12,7 +12,7 @@ import {
   type MarkerRow,
   type CultureRow,
 } from "./workspace-data.ts"
-import { fitExperimentPlan, conditionSummary } from "./experiment-model.ts"
+import { conditionSummary } from "./experiment-model.ts"
 import { simulateMeasurementsForecast } from "./culture-forecast.ts"
 import { defaultMarkerSettings } from "./marker-screening.ts"
 const file = (kind: keyof typeof exampleFiles): InputFile => ({
@@ -107,31 +107,13 @@ test("uploaded culture data feeds reports and simulation at the same cutoff with
     /three measurements/,
   )
 })
-test("uploaded condition outcomes change fitted GP estimates and validation errors", () => {
+test("uploaded condition replicates summarize to mean and sample SD", () => {
   const rows = file("experiments").rows as ExperimentRow[]
   const summary = conditionSummary(rows)
+  assert.equal(summary.length, 4)
   assert.equal(summary[0].n, 3)
   assert.ok(Math.abs(summary[0].mean - 7.8) < 1e-10)
-  const model = fitExperimentPlan(rows)
-  assert.equal(model.ranked.length, 4)
-  assert.equal(model.validation.length, 4)
-  assert.ok(
-    model.ranked.every(
-      (r) =>
-        Number.isFinite(r.prediction) &&
-        Number.isFinite(r.ei) &&
-        r.uncertainty >= 0,
-    ),
-  )
-  assert.ok(model.validation.every((r) => Number.isFinite(r.predicted)))
-  const modified = rows.map((row) =>
-    row.condition_id === rows[0].condition_id
-      ? { ...row, response: row.response + 50 }
-      : row,
-  )
-  assert.notDeepEqual(fitExperimentPlan(modified).ranked, model.ranked)
-  assert.notDeepEqual(fitExperimentPlan(rows, "minimize").ranked, model.ranked)
-  assert.throws(() => fitExperimentPlan(rows.slice(0, 3)), /three distinct/)
+  assert.ok(Math.abs(summary[0].sd! - 0.3) < 1e-10)
 })
 test("uploaded marker rows normalize phased calls and never match unknown genotypes", () => {
   const input = parseInput(

@@ -119,6 +119,27 @@ class PredictionTests(unittest.TestCase):
         self.assertNotEqual(result["mae"], changed["mae"])
         self.assertNotEqual(result["ranked"], changed["ranked"])
 
+    def test_gp_noise_comes_from_replicates_and_grid_proposes_new_conditions(self):
+        payload = experiment_payload()
+        result = predict_experiments(ExperimentRequest(**payload))["result"]
+        # Demo replicate variances are 0.09, 0.1233, 0.09, 0.09: pooled SD sqrt(0.0983) with 8 df.
+        self.assertEqual(result["noise"]["source"], "replicates")
+        self.assertAlmostEqual(result["noise"]["sd"], (0.39333 / 4) ** 0.5, places=3)
+        self.assertEqual(result["noise"]["dof"], 8)
+        self.assertEqual(len(result["candidates"]), 25)
+        self.assertEqual(sum(row["tested"] for row in result["candidates"]), 4)
+        self.assertTrue(any(not row["tested"] and row["ei"] > 0 for row in result["candidates"]))
+        for row in result["candidates"]:
+            self.assertTrue(0 <= row["lactate"] <= 850 and 0 <= row["ammonia"] <= 41)
+        # Replicate noise is far wider than the old fixed 0.05 normalized SD.
+        self.assertTrue(all(row["uncertainty"] > 0.1 for row in result["ranked"]))
+        payload["noise_sd"] = 0.05
+        fixed = predict_experiments(ExperimentRequest(**payload))["result"]
+        self.assertEqual(fixed["noise"]["source"], "setting")
+        single = [row for i, row in enumerate(experiment_payload()["rows"]) if i % 3 == 0]
+        default = predict_experiments(ExperimentRequest(rows=single))["result"]
+        self.assertEqual(default["noise"]["source"], "default")
+
     def test_gp_rejects_mixed_units_and_conflicting_replicates(self):
         for field, value in [("response_unit", "wrong_unit"), ("lactate_mg_l", 12)]:
             payload = experiment_payload()

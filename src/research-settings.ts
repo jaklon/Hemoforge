@@ -10,7 +10,7 @@ export interface GrowthSettings {
 export interface PlanSettings {
   objective: "maximize" | "minimize"
   lengthScale: number
-  noise: number
+  noise: number | null
   exploration: number
 }
 
@@ -31,7 +31,7 @@ export const defaultGrowthSettings: GrowthSettings = {
 export const defaultPlanSettings: PlanSettings = {
   objective: "maximize",
   lengthScale: 0.6,
-  noise: 0.05,
+  noise: null,
   exploration: 0.01,
 }
 export const defaultMonitoringSettings: MonitoringSettings = {
@@ -89,11 +89,12 @@ export function planSettingsError(settings: PlanSettings) {
   )
     return "Length scale must be between 0.001 and 100."
   if (
-    !Number.isFinite(settings.noise) ||
-    settings.noise < 0.0001 ||
-    settings.noise > 10
+    settings.noise !== null &&
+    (!Number.isFinite(settings.noise) ||
+      settings.noise < 0.0001 ||
+      settings.noise > 10)
   )
-    return "Noise SD must be between 0.0001 and 10."
+    return "Noise SD must be between 0.0001 and 10, or blank to estimate from replicates."
   if (
     !Number.isFinite(settings.exploration) ||
     settings.exploration < 0 ||

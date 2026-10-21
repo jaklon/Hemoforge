@@ -153,16 +153,16 @@ export const methods = [
     route: "plan",
     engine: "Python · experiment-rbf-gp-v2",
     intro:
-      "The model relates lactate and ammonia settings to the observed response for each condition. Hyperparameters are supplied by the researcher rather than optimized automatically.",
+      "The model relates lactate and ammonia settings to the observed response for each condition. Measurement noise is estimated from replicate runs; the length scale is supplied by the researcher rather than optimized automatically.",
     notation:
-      "x contains lactate and ammonia in mg/L. y is the vector of condition means. b and s are the training means' average and population standard deviation (s = 1 when constant). ℓ is length scale; η is the normalized noise SD.",
+      "x contains lactate and ammonia in mg/L. y is the vector of condition means. b and s are the training means' average and population standard deviation (s = 1 when constant). ℓ is length scale. nᵢ and sᵢ are the run count and replicate SD of condition i; σ̂ is the pooled replicate SD.",
     equations: [
       {
         id: "gp-kernel",
         name: "Normalize factors and build the RBF kernel",
-        latex: String.raw`\begin{aligned}u_{ij}&=\frac{x_{ij}}{\max(1,\max_k x_{kj})},\quad z=\frac{y-b}{s}\\ k(u,v)&=\exp\!\left(-\frac{\lVert u-v\rVert^2}{2\ell^2}\right),\quad C=K+\eta^2I\end{aligned}`,
+        latex: String.raw`\begin{aligned}u_{ij}&=\frac{x_{ij}}{\max(1,\max_k x_{kj})},\quad z=\frac{y-b}{s}\\ k(u,v)&=\exp\!\left(-\frac{\lVert u-v\rVert^2}{2\ell^2}\right)\ \widehat\sigma^2&=\frac{\sum_i(n_i-1)s_i^2}{\sum_i(n_i-1)},\quad C=K+\operatorname{diag}\!\left(\frac{\widehat\sigma^2}{s^2n_i}\right)\end{aligned}`,
         explanation:
-          "Factor normalization uses the available candidate settings. Each training set supplies its own response normalization. The model operates on condition means; it does not weight them by replicate count or measured replicate SD.",
+          "Factor normalization uses the tested settings. Each training set supplies its own response normalization. The model fits condition means, so each mean's noise variance is the pooled replicate variance divided by its run count. Without any replicates, a normalized noise SD of 0.05 is assumed and flagged; a researcher override replaces the pooled estimate.",
       },
       {
         id: "gp-posterior",
@@ -173,7 +173,7 @@ export const methods = [
       },
     ],
     limits:
-      "The current candidate set contains only observed conditions. Results rank possible repeat measurements, not arbitrary new factor combinations. The GP assumes a smooth response surface and does not establish causal effects or a validated production recipe.",
+      "Candidates are a 5 × 5 grid spanning the tested lactate and ammonia range, plus the tested conditions; the model does not extrapolate beyond the tested range. Pooling assumes the same noise in every condition. The GP assumes a smooth response surface and does not establish causal effects or a validated production recipe.",
     refs: ["gpml"],
   },
   {
@@ -196,7 +196,7 @@ export const methods = [
       },
     ],
     limits:
-      "EI is a model-dependent acquisition score in response units, not a probability of success. This app evaluates it only at the supplied conditions; it does not run continuous global optimization.",
+      "EI is a model-dependent acquisition score in response units, not a probability of success. This app evaluates it on a fixed grid inside the tested range; it does not run continuous global optimization.",
     refs: ["jones"],
   },
   {

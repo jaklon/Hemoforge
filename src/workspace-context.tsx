@@ -27,7 +27,7 @@ import {
   type DataKind,
 } from "./workspace-data"
 import { type CultureForecast, type ForecastHorizon } from "./culture-forecast"
-import type { fitExperimentPlan } from "./experiment-model"
+import type { ExperimentPlan } from "./experiment-model"
 import {
   predictGrowth,
   predictExperiments,
@@ -52,9 +52,9 @@ export interface SimulationResult {
 export interface RunRecord {
   id: string
   generatedAt: string
-  plan: ReturnType<typeof fitExperimentPlan> | null
+  plan: ExperimentPlan | null
   planError: string | null
-  prediction: Omit<PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>, "result"> | null
+  prediction: Omit<PredictionEnvelope<ExperimentPlan>, "result"> | null
   settings: PlanSettings
 }
 interface WorkspaceContextValue {
@@ -246,7 +246,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
   async function refitPlan(settings: PlanSettings) {
     const sequence = ++planSequence.current
-    let response: PredictionEnvelope<ReturnType<typeof fitExperimentPlan>>
+    let response: PredictionEnvelope<ExperimentPlan>
     try {
       response = await predictExperiments(
         inputs.experiments.rows as ExperimentRow[],
