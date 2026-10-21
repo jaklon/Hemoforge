@@ -103,10 +103,14 @@ function ReplayControls({
   setSpeed,
 
   replicate,
+
+  sticky = false,
 }: {
   hour: number
 
   replicate: number
+
+  sticky?: boolean
 
   setHour: (hour: number) => void
 
@@ -129,7 +133,10 @@ function ReplayControls({
   }
 
   return (
-    <section className="replay-bar" aria-label="Replay controls">
+    <section
+      className={`replay-bar${sticky ? " is-sticky" : ""}`}
+      aria-label="Replay controls"
+    >
       <div className="replay-actions">
         <Button
           primary
@@ -1274,6 +1281,7 @@ function ResearchWorkspaceContent() {
             speed={speed}
             setSpeed={setSpeed}
             replicate={replicate}
+            sticky={view === "pilot"}
           />
         )}
         {view === "pilot" && <MonitoringControls />}
@@ -1309,6 +1317,7 @@ function ResearchWorkspaceContent() {
                 speed={speed}
                 setSpeed={setSpeed}
                 replicate={replicate}
+                sticky
               />
             }
             hour={hour}

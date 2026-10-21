@@ -3,6 +3,7 @@ import { Button } from "./workspace-ui"
 import {
   boundRange,
   panRange,
+  niceTicks,
   plotNumber,
   valueExtent,
   zoomRange,
@@ -254,11 +255,13 @@ export default function InteractivePlot({
           {yLabel}
           {logarithmic ? " · log₁₀ scale" : ""}
         </text>
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
-          const value = current.y[0] + (current.y[1] - current.y[0]) * fraction
-          const cy = bottom - fraction * (bottom - top)
+        {niceTicks(current.y, 6).map((value) => {
+          const cy =
+            bottom -
+            ((value - current.y[0]) / (current.y[1] - current.y[0])) *
+              (bottom - top)
           return (
-            <g key={fraction}>
+            <g key={value}>
               <line
                 x1={left}
                 x2={right}
@@ -275,17 +278,9 @@ export default function InteractivePlot({
         <g clipPath={`url(#${id}-clip)`}>
           {children({ x, y, top, bottom, left, right })}
         </g>
-        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
-          <text
-            key={fraction}
-            x={left + fraction * (right - left)}
-            y="281"
-            textAnchor="middle"
-          >
-            {plotNumber(
-              current.x[0] + fraction * (current.x[1] - current.x[0]),
-            )}
-            h
+        {niceTicks(current.x, width < 500 ? 4 : 7).map((value) => (
+          <text key={value} x={x(value)} y="281" textAnchor="middle">
+            {plotNumber(value)}h
           </text>
         ))}
         <text x={right} y="299" textAnchor="end" className="axis-title">

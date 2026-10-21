@@ -40,26 +40,31 @@ export default function ForecastChart({
     interval === "95" ? point.upper95 : point.upper80
   return (
     <>
-      <div className="forecast-display-controls">
+      <div className="guard-chart-controls">
+        <a className="method-link" href="#methods/intervals">
+          Range &amp; log-axis formulas
+        </a>
+        <fieldset className="guard-segmented">
+          <legend className="sr-only">Simulated interval</legend>
+          {["95", "80"].map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={interval === value}
+              onClick={() => setInterval(value)}
+            >
+              {value}% range
+            </button>
+          ))}
+        </fieldset>
         <label className="inline-check">
           <input
             type="checkbox"
             checked={paths}
             onChange={(event) => setPaths(event.target.checked)}
           />
-          Show sample paths (up to 24)
+          Sample paths
         </label>
-        <label>
-          Simulated interval
-          <select
-            value={interval}
-            onChange={(event) => setInterval(event.target.value)}
-          >
-            <option value="95">95%</option>
-            <option value="80">80%</option>
-          </select>
-        </label>
-        <a href="#methods/intervals">Range & log-axis formulas ↗</a>
       </div>
       <InteractivePlot
         title="Growth simulation chart"
@@ -123,9 +128,15 @@ export default function ForecastChart({
               </circle>
             ))}
             <polyline
-              points={result.distribution
-                .map((point) => `${x(point.hour)},${y(point.median)}`)
-                .join(" ")}
+              points={[
+                // Bridge unobserved hours between the last sample and the simulation start.
+                ...(result.observedHour < result.fromHour
+                  ? [`${x(result.observedHour)},${y(result.observedCount)}`]
+                  : []),
+                ...result.distribution.map(
+                  (point) => `${x(point.hour)},${y(point.median)}`,
+                ),
+              ].join(" ")}
               className="forecast-median"
             />
             <line
@@ -162,7 +173,7 @@ export default function ForecastChart({
           </>
         )}
       </InteractivePlot>
-      <div className="forecast-legend">
+      <div className="guard-legend forecast-legend">
         <span>
           <i className="legend-measured" />
           Measured
@@ -176,7 +187,7 @@ export default function ForecastChart({
           {interval}% simulated range
         </span>
       </div>
-      <div className="plot-inspector">
+      <div className="guard-inspector forecast-inspector">
         <label>
           Inspect a time point
           <select

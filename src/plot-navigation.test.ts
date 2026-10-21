@@ -5,7 +5,15 @@ import {
   zoomRange,
   valueExtent,
   plotNumber,
+  niceTicks,
 } from "./plot-navigation.ts"
+
+test("axis ticks use round steps inside the visible range", () => {
+  assert.deepEqual(niceTicks([0, 128.23]), [0, 50, 100])
+  assert.deepEqual(niceTicks([0, 9.59]), [0, 2.5, 5, 7.5])
+  assert.deepEqual(niceTicks([12.5, 62.5]), [20, 40, 60])
+  assert.deepEqual(niceTicks([3, 3]), [3])
+})
 
 test("zoom preserves the pointer anchor and pan stays inside the source window", () => {
   assert.deepEqual(zoomRange([0, 100], [0, 100], 0.5, 0.25), [12.5, 62.5])

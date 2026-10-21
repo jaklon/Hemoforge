@@ -47,3 +47,18 @@ export function valueExtent(values: number[], logarithmic: boolean): Range {
   const padding = (max - min || Math.abs(max) || 1) * 0.08
   return [logarithmic ? min - padding : Math.min(0, min), max + padding]
 }
+
+// Round axis ticks (1, 2, 2.5, 5 × 10ⁿ) inside the visible range.
+export function niceTicks([min, max]: Range, target = 5): number[] {
+  const span = max - min
+  if (!(span > 0)) return [min]
+  const raw = span / (target - 1)
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10]
+    .map((factor) => factor * magnitude)
+    .find((value) => value >= raw)!
+  const ticks: number[] = []
+  for (let i = Math.ceil(min / step); i * step <= max + step * 1e-9; i++)
+    ticks.push(Number((i * step).toPrecision(12)))
+  return ticks
+}

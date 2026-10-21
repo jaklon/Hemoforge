@@ -207,7 +207,7 @@ export function SimulationPanel({
       )}
       {result && end ? (
         <>
-          <div className="growth-metrics">
+          <div className="guard-metrics">
             <div>
               <span>Projected median at {plotNumber(end.hour)}h</span>
               <strong>
@@ -556,7 +556,7 @@ export function ExperimentPlanner({
               </a>
             }
           >
-            <div className="growth-metrics">
+            <div className="guard-metrics">
               <div>
                 <span>GP mean absolute error</span>
                 <strong>{model.mae.toFixed(4)}</strong>
