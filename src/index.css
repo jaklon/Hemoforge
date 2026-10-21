@@ -226,7 +226,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .marker-card .button { justify-self: start; }
 .custom-marker-form { padding: 18px; border-top: 1px solid var(--line); }
 .custom-marker-form .panel-note { padding: 12px 0; border: 0; }
-.scenario-editor { display: block; padding: 0 18px; font-size: var(--text-caption); color: var(--muted); }
+.scenario-editor { display: block; padding: 0 18px 18px; font-size: var(--text-caption); color: var(--muted); }
 .scenario-editor textarea { margin-top: 8px; min-height: 280px; font-family: var(--font-mono, monospace); white-space: pre; overflow: auto; }
 .context-strip a { margin-left: auto; }
 .screening-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 0 0 20px; color: #526174; font-size: var(--text-caption); }
@@ -673,3 +673,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 @media (max-width: 520px) { .topbar .header-actions > .button:not(.menu-toggle) { display: none; } }
 .forecast-inspector { grid-template-columns: minmax(160px, 1fr) auto auto; }
 @media (max-width: 520px) { .forecast-inspector { grid-template-columns: 1fr; } }
+.plot-toolbar select { min-height: 32px; padding-block: 5px; font-size: var(--text-xs); }
+.plot-buttons .button { min-width: 32px; min-height: 32px; padding: 4px 10px; font-size: var(--text-xs); }
+.guard-chart-controls + .interactive-plot .plot-toolbar { padding-top: 10px; }
+@media (max-width: 600px) { .plot-buttons .button { min-height: 42px; } .plot-toolbar select { min-height: 38px; } }

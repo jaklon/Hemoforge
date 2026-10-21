@@ -212,7 +212,7 @@ export function SimulationPanel({
               <span>Projected median at {plotNumber(end.hour)}h</span>
               <strong>
                 {end.median.toPrecision(4)}
-                <small>×10⁶ cells</small>
+                <small> ×10⁶ cells</small>
               </strong>
             </div>
             <div>

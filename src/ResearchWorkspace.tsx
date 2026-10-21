@@ -1284,7 +1284,6 @@ function ResearchWorkspaceContent() {
             sticky={view === "pilot"}
           />
         )}
-        {view === "pilot" && <MonitoringControls />}
         {view === "bot" ? (
           <HemoBot
             bot={bot}
@@ -1328,12 +1327,15 @@ function ResearchWorkspaceContent() {
             setEventNotes={setEventNotes}
           />
         ) : view === "pilot" ? (
-          <Pilot
-            hour={hour}
-            replicate={replicate}
-            setReplicate={setReplicate}
-            navigate={navigate}
-          />
+          <>
+            <Pilot
+              hour={hour}
+              replicate={replicate}
+              setReplicate={setReplicate}
+              navigate={navigate}
+            />
+            <MonitoringControls />
+          </>
         ) : view === "plan" ? (
           <ExperimentPlanner
             onEditData={() => navigate("data")}

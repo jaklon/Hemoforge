@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import katex from "katex"
 
@@ -145,6 +145,26 @@ export default function MethodsPage({ section }: { section: string }) {
     target.focus({ preventScroll: true })
   }, [section])
 
+  // Highlight the contents entry for the section currently under the topbar.
+  const [active, setActive] = useState(section)
+  useEffect(() => {
+    function update() {
+      const sections = [
+        ...document.querySelectorAll<HTMLElement>(".method-section"),
+      ]
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2
+      const current = atBottom
+        ? sections.at(-1)
+        : sections.filter((element) => element.getBoundingClientRect().top <= 140).at(-1)
+      setActive((current ?? sections[0])?.id.replace("methods/", "") ?? "")
+    }
+    update()
+    window.addEventListener("scroll", update, { passive: true })
+    return () => window.removeEventListener("scroll", update)
+  }, [])
+
   return (
     <div className="methods-page">
       <PageTitle
@@ -159,14 +179,24 @@ export default function MethodsPage({ section }: { section: string }) {
             <a
               key={method.id}
               href={`#methods/${method.id}`}
-              aria-current={section === method.id ? "location" : undefined}
+              aria-current={active === method.id ? "location" : undefined}
             >
               {method.title}
               <small>{method.module}</small>
             </a>
           ))}
-          <a href="#methods/references">Reference library</a>
-          <a href="#methods/sources">Data provenance</a>
+          <a
+            href="#methods/references"
+            aria-current={active === "references" ? "location" : undefined}
+          >
+            Reference library
+          </a>
+          <a
+            href="#methods/sources"
+            aria-current={active === "sources" ? "location" : undefined}
+          >
+            Data provenance
+          </a>
         </nav>
         <div className="methods-body">
           <p className="methods-intro">
