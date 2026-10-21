@@ -147,7 +147,7 @@ function ReplayControls({
         <label htmlFor="replay-hour">
           <span>Culture replay · {batchId(replicate)}</span>
           <strong>
-            {hour}h <span>/ {replayEndHour}h</span>
+            {Math.round(hour * 10) / 10}h <span>/ {replayEndHour}h</span>
           </strong>
         </label>
         <input
@@ -195,7 +195,7 @@ function ReplayControls({
           min="0"
           max={replayEndHour}
           step="any"
-          value={hour}
+          value={Math.round(hour * 10) / 10}
           onChange={(event) => {
             const value = Number(event.target.value)
 

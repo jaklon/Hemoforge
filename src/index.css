@@ -641,7 +641,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .replay-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 14px; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
 .replay-actions { display: flex; gap: 6px; }
 .replay-actions .primary { min-width: 76px; }
-.replay-track { flex: 1 1 260px; min-width: 0; display: grid; gap: 4px; }
+.replay-track { flex: 1 1 260px; min-width: 0; display: grid; gap: 8px; }
 .replay-track label { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-caption); color: #526174; }
 .replay-track strong { color: #172033; font-variant-numeric: tabular-nums; }
 .replay-track strong span { font-weight: 400; color: var(--muted); }
@@ -650,8 +650,8 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .replay-sample-navigation .button { padding: 5px 9px; min-height: 32px; font-size: var(--text-xs); }
 .replay-field { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--text-xs); white-space: nowrap; }
 .replay-field input { width: 72px; min-height: 32px; padding: 5px 7px; border: 1px solid #cbd5e1; border-radius: 5px; background: var(--surface); color: var(--navy); }
-@media (min-height: 640px) and (min-width: 741px) { .guard-workspace > .replay-bar { position: sticky; top: 65px; z-index: 15; box-shadow: 0 6px 18px rgb(15 23 42 / .08); } }
-@media (min-height: 640px) and (min-width: 741px) and (max-width: 900px) { .guard-workspace > .replay-bar { top: 8px; } }
+@media (min-height: 640px) and (min-width: 741px) { .guard-workspace > .replay-bar { position: sticky; top: 77px; z-index: 15; box-shadow: 0 6px 18px rgb(15 23 42 / .08); } }
+@media (min-height: 640px) and (min-width: 741px) and (max-width: 900px) { .guard-workspace > .replay-bar { top: 12px; } }
 @media (max-width: 520px) { .replay-track { flex-basis: 100%; order: -1; } .replay-sample-navigation .button { min-height: 36px; } }
 .workflow-inputs { list-style: none; margin: 0; padding: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .workflow-inputs li { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 5px; background: #f8fafc; min-width: 0; }
