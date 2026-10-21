@@ -1,0 +1,35 @@
+[
+  {
+    "gene": "KEL",
+    "variant_id": "rs8176058",
+    "contig": "7",
+    "position_1based": 142957921,
+    "reference_allele": "G",
+    "reported_alleles": [
+      "G",
+      "A",
+      "C"
+    ],
+    "evidence": "public_reference_unverified",
+    "genome_build": "GRCh38",
+    "donor_genotype": null,
+    "note": "This source record is multiallelic when more than two alleles are reported. No donor genotype or haplotype is inferred; the main dataset retains biallelic sites only."
+  },
+  {
+    "gene": "SLC14A1",
+    "variant_id": "rs1058396",
+    "contig": "18",
+    "position_1based": 45739554,
+    "reference_allele": "G",
+    "reported_alleles": [
+      "G",
+      "A",
+      "C",
+      "T"
+    ],
+    "evidence": "public_reference_unverified",
+    "genome_build": "GRCh38",
+    "donor_genotype": null,
+    "note": "This source record is multiallelic when more than two alleles are reported. No donor genotype or haplotype is inferred; the main dataset retains biallelic sites only."
+  }
+]

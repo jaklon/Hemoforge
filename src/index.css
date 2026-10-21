@@ -591,3 +591,56 @@ input[aria-invalid="true"] { border-color: var(--red); }
   .plot-toolbar label { min-width: 0; }
   .plot-toolbar .plot-buttons { grid-column: 1 / -1; }
 }
+
+/* HemoBot uses the same evidence panels and status vocabulary as the research modules. */
+.bot-module-handoff { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--muted); font-size: var(--text-caption); }
+.bot-composer, .bot-body { padding: 18px; }
+.bot-composer > label { display: block; margin: 20px 0 8px; font-weight: 600; }
+.bot-composer textarea { width: 100%; resize: none; min-height: 100px; border: 1px solid var(--line); border-radius: 5px; padding: 12px; line-height: 1.6; }
+.bot-quick-actions, .bot-run-actions, .bot-export-actions, .bot-badges, .bot-citations { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bot-quick-actions [aria-pressed="true"] { color: var(--red); border-color: var(--red); background: #fff4f4; }
+.bot-run-actions { margin-top: 16px; align-items: end; }
+.bot-run-actions label { display: grid; gap: 5px; font-size: var(--text-caption); }
+.bot-composer .panel-note { padding: 0; margin-top: 16px; }
+.bot-progress { min-height: 18px; color: var(--muted); font-size: var(--text-caption); margin-top: 8px; }
+.bot-results { display: grid; gap: 18px; margin-top: 22px; }
+.bot-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.bot-body p + p { margin-top: 12px; }
+.bot-body p { overflow-wrap: anywhere; line-height: 1.7; }
+.bot-body > code { display: block; margin-top: 12px; }
+.bot-fallback { color: #8c520a; padding: 12px; background: #fff8e9; border-radius: 5px; margin-bottom: 14px; }
+.bot-badges { gap: 6px; }
+.bot-citations { margin-top: 16px; }
+.bot-citations .button { padding: 4px 8px; background: #edf1f6; border-radius: 4px; font-size: var(--text-caption); }
+.bot-actions { margin: 0; padding: 18px 18px 18px 36px; }
+.bot-actions li + li { margin-top: 10px; }
+.bot-source-list article { padding: 14px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 100px; }
+.bot-source-list p { margin-top: 7px; overflow-wrap: anywhere; }
+.bot-results blockquote { margin: 18px 0; border-left: 3px solid var(--line); padding-left: 14px; white-space: pre-wrap; }
+.bot-export-actions { margin-top: 18px; }
+.bot-empty { padding: 30px 20px; color: var(--muted); text-align: center; }
+.bot-empty p { max-width: 620px; margin: 10px auto 0; }
+@media (max-width: 740px) { .bot-card-grid { grid-template-columns: 1fr; } .bot-module-handoff { align-items: start; } }
+@media (max-width: 520px) { .bot-run-actions > label, .bot-run-actions select, .bot-run-actions > .button { width: 100%; } }
+.evo2-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.evo2-fields label, .evo2-sequence { display: grid; gap: 7px; font-size: var(--text-caption); }
+.evo2-fields input, .evo2-fields select { width: 100%; min-width: 0; min-height: 36px; border: 1px solid var(--line); border-radius: 5px; padding: 8px; background: white; }
+.evo2-sequence { margin-block: 18px; }
+.evo2-sequence textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid var(--line); border-radius: 5px; font-family: Consolas, monospace; }
+@media (max-width: 740px) { .evo2-fields { grid-template-columns: 1fr; } }
+.evo2-dataset { border-block: 1px solid var(--line); padding: 24px; }
+.evo2-dataset h3 { margin-bottom: 14px; }
+.evo2-filters { margin-top: 20px; grid-template-columns: 1fr 1fr 2fr; }
+.evo2-dataset .table-scroll { margin-block: 12px; }
+.evo2-preview { margin-block: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 6px; }
+.evo2-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; line-height: 1.8; padding: 12px; background: #f4f6f9; font-family: Consolas, monospace; }
+.evo2-preview h4 { margin-block: 10px; }
+.evo2-preview mark { padding: 2px; background: #ffe4a3; color: #562e00; font-weight: 700; }
+.evo2-preview code, .evo2-result code { overflow-wrap: anywhere; }
+.evo2-selection { margin-top: 18px; }
+.evo2-selection ul { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; margin-top: 8px; }
+.evo2-selection li { padding: 7px 10px; border: 1px solid var(--line); border-radius: 5px; font-size: var(--text-caption); }
+.evo2-selection button { margin-left: 8px; cursor: pointer; text-decoration: underline; }
+.evo2-trial { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 24px; }
+.evo2-trial h4 { margin-block: 12px; }
+@media (max-width: 740px) { .evo2-filters { grid-template-columns: 1fr; } .evo2-dataset { padding: 18px; } }

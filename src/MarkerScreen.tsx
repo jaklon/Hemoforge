@@ -1,3 +1,5 @@
+import Evo2Preparation from "./Evo2Preparation"
+
 import { useEffect, useState } from "react"
 
 import { useWorkspace } from "./workspace-context"
@@ -624,6 +626,7 @@ export default function MarkerScreen({
           </p>
         </Details>
       </Panel>
+      <Evo2Preparation />
     </>
   )
 }

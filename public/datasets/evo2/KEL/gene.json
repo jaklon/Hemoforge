@@ -1,0 +1,22 @@
+{
+  "end": 142962369,
+  "db_type": "core",
+  "biotype": "protein_coding",
+  "start": 142941114,
+  "logic_name": "ensembl_havana_gene_homo_sapiens",
+  "seq_region_name": "7",
+  "source": "ensembl_havana",
+  "canonical_transcript": "ENST00000355265.7",
+  "assembly_name": "GRCh38",
+  "description": "Kell metallo-endopeptidase (Kell blood group) [Source:HGNC Symbol;Acc:HGNC:6308]",
+  "display_name": "KEL",
+  "object_type": "Gene",
+  "version": 11,
+  "species": "homo_sapiens",
+  "id": "ENSG00000197993",
+  "strand": -1,
+  "reference_window_start_1based": 142940986,
+  "reference_window_end_1based": 142962497,
+  "reference_sequence_id": "chromosome:GRCh38:7:142940986:142962497:1",
+  "evidence": "public_reference_unverified"
+}

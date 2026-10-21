@@ -1,5 +1,5 @@
 {
-  "title": "HemoGPT by HemoForge | Bioreactor Guard",
+  "title": "HemoForge | Bioreactor Guard",
   "description": "A research prototype for multi-batch culture replay, traceable warnings, three-hour summaries, experimental planning, and marker screening.",
   "robots": {
     "index": false

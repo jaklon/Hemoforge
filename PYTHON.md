@@ -1,6 +1,6 @@
-# HemoGPT Python prediction service
+# HemoForge Python prediction service
 
-Use the existing HemoGPT website for uploads, predictions, simulations, and
+Use the existing HemoForge website for uploads, predictions, simulations, and
 results. Python runs behind it as a local API; there is no separate prediction
 interface or second upload session.
 
@@ -21,8 +21,8 @@ The existing Vite server uses port 8443. If it is stopped, run `npm run dev`.
 | API documentation | http://127.0.0.1:8000/docs |
 | API health | http://127.0.0.1:8000/api/health |
 
-The Python service binds to loopback. It has no authentication or database;
-keep it local. Logs are in `logs/` and do not contain prediction input bodies.
+The Python service binds to loopback. It has no user authentication; keep it local. Prediction calls process data
+in memory, while explicit HemoBot analyses retain local SQLite audit records. Logs are in `logs/` and do not contain prediction input bodies.
 
 ## Use it
 
@@ -67,9 +67,12 @@ content; it does not verify biological quality. Models are exploratory, with no
 validated harvest/maturation or clinical prediction. RareMatch remains a
 deterministic marker comparison in the website.
 
-Inputs are processed in memory on this computer. The API saves no datasets or
-model artifacts; browser session data resets when the session ends.
-Export what you need before refreshing or restarting.
+Prediction-only inputs are processed in memory on this computer. Browser
+session data resets when the session ends. Explicit HemoBot analyses
+save source snapshots, context, and responses in local SQLite. In Ollama mode,
+the query and bounded evidence statements are sent to the configured model server.
+See [HEMOBOT.md](HEMOBOT.md) for configuration, retention, Docker, and server setup.
+Export browser-only work before refreshing or restarting.
 
 ## Development and checks
 

@@ -1,0 +1,65 @@
+name: hemobot-models
+services:
+  ollama:
+    image: hemoforge/hemobot-ollama:cpu-q4
+    build:
+      context: ..
+      dockerfile: deploy/ollama/Dockerfile
+      args:
+        OLLAMA_IMAGE: ${OLLAMA_IMAGE:-ollama/ollama:0.40.6@sha256:40c61dbf5091e0b4cc46f406f912fb061cfeca51208f0f7173c87c3b5f795c95}
+        CHAT_MODEL: hf.co/aaditya/OpenBioLLM-Llama3-8B-GGUF:Q4_K_M
+        EMBEDDING_MODEL: nomic-embed-text
+    restart: unless-stopped
+    cpus: 8
+    mem_limit: 24g
+    pids_limit: 512
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [models]
+    healthcheck:
+      test: [CMD, ollama, show, "hf.co/aaditya/OpenBioLLM-Llama3-8B-GGUF:Q4_K_M"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/gateway.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      ollama: {condition: service_healthy}
+    ports:
+      - "${HEMOBOT_BIND_IP:-127.0.0.1}:11434:8080"
+    environment:
+      OLLAMA_INTERNAL_URL: http://ollama:11434
+      HEMOBOT_MODEL: hf.co/aaditya/OpenBioLLM-Llama3-8B-GGUF:Q4_K_M
+      HEMOBOT_EMBEDDING_MODEL: nomic-embed-text
+      HEMOBOT_GATEWAY_TOKEN_FILE: /run/secrets/ollama_token
+      PYTHONDONTWRITEBYTECODE: "1"
+    secrets: [ollama_token]
+    networks: [models]
+    read_only: true
+    tmpfs: [/tmp:size=16m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 1
+    mem_limit: 512m
+    pids_limit: 64
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+networks:
+  models:
+    internal: true
+secrets:
+  ollama_token:
+    file: ./secrets/ollama_token.txt

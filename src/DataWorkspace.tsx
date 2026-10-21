@@ -546,10 +546,11 @@ export default function DataWorkspace({
           </p>
         </div>
         <p>
-          Inputs are held in this browser for the current session. Prediction
-          data is sent to the Python service on this computer and processed in
-          memory. No cloud service or stored dataset is used. Export before
-          refreshing.
+          Inputs remain in this browser until the session ends. Predictions are
+          processed by the local Python API. HemoBot analyses additionally save
+          source snapshots and audits to local SQLite; Ollama mode sends evidence
+          statements and your question to the configured model server. Export
+          browser-only work before refreshing.
         </p>
       </Details>
     </>

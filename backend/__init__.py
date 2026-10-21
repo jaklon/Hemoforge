@@ -1,1 +1,1 @@
-"""Python prediction service for the HemoGPT website."""
+"""Shared Python services for the HemoForge research website and HemoBot."""

@@ -85,7 +85,7 @@ function downloadLatex() {
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb}
 \usepackage[unicode]{hyperref}
-\title{HemoGPT: Methods, Equations and References}
+\title{HemoForge: Methods, Equations and References}
 \author{HemoForge research workspace}
 \date{}
 \begin{document}
