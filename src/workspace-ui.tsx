@@ -97,6 +97,10 @@ export function Icon({ name }: { name: string }) {
     alert: <path d="M12 3 2 21h20zM12 9v5m0 3v1" />,
 
     check: <path d="m5 12 4 4L19 6" />,
+
+    team: (
+      <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 9c0-3 3-5 6-5s6 2 6 5m1-9a3 3 0 1 0 0-6m2 15c0-2-1-4-3-5" />
+    ),
   }
 
   return (

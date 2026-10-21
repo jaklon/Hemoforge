@@ -650,3 +650,11 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .evo2-trial { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 24px; }
 .evo2-trial h4 { margin-block: 12px; }
 @media (max-width: 740px) { .evo2-filters { grid-template-columns: 1fr; } .evo2-dataset { padding: 18px; } }
+.about-body { padding: 18px; display: grid; gap: 16px; color: #44566a; line-height: 1.7; }
+.about-modules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.about-modules li { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: 5px; background: #f8fafc; font-size: var(--text-caption); }
+.about-modules strong { color: #172033; font-size: var(--text-md); }
+.team-grid { list-style: none; margin: 0; padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.team-grid li { display: grid; justify-items: center; gap: 6px; padding: 20px 14px; border: 1px solid var(--line); border-radius: 5px; text-align: center; }
+.team-avatar { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--red); color: #fff; font-size: 1.25rem; font-weight: 600; }
+.team-grid small { color: var(--muted); font-size: var(--text-caption); }

@@ -45,6 +45,7 @@ import {
 import { lazy, Suspense, useEffect, useMemo, useState } from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
+import AboutPage from "./AboutPage"
 
 import {
   analyzeMeasurements,
@@ -57,7 +58,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods"
+type View = "data" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "about"
 
 interface NavigationItem {
   id: View
@@ -81,6 +82,7 @@ const navigation: NavigationItem[] = [
   { id: "report", name: "Research report", purpose: "Review & export", icon: "report", group: "Output", role: "Report" },
   { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot", group: "Assist & reference" },
   { id: "methods", name: "Methods & references", purpose: "Equations & sources", icon: "report", group: "Assist & reference" },
+  { id: "about", name: "About us", purpose: "Project & team", icon: "team", group: "About" },
 ]
 
 const processStages = navigation.filter((item) => item.role)
@@ -1187,14 +1189,9 @@ function ResearchWorkspaceContent() {
           </span>
           <span>
             <strong>HemoForge</strong>
-            <small>Erythroid research</small>
+            <small>GenoHack 2026</small>
           </span>
         </a>
-        <div className="workspace-context">
-          <span>GenoHack 2026</span>
-          <strong>Erythroid research workspace</strong>
-          <small>CASE-DEMO-01</small>
-        </div>
         <nav aria-label="Research modules">
           {navigationGroups.map((group) => (
             <div className="nav-group" key={group} role="group" aria-label={group}>
@@ -1351,6 +1348,8 @@ function ResearchWorkspaceContent() {
             setChecks={setChecks}
             onEditData={() => navigate("data")}
           />
+        ) : view === "about" ? (
+          <AboutPage />
         ) : view === "methods" ? (
           <Suspense
             fallback={
