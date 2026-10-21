@@ -678,3 +678,13 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .guard-chart-controls + .interactive-plot .plot-toolbar { padding-top: 10px; }
 @media (max-width: 600px) { .plot-buttons .button { min-height: 42px; } .plot-toolbar select { min-height: 38px; } }
 .report-form > select { margin-bottom: 14px; }
+/* Simulation loading skeleton */
+@keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.skeleton-line, .skeleton-block, .simulation-result.is-refreshing::after { background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 50%, #eef2f6 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s linear infinite; border-radius: 4px; }
+.skeleton-line { display: block; height: 10px; width: 60%; }
+.skeleton-line.value { height: 22px; width: 45%; margin-top: 10px; }
+.skeleton-line.short { width: 70%; }
+.skeleton-block { height: 360px; margin: 18px 20px 20px; }
+.simulation-result { position: relative; }
+.simulation-result.is-refreshing::after { content: ""; position: absolute; inset: 0 0 auto; height: 3px; border-radius: 0; background: linear-gradient(90deg, transparent, var(--red), transparent); background-size: 200% 100%; }
+@media (prefers-reduced-motion: reduce) { .skeleton-line, .skeleton-block, .simulation-result.is-refreshing::after { animation: none; } }

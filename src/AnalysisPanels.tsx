@@ -221,8 +221,20 @@ export function SimulationPanel({
           {error}
         </p>
       )}
-      {result && end ? (
-        <>
+      {(predicting || (outdated && !blocked && !error)) && !result ? (
+        <div className="simulation-skeleton" role="status" aria-label="Running growth simulation">
+          <div className="guard-metrics">
+            {[0, 1, 2].map((item) => (
+              <div key={item}>
+                <span className="skeleton-line short" />
+                <span className="skeleton-line value" />
+              </div>
+            ))}
+          </div>
+          <div className="skeleton-block" />
+        </div>
+      ) : result && end ? (
+        <div className={predicting ? "simulation-result is-refreshing" : "simulation-result"} aria-busy={predicting}>
           <div className="guard-metrics">
             <div>
               <span>Projected median at {plotNumber(end.hour)}h</span>
@@ -253,7 +265,7 @@ export function SimulationPanel({
               {plotNumber(hour)}h when replay pauses.
             </p>
           )}
-        </>
+        </div>
       ) : (
         <div className="empty-state simulation-empty">
           <strong>
