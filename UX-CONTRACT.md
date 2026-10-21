@@ -1,4 +1,4 @@
-# HemoGPT interface contract
+# HemoForge interface contract
 
 The supplied `C:/Users/jonat/Downloads/GenoHack (1).pdf`, sections II-VIII, defines
 module roles, study separation, replay boundaries, reports, and pending laboratory
@@ -32,7 +32,9 @@ Guard is the default; Data & runs stages and applies inputs. One input per type
 (culture, experiments, markers) is active. Applying an input replaces only that
 type; the connection list discloses retained sources and synthetic fallbacks.
 Files are held in the browser; prediction records are sent to loopback Python
-and processed in memory. There is no cloud service or stored dataset.
+and processed in memory. Explicit HemoBot analyses additionally persist source
+snapshots, deterministic context, and audit responses in local SQLite. Ollama
+mode sends the bounded evidence catalog and query to the configured model server.
 2 MB / 10,000 rows per file, 30 batches and 60 conditions
 are the local limits. Culture counts use absolute million cells. Relative times
 must increase per batch; duplicate/out-of-order times are rejected instead of
@@ -55,7 +57,8 @@ Notes, marker choices, candidate review, checklist selections, and replay state
 live in the top-level React owner and survive module navigation. They reset on
 refresh. Exports include evidence limits and the actual session state. The local
 FastAPI service runs models; no user account, background scheduler, real sensor,
-or external cloud API is connected. Failed requests retain staged files and
+or external cloud API is connected. HemoBot can contact a configured private
+Ollama gateway; its token stays in Python configuration. Failed requests retain staged files and
 display a retryable error. Timeouts stop waiting after 30 seconds; superseded
 responses cannot replace newer inputs or model results. No silent JS fallback.
 

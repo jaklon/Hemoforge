@@ -1,4 +1,4 @@
-# HemoGPT Python prediction service
+# HemoForge Python prediction service
 
 The React website and Streamlit lab both call the same local Python API. The
 website keeps its connected workflow; Streamlit is a separate workspace for
@@ -72,9 +72,12 @@ content; it does not verify biological quality. Models are exploratory, with no
 validated harvest/maturation or clinical prediction. RareMatch remains a
 deterministic marker comparison in the website.
 
-Inputs are processed in memory on this computer. The API saves no datasets or
-model artifacts; browser and Streamlit session data reset when their sessions end.
-Export what you need before refreshing or restarting.
+Prediction-only inputs are processed in memory on this computer. Browser and
+Streamlit session data reset when their sessions end. Explicit HemoBot analyses
+save source snapshots, context, and responses in local SQLite. In Ollama mode,
+the query and bounded evidence statements are sent to the configured model server.
+See [HEMOBOT.md](HEMOBOT.md) for configuration, retention, Docker, and server setup.
+Export browser-only work before refreshing or restarting.
 
 ## Development and checks
 

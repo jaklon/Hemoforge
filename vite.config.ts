@@ -31,7 +31,7 @@ react(),
       },
     },
     server: {
-      host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
+      host: process.env.FIGMA_DEV_SERVER_HOST || '127.0.0.1',
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
       proxy: { '/api': 'http://127.0.0.1:8000' },
@@ -45,7 +45,7 @@ react(),
       },
     },
     preview: {
-      host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
+      host: process.env.FIGMA_DEV_SERVER_HOST || '127.0.0.1',
       port: parseInt(process.env.PORT || '8443'),
     },
   }

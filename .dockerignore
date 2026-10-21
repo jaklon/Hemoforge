@@ -1,0 +1,14 @@
+.git
+.venv
+node_modules
+dist
+data
+logs
+hemobot.local.json
+**/*.local.json
+deploy/secrets
+knowledge/corpus
+.env*
+**/.env*
+*.pyc
+**/__pycache__
