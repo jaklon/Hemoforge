@@ -1,9 +1,11 @@
 import { PageTitle, Panel } from "./workspace-ui"
 
-// Edit names and roles here; initials are derived from the name.
+// Edit names here; initials come from the first and last name.
 const team = [
-  { name: "Jonathan", role: "Team member" },
-  { name: "Jascon", role: "Team member" },
+  { name: "Jonathan Edward Charles De Fretes", email: "jonathqncjr@gmail.com" },
+  { name: "Kent William Soetanto", email: "kentsoetanto22@gmail.com" },
+  { name: "Jascon Johanest Kembuan", email: "jasconkembuan9@gmail.com" },
+  { name: "Fadhlur Rohman Al Akbar", email: "fadhlur.rohman.al.akbar@gmail.com" },
 ]
 
 const modules = [
@@ -43,14 +45,12 @@ export default function AboutPage() {
           {team.map((member) => (
             <li key={member.name}>
               <span className="team-avatar" aria-hidden="true">
-                {member.name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")
-                  .slice(0, 2)}
+                {member.name[0]}
+                {member.name.split(" ").at(-1)![0]}
               </span>
               <strong>{member.name}</strong>
-              <small>{member.role}</small>
+              <small>Tim HemoForge – GenoHack 2026</small>
+              <a href={`mailto:${member.email}`}>{member.email}</a>
             </li>
           ))}
         </ul>
