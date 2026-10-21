@@ -26,7 +26,7 @@ try {
     $evoPlainKey = $null
     $evoSecureKey.Dispose()
 }
-$evoConfig = @{ enabled = $true; free_api_confirmed = $true; key_file = "deploy/secrets/nvidia_api_key.txt"; daily_request_limit = 20; logits_layer = "output_layer" }
+$evoConfig = @{ enabled = $true; free_api_confirmed = $true; key_file = "deploy/secrets/nvidia_api_key.txt"; daily_request_limit = 20; logits_layer = "unembed" }
 $evoConfig | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $evoDataDirectory "evo2-nvidia.local.json") -Encoding utf8
 Write-Host "NVIDIA trial configured. The key is restricted to your Windows account and excluded from Git/Docker images."
 Write-Host "Open http://127.0.0.1:8443/#evo2 and refresh NVIDIA status. No API request has been sent."

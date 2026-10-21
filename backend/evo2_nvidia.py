@@ -34,7 +34,7 @@ class NvidiaSettings(InputModel):
     free_api_confirmed: bool = False
     key_file: str = "deploy/secrets/nvidia_api_key.txt"
     daily_request_limit: int = Field(default=20, strict=True, ge=1, le=20)
-    logits_layer: str = Field(default="output_layer", pattern=r"^(output_layer|unembed)$")
+    logits_layer: str = Field(default="unembed", pattern=r"^(output_layer|unembed)$")
 
 
 class NvidiaScoreRequest(InputModel):
@@ -130,6 +130,9 @@ def decode_logits(raw, content_type, sequence, layer):
             encoded = data["data"]
             if not isinstance(encoded, str) or len(encoded) > MAX_BYTES:
                 raise ValueError()
+            # Hosted NIM wraps Base64 with ASCII newlines. Remove only transport whitespace;
+            # keep strict validation for every other character and retain the encoded-size cap.
+            encoded = encoded.translate(str.maketrans("", "", " \t\r\n"))
             archive = base64.b64decode(encoded, validate=True)
         elif content_type.split(";")[0].strip() in {"application/zip", "application/x-npz", "application/octet-stream"}:
             archive = raw
@@ -188,7 +191,8 @@ def forward(sequence, key, layer):
                     code = {401: "provider_auth_failed", 402: "provider_payment_required", 403: "provider_access_denied",
                             404: "provider_unavailable", 410: "provider_unavailable", 429: "provider_rate_limited",
                             422: "provider_contract_mismatch"}.get(response.status_code, "provider_failed")
-                    raise TrialError(code, "NVIDIA trial request failed (HTTP " + str(response.status_code) + "). No retry or paid fallback was used.",
+                    hint = " Review the server logits layer: hosted NIM uses unembed; some NIM 2.x deployments use output_layer." if response.status_code == 422 else ""
+                    raise TrialError(code, "NVIDIA trial request failed (HTTP " + str(response.status_code) + "). No retry or paid fallback was used." + hint,
                                      429 if response.status_code == 429 else 503)
                 raw = bytearray()
                 for chunk in response.iter_bytes(chunk_size=65536):
