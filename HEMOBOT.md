@@ -140,6 +140,15 @@ The browser retains work when switching pages, cancels waiting when source/conte
 changes, and rejects superseded responses. Cancelling the browser wait does not
 guarantee cancellation of an inference already running on the server.
 
+## llama-server (`arch-friend` container)
+
+When OpenBioLLM runs under llama.cpp's `llama-server` instead of Ollama, copy
+`config/hemobot.llamacpp.example.json` to `hemobot.local.json` (or set
+`HEMOBOT_PROVIDER=llamacpp` and `HEMOBOT_OLLAMA_URL=http://127.0.0.1:8082`).
+The Python API must run where `127.0.0.1:8082` reaches the model, i.e. inside the
+same container. Start `llama-server` with `-c 8192`; at `-c 2048` the evidence
+catalog does not fit and HemoBot falls back to templates. No model digest is reported.
+
 ## Optional complete application Docker stack
 
 The root `Dockerfile` builds React and the Python runtime, including optional RAG

@@ -1,4 +1,4 @@
-"""Ollama is an evidence selector, with no code execution or arbitrary tool access."""
+"""OpenBioLLM (Ollama or llama-server) is an evidence selector, with no code execution or arbitrary tool access."""
 
 import json
 
@@ -23,6 +23,10 @@ def headers(settings):
 
 
 def model_info(client, settings):
+    if settings.provider == "llamacpp":
+        # llama-server serves one model and exposes no weights digest.
+        client.get(settings.ollama_url + "/health", timeout=5).raise_for_status()
+        return {"name": settings.ollama_model}
     response = client.get(settings.ollama_url + "/api/tags", timeout=5)
     response.raise_for_status()
     models = response.json()["models"]
@@ -51,17 +55,30 @@ def select_evidence(settings, query, claims, modules, literature):
     with httpx.Client(timeout=httpx.Timeout(settings.timeout_seconds, connect=5), headers=headers(settings),
                       trust_env=False, follow_redirects=False) as client:
         model = model_info(client, settings)
-        response = client.post(settings.ollama_url + "/api/chat", json={
-            "model": settings.ollama_model, "stream": False, "format": schema, "keep_alive": "10m",
-            "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": serialized}],
-            "options": {"temperature": 0, "seed": 42, "num_ctx": settings.num_ctx,
-                        "num_predict": 384, "num_thread": settings.num_thread, "num_gpu": 0},
-        })
-        response.raise_for_status()
-        payload = response.json()
-    if not isinstance(payload, dict) or payload.get("done") is not True or payload.get("done_reason") == "length":
-        raise ValueError("Inference did not complete within its token budget.")
-    plan = EvidencePlan.model_validate_json(payload["message"]["content"])
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": serialized}]
+        if settings.provider == "llamacpp":
+            response = client.post(settings.ollama_url + "/v1/chat/completions", json={
+                "messages": messages, "stream": False, "temperature": 0, "seed": 42, "max_tokens": 384,
+                "response_format": {"type": "json_schema", "json_schema": {"name": "evidence_plan", "schema": schema}},
+            })
+            response.raise_for_status()
+            choice = response.json()["choices"][0]
+            if choice.get("finish_reason") != "stop":
+                raise ValueError("Inference did not complete within its token budget.")
+            content = choice["message"]["content"]
+        else:
+            response = client.post(settings.ollama_url + "/api/chat", json={
+                "model": settings.ollama_model, "stream": False, "format": schema, "keep_alive": "10m",
+                "messages": messages,
+                "options": {"temperature": 0, "seed": 42, "num_ctx": settings.num_ctx,
+                            "num_predict": 384, "num_thread": settings.num_thread, "num_gpu": 0},
+            })
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict) or payload.get("done") is not True or payload.get("done_reason") == "length":
+                raise ValueError("Inference did not complete within its token budget.")
+            content = payload["message"]["content"]
+    plan = EvidencePlan.model_validate_json(content)
     if len(set(plan.claim_ids)) != len(plan.claim_ids) or set(plan.claim_ids) - set(allowed):
         raise ValueError("Model selected unsupported or duplicate evidence.")
     covered = {claim.module for claim in claims if claim.id in plan.claim_ids}

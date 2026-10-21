@@ -85,7 +85,7 @@ def analyze(request, settings):
             plan, digest = select_evidence(settings, request.query_en, catalog, modules, literature)
             execution, engine = "succeeded", settings.ollama_model
         except (httpx.HTTPError, ValueError, KeyError, TypeError):
-            reason = "Ollama is unavailable, timed out, or returned invalid evidence selections; verified templates were used."
+            reason = "The model server is unavailable, timed out, or returned invalid evidence selections; verified templates were used."
         finally:
             INFERENCE_SLOT.release()
     # Required evidence limits cannot be suppressed by a model selecting only flattering results.

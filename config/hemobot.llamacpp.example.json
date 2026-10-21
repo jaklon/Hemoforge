@@ -1,0 +1,9 @@
+{
+  "mode": "auto",
+  "provider": "llamacpp",
+  "ollama_url": "http://127.0.0.1:8082",
+  "ollama_model": "openbiollm-llama3-8b.Q4_K_M.gguf",
+  "timeout_seconds": 300,
+  "num_ctx": 8192,
+  "rag_enabled": false
+}

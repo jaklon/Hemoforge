@@ -204,6 +204,30 @@ class OllamaContractTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         select_evidence(settings, "Explain warnings", catalog, ["guard"], [])
 
+    def test_llamacpp_openai_call_uses_json_schema_and_validates_ids(self):
+        catalog = claim_catalog(collect_context(AnalyzeRequest(**payload())))
+        for ids, finish, success in [(["guard_count"], "stop", True), (["fabricated_999"], "stop", False),
+                                     (["guard_count"], "length", False)]:
+            def handler(request):
+                if request.url.path == "/health":
+                    return httpx.Response(200, json={"status": "ok"})
+                self.assertEqual(request.url.path, "/v1/chat/completions")
+                body = json.loads(request.content)
+                self.assertIn("enum", body["response_format"]["json_schema"]["schema"]["properties"]["claim_ids"]["items"])
+                return httpx.Response(200, json={"choices": [{"finish_reason": finish, "message": {
+                    "content": json.dumps({"language": "en", "claim_ids": ids, "action_ids": []})}}]})
+
+            client = httpx.Client(transport=httpx.MockTransport(handler))
+            settings = AgentSettings(provider="llamacpp", ollama_url="http://127.0.0.1:8082")
+            with self.subTest(ids=ids, finish=finish), patch("backend.agent_llm.httpx.Client", return_value=client):
+                if success:
+                    plan, digest = select_evidence(settings, "Explain warnings", catalog, ["guard"], [])
+                    self.assertEqual(plan.claim_ids, ["guard_count"])
+                    self.assertIsNone(digest)
+                else:
+                    with self.assertRaises(ValueError):
+                        select_evidence(settings, "Explain warnings", catalog, ["guard"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

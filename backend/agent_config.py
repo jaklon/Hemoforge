@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AgentSettings(InputModel):
     mode: str = "auto"
+    # "llamacpp" speaks llama-server's OpenAI-compatible API (e.g. http://127.0.0.1:8082).
+    provider: str = "ollama"
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "hf.co/aaditya/OpenBioLLM-Llama3-8B-GGUF:Q4_K_M"
     ollama_token: str = Field(default="", max_length=2048, repr=False)
@@ -34,6 +36,13 @@ class AgentSettings(InputModel):
         if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password or url.query or url.fragment:
             raise ValueError("Use an HTTP(S) Ollama base URL without embedded credentials.")
         return value.rstrip("/")
+
+    @field_validator("provider")
+    @classmethod
+    def valid_provider(cls, value):
+        if value not in {"ollama", "llamacpp"}:
+            raise ValueError("Provider must be ollama or llamacpp.")
+        return value
 
     @field_validator("mode")
     @classmethod
