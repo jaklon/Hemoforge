@@ -707,6 +707,7 @@ export default function BioreactorGuard({
             endHour={replayEndHour}
           />
         </Panel>
+        <div className="guard-side">
         <section
           id="guard-review"
           className="panel guard-review-panel"
@@ -830,13 +831,6 @@ export default function BioreactorGuard({
             </div>
           )}
         </section>
-      </div>
-      <div className="guard-secondary-grid">
-        <ChannelPanel
-          replicate={replicate}
-          hour={hour}
-          onImport={() => navigate("data")}
-        />
         <Panel
           title="Continue in ErythroPilot"
           className="guard-handoff-panel"
@@ -879,6 +873,14 @@ export default function BioreactorGuard({
             </div>
           </div>
         </Panel>
+        </div>
+      </div>
+      <div className="guard-secondary-grid">
+        <ChannelPanel
+          replicate={replicate}
+          hour={hour}
+          onImport={() => navigate("data")}
+        />
       </div>
       <div ref={settingsRef} id="guard-settings">
         <MonitoringControls />

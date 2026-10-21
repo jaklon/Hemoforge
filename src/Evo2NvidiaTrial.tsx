@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Badge, Button, Details } from "./workspace-ui"
+import { Badge, Button, Details, Panel } from "./workspace-ui"
 import { evo2NvidiaExportUrl, evo2NvidiaPayload, type Evo2Variant } from "./evo2-data"
 
 interface TrialStatus {
@@ -91,12 +91,10 @@ export default function Evo2NvidiaTrial({ selected }: { selected: Evo2Variant[] 
     }
   }
 
-  return <div className="evo2-trial">
-    <h3>Score with Evo 2 · NVIDIA trial</h3>
-    <div className="bot-badges"><Badge tone={status?.ready ? "success" : "warning"}>{status?.ready ? "NVIDIA trial configured" : status?.status.replace(/_/g, " ") ?? "Checking backend configuration…"}</Badge>
-      <Badge>One public variant per action · no paid fallback</Badge></div>
+  return <Panel title="Score with Evo 2" caption="NVIDIA trial · one public variant per action" action={<Badge tone={status?.ready ? "success" : "warning"}>{status?.ready ? "Configured" : status?.status.replace(/_/g, " ") ?? "Checking…"}</Badge>}>
+    <div className="evo2-trial">
     <p className="panel-note">Sends only the selected public reference/alternate DNA to NVIDIA; uploaded files and donor records are never sent.{status && ` ${status.requests_remaining}/${status.daily_request_limit} requests left today (2 per uncached pair).`}</p>
-    {!status?.ready && <p className="panel-note">On the backend machine, confirm free API access in your NVIDIA account, then run <code>.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial</code> in PowerShell. The key prompt is hidden. Refresh status afterward. Never paste a key into this page or chat.</p>}
+    {!status?.ready && <Details title="Set up NVIDIA access"><p>On the backend machine, confirm free API access in your NVIDIA account, then run <code>.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial</code> in PowerShell. The key prompt is hidden. Refresh status afterward. Never paste a key into this page or chat.</p></Details>}
     <p className="panel-note">Select exactly one variant · model <code>{status?.model ?? "arc/evo2-7b-forward"}</code> · exploratory results</p>
     <div className="bot-export-actions"><Button disabled={busy || loadingSaved} onClick={() => setRefresh(value => value + 1)}>Refresh NVIDIA status</Button>
       <Button disabled={busy || loadingSaved || !selectedId} onClick={() => void loadSaved()}>{loadingSaved ? "Reading local result…" : "Load saved result · local only"}</Button>
@@ -114,5 +112,6 @@ export default function Evo2NvidiaTrial({ selected }: { selected: Evo2Variant[] 
       <Details title="Model and scientific limits"><p>Provider model: <code>{result.provider_model}</code>. Exact provider checkpoint/version is unavailable.</p>
         <ul>{result.limitations.map(text => <li key={text}>{text}</li>)}</ul></Details>
     </div>}
-  </div>
+    </div>
+  </Panel>
 }

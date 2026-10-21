@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react"
-import { Badge, Button, Details } from "./workspace-ui"
+import { Badge, Button, Details, Panel } from "./workspace-ui"
 import { evo2DatasetPayload, evo2VariantsUrl, type Evo2Prepared, type Evo2Variant } from "./evo2-data"
 import Evo2PreparedResult from "./Evo2PreparedResult"
 import Evo2NvidiaTrial from "./Evo2NvidiaTrial"
@@ -103,12 +103,9 @@ export default function Evo2DatasetBrowser() {
     } finally { window.clearTimeout(timer); if (epoch === runEpoch.current) setBusy(false) }
   }
 
-  return <div className="evo2-dataset">
-    <div className="evo2-dataset-head">
-      <h3>Public sequence dataset</h3>
-      {catalog && <div className="evo2-downloads"><a className="text-button" href="/datasets/evo2/sequence_pairs.jsonl" download>Sequence pairs (JSONL)</a>
-        <a className="text-button" href="/datasets/evo2/variants.csv" download>Variants (CSV)</a></div>}
-    </div>
+  return <><Panel title="Public sequence dataset" action={catalog && <div className="evo2-downloads"><a className="text-button" href="/datasets/evo2/sequence_pairs.jsonl" download>Pairs (JSONL)</a>
+        <a className="text-button" href="/datasets/evo2/variants.csv" download>Variants (CSV)</a></div>}>
+    <div className="evo2-dataset">
     {catalog && <div className="bot-badges"><Badge tone="success">{catalog.sequence_pair_count.toLocaleString()} verified pairs</Badge>
       <Badge>{catalog.genes.map(row => `${row.gene} ${row.selected_count}`).join(" · ")}</Badge>
       <Badge>GRCh38 · {catalog.window_bases} bp · Ensembl {catalog.release_info.releases.join(", ")}</Badge></div>}
@@ -150,11 +147,13 @@ export default function Evo2DatasetBrowser() {
     {selected.length > 0 && <div className="evo2-selection"><p>{selected.length} selected:</p>
       <ul>{selected.map(row => <li key={row.id}>{row.gene} · {row.variant_id} · {row.split} <button type="button" disabled={busy}
         aria-label={`Remove ${row.variant_id} ${row.gene}`} onClick={() => select(selected.filter(item => item.id !== row.id))}>Remove</button></li>)}</ul></div>}
-    <div className="bot-export-actions"><Button primary disabled={busy || !selected.length || !catalog} onClick={() => void prepare()}>
-      {busy ? "Preparing locally…" : `Prepare ${selected.length || "selected"} variant(s) · no inference`}</Button>
-      <Button disabled={busy || !selected.length} onClick={() => select([])}>Clear selection</Button></div>
+    {selected.length > 0 && <div className="bot-export-actions"><Button primary disabled={busy || !catalog} onClick={() => void prepare()}>
+      {busy ? "Preparing locally…" : `Prepare ${selected.length} variant(s)`}</Button>
+      <Button disabled={busy} onClick={() => select([])}>Clear selection</Button></div>}
     {error && <div role="alert" className="import-error"><p>{error}</p><Button disabled={busy} onClick={() => { setError(""); setRetry(value => value + 1) }}>Retry local dataset</Button></div>}
     {prepared && <Evo2PreparedResult prepared={prepared} />}
-    <Evo2NvidiaTrial selected={selected} />
-  </div>
+    </div>
+  </Panel>
+  <Evo2NvidiaTrial selected={selected} />
+  </>
 }

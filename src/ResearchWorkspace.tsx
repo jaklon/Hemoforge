@@ -129,7 +129,7 @@ function ReplayControls({
   }
 
   return (
-    <section className="replay-controls" aria-label="Replay controls">
+    <section className="replay-bar" aria-label="Replay controls">
       <div className="replay-actions">
         <Button
           primary
@@ -139,17 +139,13 @@ function ReplayControls({
             setPlaying(!playing)
           }}
         >
-          {playing
-            ? "Pause replay"
-            : hour === replayEndHour
-              ? "Replay again"
-              : "Resume replay"}
+          {playing ? "Pause" : hour === replayEndHour ? "Replay" : "Play"}
         </Button>
         <Button onClick={() => move(0)}>Reset</Button>
       </div>
-      <div className="replay-position">
+      <div className="replay-track">
         <label htmlFor="replay-hour">
-          Culture replay{" "}
+          <span>Culture replay · {batchId(replicate)}</span>
           <strong>
             {hour}h <span>/ {replayEndHour}h</span>
           </strong>
@@ -163,53 +159,57 @@ function ReplayControls({
           value={hour}
           onChange={(e) => move(Number(e.target.value))}
         />
-        <div
-          className="replay-sample-navigation"
-          aria-label="Source sample navigation"
-        >
-          <Button
-            disabled={steps.previous === null}
-            onClick={() => move(steps.previous!)}
-          >
-            Previous sample
-          </Button>
-          <Button
-            disabled={steps.next === null}
-            onClick={() => move(steps.next!)}
-          >
-            Next sample
-          </Button>
-          <Button
-            disabled={steps.last === null || hour === steps.last}
-            onClick={() => move(steps.last!)}
-          >
-            Last source sample
-          </Button>
-          <small>{batchId(replicate)}</small>
-        </div>
-        <label className="replay-precise">
-          Exact cutoff (hours)
-          <input
-            type="number"
-            min="0"
-            max={replayEndHour}
-            step="any"
-            value={hour}
-            onChange={(event) => {
-              const value = Number(event.target.value)
-
-              if (
-                Number.isFinite(value) &&
-                value >= 0 &&
-                value <= replayEndHour
-              )
-                move(value)
-            }}
-          />
-        </label>
       </div>
-      <label className="speed-select">
-        Replay speed
+      <div
+        className="replay-sample-navigation"
+        role="group"
+        aria-label="Source sample navigation"
+      >
+        <Button
+          aria-label="Previous sample"
+          disabled={steps.previous === null}
+          onClick={() => move(steps.previous!)}
+        >
+          ‹ Prev
+        </Button>
+        <Button
+          aria-label="Next sample"
+          disabled={steps.next === null}
+          onClick={() => move(steps.next!)}
+        >
+          Next ›
+        </Button>
+        <Button
+          aria-label="Last source sample"
+          disabled={steps.last === null || hour === steps.last}
+          onClick={() => move(steps.last!)}
+        >
+          Latest
+        </Button>
+      </div>
+      <label className="replay-field">
+        Cutoff h
+        <input
+          type="number"
+          aria-label="Exact cutoff (hours)"
+          min="0"
+          max={replayEndHour}
+          step="any"
+          value={hour}
+          onChange={(event) => {
+            const value = Number(event.target.value)
+
+            if (
+              Number.isFinite(value) &&
+              value >= 0 &&
+              value <= replayEndHour
+            )
+              move(value)
+          }}
+        />
+      </label>
+      <label className="replay-field">
+        Speed h/s
         <input
           type="number"
           aria-label="Replay speed (hours per second)"
@@ -224,7 +224,6 @@ function ReplayControls({
               setSpeed(value)
           }}
         />
-        <small>hours / second</small>
       </label>
     </section>
   )
@@ -554,30 +553,13 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
       <PageTitle
         title="Workflow & datasets"
         description="See how inputs connect to each analysis."
+        action={
+          <a className="button" href="#methods">
+            Methods & references
+          </a>
+        }
       />
-      <Panel title="Active workspace inputs">
-        <div className="input-connections">
-          {Object.values(workspaceData.inputs).map((file) => (
-            <article key={file.kind}>
-              <div>
-                <h3>{file.name}</h3>
-                <p>
-                  {file.kind} · {file.rows.length} rows · {file.evidence}
-                </p>
-                <Details title="File fingerprint">
-                  <code>
-                    {file.sha256 || "Built-in demo; no external file hash"}
-                  </code>
-                </Details>
-              </div>
-              <Button onClick={() => navigate("data")}>
-                Import / replace data
-              </Button>
-            </article>
-          ))}
-        </div>
-      </Panel>
-      <Panel title="HemoForge process map">
+      <Panel title="Process map">
         <ol className="process-map">
           {processStages.map((stage, index) => (
             <li key={stage.id}>
@@ -602,6 +584,38 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
             <Badge tone="warning">Pending laboratory results</Badge>
           </li>
         </ol>
+      </Panel>
+      <Panel
+        title="Active inputs"
+        action={
+          <Button icon="data" onClick={() => navigate("data")}>
+            Import / replace
+          </Button>
+        }
+      >
+        <ul className="workflow-inputs">
+          {Object.values(workspaceData.inputs).map((file) => (
+            <li key={file.kind}>
+              <small>{file.kind}</small>
+              <strong>{file.name}</strong>
+              <span>
+                {file.rows.length} rows ·{" "}
+                <Badge
+                  tone={
+                    file.evidence === "software_test_only" ? "warning" : "neutral"
+                  }
+                >
+                  {file.evidence.replace(/_/g, " ")}
+                </Badge>
+              </span>
+              <code title={file.sha256 || undefined}>
+                {file.sha256
+                  ? `SHA-256 ${file.sha256.slice(0, 12)}…`
+                  : "Built-in demo · no file hash"}
+              </code>
+            </li>
+          ))}
+        </ul>
       </Panel>
       <Details title="How sources stay separate">
         <p>
@@ -644,9 +658,6 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
           ))}
         </div>
       </Details>
-      <p>
-        <a href="#methods">All methods, equations &amp; references</a>
-      </p>
       <Details title="System architecture & integration status">
         <div className="architecture">
           <div>
@@ -1225,6 +1236,17 @@ function ResearchWorkspaceContent() {
             <span className="status-dot" />
             {workspaceData.run ? "Local analysis" : "Demo inputs"}
           </span>
+          {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
+            <Button
+              icon="pilot"
+              onClick={() => {
+                bot.prepare(view as BotModule)
+                navigate("bot")
+              }}
+            >
+              Ask HemoBot
+            </Button>
+          )}
           <Button icon="data" onClick={() => navigate("data")}>
             Import data
           </Button>
@@ -1255,18 +1277,6 @@ function ResearchWorkspaceContent() {
           />
         )}
         {view === "pilot" && <MonitoringControls />}
-        {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
-          <div className="bot-module-handoff">
-            <Button
-              onClick={() => {
-                bot.prepare(view as BotModule)
-                navigate("bot")
-              }}
-            >
-              Ask HemoBot
-            </Button>
-          </div>
-        )}
         {view === "bot" ? (
           <HemoBot
             bot={bot}
