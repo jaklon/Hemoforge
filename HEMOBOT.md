@@ -35,7 +35,7 @@ excerpts are treated as data. Output is English; enter research questions in Eng
 | RareMatch | Normalized two-marker screening, unknown calls retained, actual input profile counts, pending laboratory verification |
 | Missing protocol rules | Explicitly not configured; no invented glucose/metabolite/staleness thresholds |
 | GSE53983 stage classifier | Not available; no training data or validated model artifact is bundled |
-| Evo 2 | Roadmap preview only, with no sequence scoring or genomic stability claim |
+| Evo 2 | Offline input preparation and 1,000 public reference pairs; inference disabled, no score or genomic stability claim |
 | Literature | Empty until reviewed source documents are indexed; no bundled citations impersonate publications |
 
 Culture, experiment, and marker files have independent provenance. The built-in

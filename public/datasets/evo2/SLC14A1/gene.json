@@ -1,0 +1,22 @@
+{
+  "biotype": "protein_coding",
+  "logic_name": "ensembl_havana_gene_homo_sapiens",
+  "canonical_transcript": "ENST00000321925.9",
+  "start": 45687025,
+  "assembly_name": "GRCh38",
+  "object_type": "Gene",
+  "source": "ensembl_havana",
+  "db_type": "core",
+  "seq_region_name": "18",
+  "description": "solute carrier family 14 member 1 (Kidd blood group) [Source:HGNC Symbol;Acc:HGNC:10918]",
+  "version": 20,
+  "display_name": "SLC14A1",
+  "end": 45752521,
+  "strand": 1,
+  "id": "ENSG00000141469",
+  "species": "homo_sapiens",
+  "reference_window_start_1based": 45686897,
+  "reference_window_end_1based": 45752649,
+  "reference_sequence_id": "chromosome:GRCh38:18:45686897:45752649:1",
+  "evidence": "public_reference_unverified"
+}
