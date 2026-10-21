@@ -163,6 +163,10 @@ def prepare(request, database_path):
     manifest = PreparationManifest(input_fingerprint=fingerprint(request.model_dump()), reference_label=request.reference_label,
                                    reference_window_start_1based=request.reference_start_1based,
                                    source_hashes=hashes, tasks=tasks, warnings=warnings)
+    return persist_preparation(manifest, database_path)
+
+
+def persist_preparation(manifest, database_path):
     bundle = PreparedBundle(preparation_id="evo2prep-" + uuid4().hex, prepared_at=datetime.now(timezone.utc).isoformat(),
                             manifest_fingerprint=fingerprint(manifest.model_dump()), manifest=manifest)
     store = AuditStore(database_path)

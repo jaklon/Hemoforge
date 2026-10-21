@@ -85,9 +85,31 @@ before adding redistribution terms to downstream derivatives.
 
 ## Local preparation and budget lock
 
-In `http://127.0.0.1:8443/#match`, use **Evo 2 · prepare data**. Check the active
-two-SNP file's readiness, download the larger dataset, or select a public sequence
-example. **Validate & prepare without inference** produces an exportable manifest.
+Open `http://127.0.0.1:8443/#evo2` or select **Evo 2** in the sidebar. The same
+preparation panel remains available in RareMatch. The API verifies the bundled
+snapshot's file hashes, reference agreement and split boundaries before serving
+it, then holds that snapshot in memory until the Python API restarts. Missing or
+corrupt files fail with HTTP 503; no replacement download occurs.
+
+To try the complete public dataset locally:
+
+1. Filter by gene and development split, or search an rsID, position or consequence.
+2. Choose **View DNA** to inspect reference/alternate bases, the highlighted SNV,
+   and sequence hashes.
+3. Select variants across pages, or **Select this page** to replace the selection
+   with up to twenty visible variants. The selected list stays visible across filters.
+4. Choose **Prepare … variant(s) · no inference**. Only IDs are submitted; the API
+   resolves reference/alternate sequences from its verified local snapshot.
+5. Review the validated tasks and download the prepared manifest. Scores stay null.
+
+Batch exports record dataset catalog, sequence-pair and selected-record hashes.
+Each task retains its variant ID and coordinate; `study_id` records the public
+development split. Every task is independent: a mixed batch does not share one
+reference window, donor, genotype or haplotype. Hashes provide reproducibility,
+not clinical validation. No marker file import is needed to browse the public data.
+
+The manual FASTA/VCF form, six quick examples and marker-readiness check are also
+available. **Validate & prepare without inference** produces an exportable manifest.
 Two SNP calls alone never reconstruct DNA or donor haplotypes.
 
 Supported inputs:
@@ -108,6 +130,10 @@ Gene/sample/study/reference labels remain unverified operator declarations.
 | API | Behavior |
 |---|---|
 | `GET /api/v1/evo2/status` | Preparation-only policy and future requirements |
+| `GET /api/v1/evo2/dataset` | Verified local snapshot summary and available splits |
+| `GET /api/v1/evo2/dataset/variants` | Paginated metadata; `gene`, `split`, `q`, `offset`, `limit` filters |
+| `GET /api/v1/evo2/dataset/variants/{variant_id}` | Local reference/alternate DNA and hashes |
+| `POST /api/v1/evo2/dataset/prepare` | Prepare 1–20 unique dataset IDs using server-held sequences |
 | `POST /api/v1/evo2/readiness` | Marker readiness without reconstructing sequences |
 | `POST /api/v1/evo2/prepare` | Validate local inputs and save a manifest |
 | `GET /api/v1/evo2/preparations/{id}/export` | Download its JSON manifest |
@@ -119,6 +145,10 @@ expiry. They are not sent to HemoBot/Ollama or linked automatically to marker pr
 Use the retention policy in HEMOBOT.md; keep non-public genomic inputs out of the
 public dataset folder. Budget-lock fields refer to models/provisioning; explicit
 downloads of free public reference data are a separate operator action.
+
+The container image copies the same bundled dataset into the API runtime as well
+as the frontend static files. Building or running a container is not required for
+local testing; the existing Python and Node environments are sufficient.
 
 ## Future GPU adapter · inactive
 

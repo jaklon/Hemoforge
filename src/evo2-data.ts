@@ -32,3 +32,40 @@ export function evo2Payload(draft: Evo2Draft) {
 export function evo2ExportUrl(id: string) {
   return `/api/v1/evo2/preparations/${encodeURIComponent(id)}/export`
 }
+
+export interface Evo2Variant {
+  id: string
+  variant_id: string
+  gene: "KEL" | "SLC14A1"
+  contig: string
+  position_1based: number
+  ref: string
+  alt: string
+  split: "train" | "validation" | "test"
+  consequence_annotation: string
+}
+
+export interface Evo2Prepared {
+  preparation_id: string
+  manifest_fingerprint: string
+  execution_status: "prepared_only"
+  manifest: {
+    tasks: { task_id: string; gene: string; variant_id: string | null; position_1based: number | null;
+      sequence_length: number; score_status: "not_run"; delta_log_likelihood: null }[]
+    warnings: string[]
+    source_hashes: Record<string, string>
+  }
+}
+
+export function evo2VariantsUrl(gene: string, split: string, q: string, offset: number) {
+  const params = new URLSearchParams({ offset: String(offset), limit: "20" })
+  if (gene) params.set("gene", gene)
+  if (split) params.set("split", split)
+  if (q.trim()) params.set("q", q.trim())
+  return `/api/v1/evo2/dataset/variants?${params}`
+}
+
+export function evo2DatasetPayload(ids: string[]) {
+  if (!ids.length || ids.length > 20 || new Set(ids).size !== ids.length) throw new Error("Select 1–20 unique variants.")
+  return { variant_ids: [...ids] }
+}
