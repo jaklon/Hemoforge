@@ -74,8 +74,8 @@ interface NavigationItem {
 const navigation: NavigationItem[] = [
   { id: "data", name: "Data & runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
   { id: "workflow", name: "Workflow & datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
-  { id: "match", name: "RareMatch", purpose: "Screen markers", icon: "dna", group: "Workspace", role: "Select" },
-  { id: "evo2", name: "Evo 2", purpose: "Prepare public sequences", icon: "dna", group: "Workspace", role: "Score" },
+  // Legacy marker screen ("match") stays in code but is no longer navigable.
+  { id: "evo2", name: "RareMatch", purpose: "Screen sequence variants", icon: "dna", group: "Workspace", role: "Select" },
   { id: "plan", name: "CulturePlan", purpose: "Plan experiments", icon: "plan", group: "Workspace", role: "Plan" },
   { id: "guard", name: "Bioreactor Guard", purpose: "Observe culture", icon: "guard", group: "Workspace", role: "Observe" },
   { id: "pilot", name: "ErythroPilot", purpose: "Interpret & summarize", icon: "pilot", group: "Workspace", role: "Interpret" },
@@ -1211,10 +1211,7 @@ function ResearchWorkspaceContent() {
                     }}
                   >
                     <Icon name={item.icon} />
-                    <span>
-                      <strong>{item.name}</strong>
-                      <small>{item.purpose}</small>
-                    </span>
+                    <strong>{item.name}</strong>
                     {item.id === "guard" && (
                       <span className="nav-count">{batches.length}</span>
                     )}
@@ -1302,7 +1299,7 @@ function ResearchWorkspaceContent() {
             onRun={(kind) =>
               navigate(
                 kind === "markers"
-                  ? "match"
+                  ? "evo2"
                   : kind === "experiments"
                     ? "plan"
                     : "guard",
@@ -1363,7 +1360,7 @@ function ResearchWorkspaceContent() {
         ) : view === "evo2" ? (
           <>
             <PageTitle
-              title="Evo 2 · sequence workspace"
+              title="RareMatch · sequence workspace"
               description="Browse public GRCh38 variants, prepare local tasks or explicitly score one public variant through the optional NVIDIA trial."
             />
             <Evo2Preparation />

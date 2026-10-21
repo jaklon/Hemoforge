@@ -9,7 +9,7 @@ const team = [
 ]
 
 const modules = [
-  ["RareMatch & Evo 2", "Screen rare blood-group markers and score public KEL/SLC14A1 sequence variants."],
+  ["RareMatch", "Screen public KEL/SLC14A1 sequence variants with Evo 2."],
   ["CulturePlan", "Plan erythroid culture experiments and compare conditions."],
   ["Bioreactor Guard", "Replay culture measurements and flag batches that need review."],
   ["ErythroPilot & reports", "Interpret checkpoints and export auditable research reports."],
