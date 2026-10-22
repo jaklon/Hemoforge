@@ -1133,6 +1133,9 @@ function ResearchWorkspaceContent() {
             </div>
           ))}
         </nav>
+        <nav className="nav-signout" aria-label="Virtual Lab prototype">
+          <a href="#lab"><Icon name="dna" /><strong>Virtual Lab · 3D</strong></a>
+        </nav>
         {/* No accounts yet: signing out just returns to the landing page. */}
         <nav className="nav-signout" aria-label="Account">
           <a

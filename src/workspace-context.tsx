@@ -105,8 +105,8 @@ export async function checksum(value: BufferSource) {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("")
 }
-export function DataProvider({ children }: { children: ReactNode }) {
-  const [inputs, setInputs] = useState(initialInputs)
+export function DataProvider({ children, liveCulture }: { children: ReactNode; liveCulture?: InputFile }) {
+  const [inputs, setInputs] = useState(() => liveCulture ? { ...initialInputs, culture: liveCulture } : initialInputs)
   const [run, setRun] = useState<RunRecord | null>(null)
   const [simulation, setSimulation] = useState<SimulationResult | null>(null)
   const [growthSettings, setGrowthSettings] = useState(defaultGrowthSettings)
@@ -150,6 +150,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const activeInputs = useRef(inputs)
   const planSequence = useRef(0)
   const simulationSequence = useRef(0)
+  useEffect(() => {
+    if (!liveCulture) return
+    const next = { ...activeInputs.current, culture: liveCulture }
+    activeInputs.current = next
+    simulationSequence.current++
+    setSimulation(null)
+    setInputs(next)
+  }, [liveCulture])
   async function checkBackend() {
     setBackendStatus("checking")
     try {

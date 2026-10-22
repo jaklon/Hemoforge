@@ -34,6 +34,15 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
+## Virtual Lab: Stage A/B local prototype
+
+Open `http://127.0.0.1:8443/#lab`, create a session, and open its Guard link in a separate
+window on monitor 2. Collect → load FLEX2 → analyze. The completed synthetic reading feeds
+the existing Bioreactor Guard automatically. Culture time follows rendered 3D animation.
+See [local walkthrough](public/VIRTUAL_LAB.md) and [Stage A/B contract](docs/VIRTUAL_LAB_STAGE_AB.md).
+Run the Python API with one worker; sessions are local, in memory, and lost on restart.
+No physical device, Supabase, NVIDIA, or LLM is called by this prototype. All bundled assets are free.
+
 ## Updating the live site (hemoforge.my.id)
 
 Push to `main`, then from Windows:

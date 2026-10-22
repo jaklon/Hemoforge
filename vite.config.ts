@@ -34,7 +34,7 @@ react(),
       host: process.env.FIGMA_DEV_SERVER_HOST || '127.0.0.1',
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
-      proxy: { '/api': 'http://127.0.0.1:8000' },
+      proxy: { '/api': { target: 'http://127.0.0.1:8000', ws: true } },
       watch: {
         ignored: [
           '**/.figma/**',

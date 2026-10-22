@@ -1,0 +1,80 @@
+.virtual-lab, .live-guard-shell { min-height: 100vh; background: #edf1ee; color: #203d40; font-family: Inter, system-ui, sans-serif; }
+.vl-header { min-height: 76px; padding: 16px 30px; display: flex; align-items: center; gap: 32px; background: #102e32; color: #edf5ef; border-bottom: 1px solid #365054; }
+.vl-brand { display: flex; align-items: center; gap: 12px; font: 800 30px/1 Inter, sans-serif; color: #f0d394; text-decoration: none; }
+.vl-brand span { font-size: 21px; font-weight: 650; color: #f1f3eb; letter-spacing: -0.7px; }
+.vl-kicker, .vl-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.8px; }
+.vl-kicker { color: #99b5b4; margin-left: auto; }
+.vl-stage-label { padding: 6px 9px; border: 1px solid #61716a; border-radius: 4px; font-size: 9px; letter-spacing: 1px; color: #e4d2a4; }
+.vl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; height: calc(100vh - 76px); min-height: 680px; }
+.vl-stage { position: relative; min-height: 0; overflow: hidden; background: #a4bfbd; }
+.vl-canvas { position: absolute; inset: 0; }
+.vl-canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.vl-canvas canvas:active { cursor: grabbing; }
+.vl-scene-top { position: absolute; top: 22px; left: 24px; right: 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; pointer-events: none; }
+.vl-room-label, .vl-scene-evidence { background: #17383bcc; color: #ecf1e6; border: 1px solid #ffffff25; border-radius: 3px; padding: 7px 10px; font-size: 9px; font-weight: 650; letter-spacing: 1.1px; }
+.vl-scene-evidence { background: #edeadbd9; color: #486164; }
+.vl-scene-caption { position: absolute; left: 32px; top: 86px; pointer-events: none; color: #173c3e; text-shadow: 0 2px 20px #e8f1e699; }
+.vl-scene-caption h1 { font-family: Fraunces Variable, Georgia, serif; font-size: clamp(30px, 3.6vw, 56px); font-weight: 450; line-height: 1.02; letter-spacing: -2px; margin: 0; }
+.vl-scene-caption p { font-size: 10px; font-weight: 600; margin-top: 12px; }
+.vl-station-nav { display: flex; gap: 8px; position: absolute; bottom: 48px; left: 24px; right: 24px; justify-content: center; }
+.vl-station-nav button { background: #f4f5ece8; border: 1px solid #a3b7af; border-radius: 5px; color: #26494b; padding: 10px 16px; font-size: 11px; cursor: pointer; box-shadow: 0 4px 16px #183c3c15; }
+.vl-station-nav button span { margin-right: 9px; font-size: 9px; opacity: 0.65; }
+.vl-station-nav button[aria-pressed=true] { background: #173b3f; color: #f4d593; border-color: #173b3f; }
+.vl-camera-hint { position: absolute; bottom: 16px; left: 16px; right: 16px; text-align: center; color: #254548; font-size: 10px; background: #edf1e5c9; padding: 4px; width: fit-content; margin: auto; border-radius: 4px; }
+.vl-control-panel { padding: 27px 24px; background: #f5f5ed; border-left: 1px solid #cbd6ce; overflow-y: auto; min-height: 0; }
+.vl-eyebrow { color: #7c8c7a; display: block; margin-bottom: 9px; font-size: 9px; }
+.vl-panel-heading h2 { font-family: Fraunces Variable, Georgia, serif; font-size: 29px; font-weight: 450; letter-spacing: -1px; margin: 0 0 10px; }
+.vl-panel-heading p { color: #667977; font-size: 11px; line-height: 1.7; margin: 0; }
+.vl-session-row { margin-top: 21px; display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 10px; color: #7c8c87; }
+.vl-status { display: inline-flex; align-items: center; gap: 7px; text-transform: uppercase; font-size: 9px; letter-spacing: 0.6px; font-weight: 700; color: #8c6d47; }
+.vl-status:before { content: ""; height: 6px; width: 6px; border-radius: 50%; background: #b58a4c; }
+.vl-status.is-online { color: #23766c; }
+.vl-status.is-online:before { background: #338c7f; box-shadow: 0 0 0 3px #338c7f15; }
+.vl-clock { margin: 17px 0 18px; padding: 18px; background: #e9eee6; border: 1px solid #d2dbcf; border-radius: 6px; }
+.vl-clock > span { display: block; font-size: 9px; color: #6e8074; letter-spacing: 0.7px; }
+.vl-clock > strong { display: block; color: #244a45; font-family: JetBrains Mono Variable, monospace; font-size: 41px; letter-spacing: -2px; font-weight: 450; margin: 4px 0 7px; font-variant-numeric: tabular-nums; }
+.vl-clock small { font-size: 17px; margin-left: 8px; }
+.vl-primary { display: flex; justify-content: center; align-items: center; min-height: 43px; padding: 11px 15px; background: #173f40; color: #f5efd9; border: 1px solid #173f40; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; width: 100%; cursor: pointer; }
+.vl-primary:hover { background: #245959; }
+.virtual-lab a.vl-primary { color: #f5efd9; }
+.vl-primary:disabled { opacity: 0.42; cursor: not-allowed; }
+.vl-clock-controls { display: grid; grid-template-columns: 1fr 1fr; margin-top: 9px; gap: 8px; }
+.vl-clock-controls button, .vl-clock-controls select { border: 1px solid #ccd7cb; color: #31584f; background: #fcfcf6; border-radius: 4px; font-size: 10px; padding: 8px; min-width: 0; }
+.vl-clock-controls label { display: grid; gap: 3px; font-size: 9px; color: #7d8e7c; }
+.vl-clock-controls button { margin-top: 15px; cursor: pointer; }
+.vl-clock-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+.vl-workflow { list-style: none; padding: 0; margin: 25px 0 20px; }
+.vl-workflow li { display: flex; gap: 13px; padding: 11px 0; position: relative; opacity: 0.55; }
+.vl-workflow li > span { height: 28px; width: 28px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid #bccdc0; border-radius: 50%; font-size: 9px; color: #607e6c; }
+.vl-workflow li strong { display: block; font-size: 11px; font-weight: 650; }
+.vl-workflow li p { font-size: 10px; line-height: 1.5; color: #77867a; margin: 4px 0 0; }
+.vl-workflow li.is-active { opacity: 1; }
+.vl-workflow li.is-active > span { background: #cbdcc9; border-color: #9bb99b; color: #254f37; }
+.vl-action { background: #e7cf92; border-color: #d0b774; color: #3c482d; }
+.vl-action:hover { background: #eedcaf; }
+.vl-reading-summary { margin-top: 20px; border-top: 1px solid #d6dfd3; padding-top: 17px; }
+.vl-reading-summary strong { display: block; font-size: 17px; font-weight: 500; }
+.vl-reading-summary p { font-size: 10px; color: #687e73; line-height: 1.65; margin: 7px 0; }
+.vl-control-panel progress { width: 100%; accent-color: #276c60; height: 6px; margin: 12px 0 0; }
+.vl-secondary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 18px 0 14px; }
+.vl-secondary-actions button, .vl-secondary-actions a { color: #526e5e; background: none; padding: 0; border: 0; text-decoration: underline; text-underline-offset: 3px; font-size: 10px; cursor: pointer; }
+.vl-footnote { font-size: 9px; color: #839083; line-height: 1.65; }
+.vl-error { color: #9b243c; background: #fce8e5; padding: 12px; border-radius: 5px; font-size: 12px; line-height: 1.6; }
+.vl-graphics-error { position: absolute; inset: 25%; background: #193c3e; color: #f8edda; padding: 30px; font-size: 14px; display: grid; place-items: center; text-align: center; border-radius: 10px; }
+.vl-text-link { color: #dacb9e; font-size: 12px; text-decoration: none; }
+.vl-live-strip { padding: 13px 30px; display: flex; gap: 22px; align-items: center; flex-wrap: wrap; background: #e1e9df; border-bottom: 1px solid #c2d1c3; font-size: 11px; }
+.vl-live-strip > span { font-variant-numeric: tabular-nums; }
+.vl-small-button { border: 1px solid #aabfad; padding: 5px 11px; background: transparent; border-radius: 4px; cursor: pointer; font-size: 10px; margin-left: auto; }
+.live-guard-main { max-width: 1440px; margin: auto; padding: 24px 30px 50px; }
+.vl-evidence-note { font-size: 11px; line-height: 1.6; padding: 12px 16px; border: 1px solid #d4d8c9; border-radius: 5px; background: #f4f1e2; color: #6c7359; margin-bottom: 18px; }
+.vl-sample-state { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 0; }
+.vl-sample-state strong { font-size: 12px; font-weight: 550; line-height: 1.6; }
+.vl-result-receipt { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 16px; background: #dcebdd; border: 1px solid #c1d9c2; border-radius: 5px; font-size: 12px; margin: 5px 0 22px; }
+.vl-waiting { padding: 90px 25px; text-align: center; border: 1px dashed #b8c9bd; border-radius: 8px; background: #f4f6ef; }
+.vl-waiting h1 { font: 400 36px/1.2 Georgia, serif; margin-bottom: 16px; color: #31524d; }
+.vl-waiting p { max-width: 570px; margin: 10px auto; color: #79897d; font-size: 13px; line-height: 1.7; }
+.vl-waiting-icon { color: #7a9c84; font-size: 70px; line-height: 1; }
+.virtual-lab :focus-visible, .live-guard-shell :focus-visible { outline: 3px solid #caa356; outline-offset: 3px; }
+@media (min-width: 1500px) { .vl-layout { grid-template-columns: minmax(0, 1fr) 420px; } .vl-control-panel { padding: 35px; } }
+@media (max-width: 1000px) { .vl-layout { grid-template-columns: minmax(0, 1fr) 330px; } .vl-control-panel { padding: 22px 18px; } .vl-scene-caption { top: 110px; left: 24px; } }
+@media (max-width: 720px) { .vl-layout { display: flex; flex-direction: column; height: auto; } .vl-stage { min-height: 460px; } .vl-header { padding: 15px; gap: 12px; flex-wrap: wrap; } .vl-kicker { font-size: 8px; } .vl-stage-label { display: none; } .vl-control-panel { padding: 24px; } .vl-scene-caption h1 { font-size: 38px; } .vl-scene-evidence { display: none; } .vl-station-nav button { padding: 9px; } .vl-live-strip { padding: 12px 16px; gap: 12px; } .live-guard-main { padding: 16px; } .vl-sample-state { grid-template-columns: 1fr; } }

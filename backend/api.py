@@ -12,6 +12,7 @@ from backend.agent_routes import router as agent_router
 from backend.evo2_routes import router as evo2_router
 from backend.http_limits import BodyLimitMiddleware
 from backend.proposals import router as proposals_router
+from backend.virtual_lab import router as virtual_lab_router
 
 from backend.models import ExperimentRequest, GrowthRequest
 from backend.predictions import ENGINE, predict_experiments, predict_growth
@@ -23,6 +24,7 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1
 app.include_router(agent_router)
 app.include_router(evo2_router)
 app.include_router(proposals_router)
+app.include_router(virtual_lab_router)
 
 
 @app.exception_handler(RequestValidationError)

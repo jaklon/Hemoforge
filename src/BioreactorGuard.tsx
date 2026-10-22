@@ -395,6 +395,7 @@ export default function BioreactorGuard({
   setEventNotes,
 
   replayControls,
+  live = false,
 }: {
   hour: number
 
@@ -409,6 +410,7 @@ export default function BioreactorGuard({
   setEventNotes: (notes: Record<string, string>) => void
 
   replayControls: ReactNode
+  live?: boolean
 }) {
   const {
     batches,
@@ -589,6 +591,8 @@ export default function BioreactorGuard({
             <p>
               {urgent
                 ? `Start with ${urgent.id}. It has the most urgent warning.`
+                : live
+                  ? "Monitoring released FLEX2 samples. The 3D window controls time and sampling."
                 : hour < replayEndHour
                   ? "Press Play or Next to step through the culture samples."
                   : "Every sample so far is within your monitoring rules."}
