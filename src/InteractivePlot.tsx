@@ -32,6 +32,9 @@ export default function InteractivePlot({
   yLabel,
   points = [],
   controls,
+  fromZero = true,
+  compact = false,
+  height = 302,
   children,
 }: {
   title: string
@@ -42,6 +45,11 @@ export default function InteractivePlot({
   points?: PlotPoint[]
   // Page-specific controls placed before the shared ones in the toolbar.
   controls?: ReactNode
+  // Linear axes start at zero unless the quantity has no meaningful zero (pH, °C).
+  fromZero?: boolean
+  // Small multiples: no toolbar or footer, same hover, zoom and pan.
+  compact?: boolean
+  height?: number
   children: (coordinates: PlotCoordinates) => ReactNode
 }) {
   const svg = useRef<SVGSVGElement>(null)
@@ -60,7 +68,7 @@ export default function InteractivePlot({
       y: number
     }>(),
   )
-  const yExtent = valueExtent(values, logarithmic)
+  const yExtent = valueExtent(values, logarithmic, fromZero)
   const extentKey = `${xExtent.join(",")}:${yExtent.join(",")}:${logarithmic}`
   const extentRef = useRef(extentKey)
   // New observations or axis transforms fit the data again; resizing preserves the view.
@@ -80,10 +88,10 @@ export default function InteractivePlot({
     observer.observe(svg.current)
     return () => observer.disconnect()
   }, [])
-  const left = 66,
-    right = width - 22,
-    top = 30,
-    bottom = 260
+  const left = compact ? 48 : 66,
+    right = width - (compact ? 12 : 22),
+    top = compact ? 22 : 30,
+    bottom = height - 42
   const transform = (value: number) => (logarithmic ? Math.log10(value) : value)
   const inverse = (value: number) => (logarithmic ? 10 ** value : value)
   const x = (value: number) =>
@@ -130,7 +138,7 @@ export default function InteractivePlot({
         0,
         Math.min(
           1,
-          (((clientY - rect.top) / rect.height) * 302 - top) / (bottom - top),
+          (((clientY - rect.top) / rect.height) * height - top) / (bottom - top),
         ),
       ),
     }
@@ -161,7 +169,7 @@ export default function InteractivePlot({
   function inspect(clientX: number, clientY: number) {
     const rect = svg.current!.getBoundingClientRect()
     const px = ((clientX - rect.left) / rect.width) * width
-    const py = ((clientY - rect.top) / rect.height) * 302
+    const py = ((clientY - rect.top) / rect.height) * height
     let nearest: PlotPoint | null = null
     let best = 24
     for (const point of points) {
@@ -176,6 +184,7 @@ export default function InteractivePlot({
   }
   return (
     <div className="interactive-plot">
+      {!compact && (
       <div className="plot-toolbar" aria-label={`${title} controls`}>
         {controls}
         <label>
@@ -194,10 +203,12 @@ export default function InteractivePlot({
           </Button>
         </div>
       </div>
+      )}
       <svg
         ref={svg}
         className={`interactive-plot-svg${dragging ? " is-dragging" : ""}`}
-        viewBox={`0 0 ${width} 302`}
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ height }}
         tabIndex={0}
         role="group"
         aria-label={title}
@@ -305,11 +316,11 @@ export default function InteractivePlot({
           {children({ x, y, top, bottom, left, right })}
         </g>
         {niceTicks(current.x, width < 500 ? 4 : 7).map((value) => (
-          <text key={value} x={x(value)} y="281" textAnchor="middle">
+          <text key={value} x={x(value)} y={height - 21} textAnchor="middle">
             {plotNumber(value)}h
           </text>
         ))}
-        <text x={right} y="299" textAnchor="end" className="axis-title">
+        <text x={right} y={height - 3} textAnchor="end" className="axis-title">
           Time (hours)
         </text>
         {hover && hover.x >= current.x[0] && hover.x <= current.x[1] && (
@@ -320,9 +331,11 @@ export default function InteractivePlot({
             left={left}
             right={right}
             top={top}
+            bottom={bottom}
           />
         )}
       </svg>
+      {!compact && (
       <div className="plot-footer">
         <p id={`${id}-help`}>
           Scroll to zoom · Ctrl+scroll: time only · Shift+scroll: Y only ·
@@ -333,6 +346,7 @@ export default function InteractivePlot({
           {plotNumber(zoomed)}× time zoom
         </span>
       </div>
+      )}
     </div>
   )
 }
@@ -344,6 +358,7 @@ function PlotTooltip({
   left,
   right,
   top,
+  bottom,
 }: {
   x: number
   y: number
@@ -351,12 +366,13 @@ function PlotTooltip({
   left: number
   right: number
   top: number
+  bottom: number
 }) {
   // ponytail: width estimated from character count, measure with getBBox if labels get long.
   const boxWidth = Math.max(...lines.map((line) => line.length)) * 6.2 + 20
   const boxHeight = lines.length * 15 + 10
   const boxX = x + 12 + boxWidth > right ? x - 12 - boxWidth : x + 12
-  const boxY = Math.max(top, Math.min(y - boxHeight / 2, 262 - boxHeight))
+  const boxY = Math.max(top, Math.min(y - boxHeight / 2, bottom + 2 - boxHeight))
   return (
     <g className="plot-tooltip" pointerEvents="none">
       <circle cx={x} cy={y} r="6" />

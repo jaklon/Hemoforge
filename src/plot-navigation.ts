@@ -32,7 +32,7 @@ export function plotNumber(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 })
 }
 
-export function valueExtent(values: number[], logarithmic: boolean): Range {
+export function valueExtent(values: number[], logarithmic: boolean, fromZero = true): Range {
   const finite = values.filter(
     (value) => Number.isFinite(value) && (!logarithmic || value > 0),
   )
@@ -45,7 +45,7 @@ export function valueExtent(values: number[], logarithmic: boolean): Range {
     max = Math.max(max, transformed)
   }
   const padding = (max - min || Math.abs(max) || 1) * 0.08
-  return [logarithmic ? min - padding : Math.min(0, min), max + padding]
+  return [logarithmic || !fromZero ? min - padding : Math.min(0, min), max + padding]
 }
 
 // Round axis ticks (1, 2, 2.5, 5 × 10ⁿ) inside the visible range.
