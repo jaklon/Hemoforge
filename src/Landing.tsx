@@ -1,0 +1,1013 @@
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import "@fontsource-variable/inter"
+import "@fontsource-variable/fraunces"
+import "@fontsource-variable/jetbrains-mono"
+import "./landing.css"
+import { Icon } from "./workspace-ui"
+
+// Marketing page shown before the workspace. Facts follow the GenoHack 2026
+// proposal "HemoForge: HemoGPT untuk Monitoring dan Analisis Proses Blood Biofactory".
+
+const LandingCells = lazy(() => import("./LandingCells"))
+
+const sections = [
+  ["problem", "Problem"],
+  ["platform", "Platform"],
+  ["guard", "Guard"],
+  ["integrity", "Integrity"],
+  ["audience", "Who it's for"],
+  ["faq", "FAQ"],
+] as const
+
+const sources = [
+  "University of Bath · BEL-A",
+  "NCBI GEO · GSE53983",
+  "1000 Genomes Phase 3",
+  "Ensembl · GRCh38",
+  "NVIDIA · Evo 2",
+  "ICH Q9(R1)",
+  "WHO TRS 1033",
+  "ICH Q8(R2)",
+]
+
+const challenges = [
+  {
+    icon: "data",
+    title: "Fragmented data",
+    body: "Growth counts, sensor telemetry, culture notes, lab assays and genomics arrive from different sources at different rates.",
+  },
+  {
+    icon: "clock",
+    title: "Gaps between samples",
+    body: "Manual sampling at fixed points can miss what changes in between. A drift seen late is a run already lost.",
+  },
+  {
+    icon: "pilot",
+    title: "Slow interpretation",
+    body: "Comparing replicates, spotting trend changes and reviewing warnings with evidence is still spreadsheet work.",
+  },
+  {
+    icon: "flask",
+    title: "Expensive failures",
+    body: "Media, staff time, equipment and repeated assays make every failed culture costly at research scale.",
+  },
+]
+
+const modules = [
+  {
+    id: "rarematch",
+    icon: "dna",
+    name: "RareMatch",
+    verb: "Select",
+    when: "Before culture · after harvest",
+    question: "Which genetic marker profile fits the rare antigen target?",
+    does: "Screens candidate marker profiles against a rare blood antigen signature, scores sequence variants, and hands the lab a verification checklist once genotyping and serology exist.",
+    not: "Not blood-group typing, donor selection or a transfusion compatibility test.",
+  },
+  {
+    id: "cultureplan",
+    icon: "plan",
+    name: "CulturePlan",
+    verb: "Plan",
+    when: "Before the next experiment",
+    question: "Which culture condition is worth testing next?",
+    does: "A Gaussian Process models growth response and its uncertainty across lactate–ammonia conditions; Expected Improvement ranks the next candidates with reasons.",
+    not: "Not an automatic control command, a production recipe or a 21-day prognosis.",
+  },
+  {
+    id: "guard",
+    icon: "guard",
+    name: "Bioreactor Guard",
+    verb: "Observe",
+    when: "During culture · the main screen",
+    question: "What is measured right now, and what needs review?",
+    does: "Places every batch and replicate side by side, charts growth and metabolites on their original timestamps, and raises warnings traced to a rule and a reading.",
+    not: "Never controls the bioreactor. A pH shift is never reported as contamination.",
+  },
+  {
+    id: "erythropilot",
+    icon: "pilot",
+    name: "ErythroPilot",
+    verb: "Interpret",
+    when: "On top of Guard · every 3 hours",
+    question: "What does the change mean, and what may happen next?",
+    does: "Writes a checkpoint report every three hours: last valid values, change since the last report, open warnings, and a maturation-stage estimate when biological data supports it.",
+    not: "Harvest decisions stay with laboratory QC, not an AI score.",
+  },
+]
+
+const personas = [
+  {
+    icon: "flask",
+    title: "Bioprocess researchers",
+    body: "Compare batches and replicates side by side, and catch trend changes between manual samples instead of after the run.",
+    tags: ["Multi-batch overview", "Replay by timestamp", "Fold change & µ"],
+  },
+  {
+    icon: "dna",
+    title: "Erythroid culture scientists",
+    body: "Read growth, metabolites and maturation-stage estimates against one replay cursor, and plan the next condition with uncertainty in view.",
+    tags: ["Stage classifier", "GP + Expected Improvement", "Marker screening"],
+  },
+  {
+    icon: "report",
+    title: "Laboratory analysts",
+    body: "Review each warning with its variable, value, rule and time, add follow-up notes, and export reports with an audit manifest.",
+    tags: ["Traceable warnings", "3-hour reports", "HTML · Markdown · JSON"],
+  },
+]
+
+const notList = [
+  "Bioreactor control or closed-loop automation",
+  "Transfusion compatibility or blood-group typing",
+  "Clinical release of a blood product",
+  "Contamination or sterility diagnosis",
+  "A replacement for voluntary blood donors",
+]
+
+const datasets = [
+  {
+    tag: "Culture",
+    name: "BEL-A cell line",
+    org: "University of Bath · CC BY 4.0",
+    facts: ["Growth curve: 3 replicates × 8 time points", "Metabolite DOE: 12 runs, 4 lactate–ammonia conditions", "Static culture, observed to ~171 h"],
+  },
+  {
+    tag: "Transcriptome",
+    name: "GSE53983",
+    org: "NCBI GEO · An et al., Blood 2014",
+    facts: ["Human terminal erythroid differentiation", "RNA-seq, 3 replicates per stage", "log₂(CPM+1) → L2 logistic regression"],
+  },
+  {
+    tag: "Genomics",
+    name: "1000 Genomes & Ensembl",
+    org: "Phase 3 · GRCh38 · release 116",
+    facts: ["KEL rs8176058 · SLC14A1 rs1058396", "1,000 reference/alternate sequence pairs", "Missing or ambiguous calls → unknown"],
+  },
+]
+
+const roadmap = [
+  { when: "23 Oct 2026", title: "Foundations", body: "Data structures, source manifest, BEL-A adapter and the Guard skeleton." },
+  { when: "24 Oct 2026", title: "Replay & reports", body: "Multi-batch charts, replay, warning rules, ErythroPilot reports, CulturePlan and RareMatch." },
+  { when: "25 Oct 2026", title: "Proof", body: "Testing, the offline demo, a review of every claim, and the pitch." },
+  { when: "After GenoHack", title: "Into the lab", body: "Real bioreactor sensors, longitudinal maturation datasets, externally validated 21-day forecasting, genomic and phenotypic QC records." },
+]
+
+const team = [
+  "Jonathan Edward Charles De Fretes",
+  "Kent William Soetanto",
+  "Jascon Johanest Kembuan",
+  "Fadhlur Rohman Al Akbar",
+]
+
+const faqs = [
+  {
+    q: "Does HemoForge control a bioreactor?",
+    a: "No. HemoForge is decision support for research. Replay controls such as pause, resume and speed drive the demonstration, not lab equipment. There is no closed-loop control.",
+  },
+  {
+    q: "Is the data live?",
+    a: "The prototype replays real BEL-A measurements on their original timestamps: a point only appears once the replay cursor reaches it, and the screen says Replay. The label Live is reserved for real sensor connections.",
+  },
+  {
+    q: "Where do the numbers come from?",
+    a: "From deterministic calculations you can audit: fold change, interval growth rate, warning rules, GP/EI and the stage classifier. HemoBot, the research assistant, chooses which evidence is relevant and explains it, but every number it shows is rendered from those exact computed values.",
+  },
+  {
+    q: "Can RareMatch tell me someone's blood type?",
+    a: "No. It screens a small demonstration marker panel against a target signature. Missing or ambiguous calls become unknown, and the final status stays pending_lab_verification until genotyping and serology results exist.",
+  },
+  {
+    q: "Why 21 days and 168 checkpoints?",
+    a: "Twenty-one days with a report every three hours is a planning scenario for a culture cycle, to be tuned to the real protocol. It is not a claim that every culture matures on day 21.",
+  },
+  {
+    q: "Does it run without internet?",
+    a: "The monitoring, planning and screening modules run from bundled source snapshots. HemoBot needs an online language model and says so when one is unavailable.",
+  },
+]
+
+// Illustrative BEL-A-shaped growth: viable cells ×10⁵/mL at sample hours.
+const sampleHours = [0, 24, 48, 72, 96, 120, 144, 171]
+const replicates = [
+  { id: "R1", tone: "red", values: [2, 3.5, 6.3, 10.6, 16.8, 23.4, 29.1, 32.6] },
+  { id: "R2", tone: "slate", values: [2, 3.3, 5.9, 9.9, 15.6, 21.8, 27.4, 30.9] },
+  { id: "R3", tone: "teal", values: [2, 3.4, 6, 10.2, 15.1, 18.7, 17.9, 16.8] },
+]
+
+function LocalIcon({ name }: { name: string }) {
+  const paths: Record<string, ReactNode> = {
+    clock: <path d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />,
+    flask: <path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7 15h10" />,
+    lock: <path d="M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4" />,
+    layers: <path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5" />,
+    x: <path d="M6 6l12 12M18 6 6 18" />,
+    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  }
+  if (!paths[name]) return <Icon name={name} />
+  return (
+    <svg className="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name]}
+    </svg>
+  )
+}
+
+function Logo() {
+  return (
+    <svg className="lp-logo" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M8 7h5v10h8l-5 6h-3v10H6V9Z" />
+      <path d="M27 7h7v24l-2 2h-5V23h-8l5-6h3Z" />
+    </svg>
+  )
+}
+
+function useInView<T extends Element>(threshold = 0.3) {
+  const ref = useRef<T>(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    if (!ref.current) return
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold })
+    observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [threshold])
+  return [ref, inView] as const
+}
+
+function Counter({ to, decimals = 0, suffix = "" }: { to: number; decimals?: number; suffix?: string }) {
+  const [ref, inView] = useInView<HTMLSpanElement>(0.6)
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (!inView) return
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setValue(to)
+      return
+    }
+    const start = performance.now()
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / 1600, 1)
+      setValue(to * (1 - (1 - t) ** 4))
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [inView, to])
+  return (
+    <span ref={ref}>
+      {value.toFixed(decimals)}
+      {suffix}
+    </span>
+  )
+}
+
+// Replays the illustrative samples; points appear only once the cursor reaches them.
+function GuardMock({ compact = false }: { compact?: boolean }) {
+  const [ref, inView] = useInView<HTMLDivElement>(0.25)
+  const [hour, setHour] = useState(171)
+  useEffect(() => {
+    if (!inView || matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    let h = 0
+    const timer = setInterval(() => {
+      h = h >= 230 ? 0 : h + 1.4 // the tail past 171 h holds the final frame
+      setHour(Math.min(h, 171))
+    }, 40)
+    return () => clearInterval(timer)
+  }, [inView])
+
+  const x = (h: number) => 34 + (h / 171) * 274
+  const y = (v: number) => 112 - (v / 35) * 96
+  const warn = hour >= 171
+  const lastIndex = sampleHours.filter((h) => h <= hour).length - 1
+
+  return (
+    <div ref={ref} className={`lp-mock${compact ? " compact" : ""}`}>
+      <div className="lp-mock-bar">
+        <span className="lp-dots"><i /><i /><i /></span>
+        <span className="lp-mock-title">Bioreactor Guard</span>
+        <span className="lp-pill replay"><b />Replay · BEL-A</span>
+      </div>
+      <div className="lp-mock-body">
+        <div className="lp-batches">
+          {replicates.map((r) => {
+            const flagged = r.id === "R3" && warn
+            const pts = r.values.slice(0, lastIndex + 1)
+            return (
+              <div key={r.id} className={`lp-batch lp-${r.tone}${flagged ? " flagged" : ""}`}>
+                <div className="lp-batch-head">
+                  <strong>{r.id}</strong>
+                  <span className={`lp-status ${flagged ? "warning" : "normal"}`}>{flagged ? "Warning" : "Normal"}</span>
+                </div>
+                <span className="lp-batch-value">
+                  {pts[pts.length - 1].toFixed(1)}
+                  <small>×10⁵/mL</small>
+                </span>
+                <svg viewBox="0 0 100 26" className="lp-spark" aria-hidden="true">
+                  <polyline points={pts.map((v, i) => `${(sampleHours[i] / 171) * 100},${24 - (v / 35) * 22}`).join(" ")} />
+                </svg>
+              </div>
+            )
+          })}
+        </div>
+        <div className="lp-chart">
+          <div className="lp-chart-head">
+            <span>Viable cells · sample-timed</span>
+            <span className="lp-mono">t = {Math.round(hour)} h</span>
+          </div>
+          <svg viewBox="0 0 320 124" aria-label="Replay chart of viable cell counts for three replicates">
+            {[0, 10, 20, 30].map((v) => (
+              <g key={v}>
+                <line x1="34" x2="308" y1={y(v)} y2={y(v)} className="grid" />
+                <text x="26" y={y(v) + 3} className="axis" textAnchor="end">{v}</text>
+              </g>
+            ))}
+            <rect x={x(hour)} y="10" width={308 - x(hour)} height="102" className="future" />
+            {replicates.map((r) => {
+              const visible = r.values.map((v, i) => [sampleHours[i], v] as const).filter(([h]) => h <= hour)
+              return (
+                <g key={r.id} className={`lp-series lp-${r.tone}`}>
+                  <polyline points={visible.map(([h, v]) => `${x(h)},${y(v)}`).join(" ")} />
+                  {visible.map(([h, v]) => <circle key={h} cx={x(h)} cy={y(v)} r="2.6" />)}
+                </g>
+              )
+            })}
+            <line x1={x(hour)} x2={x(hour)} y1="8" y2="114" className="cursor" />
+          </svg>
+        </div>
+        <div className={`lp-alert${warn ? " show" : ""}`} role="status">
+          <LocalIcon name="alert" />
+          <div>
+            <strong>R3 · two consecutive drops in viable cells</strong>
+            <span className="lp-mono">rule iii · 120 h → 144 h → 171 h · 18.7 → 17.9 → 16.8</span>
+          </div>
+          <span className="lp-status needs_review">needs_review</span>
+        </div>
+      </div>
+      {!compact && <p className="lp-mock-note">Product preview with illustrative values.</p>}
+    </div>
+  )
+}
+
+function ModulePreview({ id }: { id: string }) {
+  if (id === "rarematch")
+    return (
+      <div className="lp-preview">
+        <div className="lp-preview-head"><span>Target signature</span><span className="lp-mono">Kell/Kidd · demo panel</span></div>
+        {[
+          ["KEL", "rs8176058", "match", "Candidate"],
+          ["SLC14A1", "rs1058396", "match", "Candidate"],
+          ["HG00512", "rs1058396", "unknown", "Ambiguous call"],
+        ].map(([gene, rs, state, label]) => (
+          <div key={gene + rs + state} className="lp-snp">
+            <span className="lp-gene">{gene}</span>
+            <span className="lp-mono">{rs}</span>
+            <span className={`lp-status ${state === "match" ? "normal" : "no_data"}`}>{label}</span>
+          </div>
+        ))}
+        <div className="lp-preview-foot"><LocalIcon name="lock" /> pending_lab_verification</div>
+      </div>
+    )
+  if (id === "cultureplan")
+    return (
+      <div className="lp-preview">
+        <div className="lp-preview-head"><span>Growth response surface</span><span className="lp-mono">GP · EI</span></div>
+        <div className="lp-surface" aria-hidden="true">
+          {Array.from({ length: 64 }, (_, i) => {
+            const cx = (i % 8) / 7
+            const cy = Math.floor(i / 8) / 7
+            const v = Math.exp(-((cx - 0.3) ** 2 + (cy - 0.35) ** 2) * 4.2)
+            return <i key={i} style={{ opacity: 0.12 + v * 0.88 }} />
+          })}
+          <b className="lp-ei" style={{ left: "31%", top: "37%" }}>EI #1</b>
+          <span className="lp-axis-x">Lactate →</span>
+          <span className="lp-axis-y">Ammonia →</span>
+        </div>
+        <div className="lp-preview-foot">4 observed conditions · retrospective validation only</div>
+      </div>
+    )
+  if (id === "guard") return <GuardMock compact />
+  return (
+    <div className="lp-preview">
+      <div className="lp-preview-head"><span>Checkpoint 41 / 168</span><span className="lp-mono">Day 6 · 03:00</span></div>
+      <ul className="lp-report">
+        <li><span>Data window</span><b className="lp-mono">117 h → 120 h</b></li>
+        <li><span>Last valid count</span><b className="lp-mono">23.4 ×10⁵/mL</b></li>
+        <li><span>Change since last report</span><b className="lp-mono">No new data</b></li>
+        <li><span>Open warnings</span><b className="lp-mono">0</b></li>
+        <li><span>Stage estimate</span><b className="lp-mono">Polychromatic · exploratory</b></li>
+      </ul>
+      <div className="lp-preview-foot">Deterministic summary · analyst review recommended</div>
+    </div>
+  )
+}
+
+function ModuleSwitcher() {
+  const [active, setActive] = useState(2)
+  const [paused, setPaused] = useState(false)
+  useEffect(() => {
+    if (paused || matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const timer = setTimeout(() => setActive((a) => (a + 1) % modules.length), 7000)
+    return () => clearTimeout(timer)
+  }, [active, paused])
+  const current = modules[active]
+
+  return (
+    <div className="lp-switcher" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+      <div className="lp-tabs" role="tablist" aria-label="HemoForge modules">
+        {modules.map((m, i) => (
+          <button
+            key={m.id}
+            role="tab"
+            aria-selected={i === active}
+            className={`lp-tab${i === active ? " active" : ""}${paused ? " paused" : ""}`}
+            onClick={() => setActive(i)}
+          >
+            <span className="lp-tab-icon"><LocalIcon name={m.icon} /></span>
+            <span className="lp-tab-text">
+              <small>{String(i + 1).padStart(2, "0")} · {m.verb}</small>
+              <strong>{m.name}</strong>
+            </span>
+            <i className="lp-tab-progress" />
+          </button>
+        ))}
+      </div>
+      <div className="lp-panel" role="tabpanel" key={current.id}>
+        <div className="lp-panel-copy">
+          <span className="lp-eyebrow">{current.when}</span>
+          <h3>{current.question}</h3>
+          <p>{current.does}</p>
+          <p className="lp-not"><LocalIcon name="x" /> {current.not}</p>
+        </div>
+        <ModulePreview id={current.id} />
+      </div>
+    </div>
+  )
+}
+
+function CheckpointRing() {
+  const [ref, inView] = useInView<HTMLDivElement>(0.4)
+  const [index, setIndex] = useState(167)
+  useEffect(() => {
+    if (!inView || matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    let i = 0
+    const timer = setInterval(() => {
+      i = (i + 1) % 200 // a short hold on the full ring before it restarts
+      setIndex(Math.min(i, 167))
+    }, 55)
+    return () => clearInterval(timer)
+  }, [inView])
+  const hours = (index + 1) * 3
+  const day = Math.floor((hours - 1) / 24) + 1
+
+  return (
+    <div ref={ref} className="lp-ring">
+      <svg viewBox="-160 -160 320 320" aria-hidden="true">
+        {Array.from({ length: 168 }, (_, i) => {
+          const angle = (i / 168) * Math.PI * 2 - Math.PI / 2
+          const major = i % 8 === 7
+          const r1 = major ? 118 : 124
+          return (
+            <line
+              key={i}
+              x1={Math.cos(angle) * r1}
+              y1={Math.sin(angle) * r1}
+              x2={Math.cos(angle) * 140}
+              y2={Math.sin(angle) * 140}
+              className={i < index ? "done" : i === index ? "now" : ""}
+            />
+          )
+        })}
+        <circle r="100" className="lp-ring-inner" />
+      </svg>
+      <div className="lp-ring-center">
+        <span className="lp-mono">Checkpoint</span>
+        <strong>{index + 1}<small>/168</small></strong>
+        <span>Day {day} · {String(hours % 24).padStart(2, "0")}:00</span>
+      </div>
+    </div>
+  )
+}
+
+function SignIn({ open, onClose, onEnter }: { open: boolean; onClose: () => void; onEnter: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    const el = dialog.current
+    if (!el) return
+    if (open && !el.open) el.showModal()
+    if (!open && el.open) el.close()
+  }, [open])
+
+  // Research preview: no credentials are checked; any submit opens the workspace.
+  function submit(event: { preventDefault(): void }) {
+    event.preventDefault()
+    setBusy(true)
+    setTimeout(onEnter, 900)
+  }
+
+  return (
+    <dialog ref={dialog} className="lp-dialog" onClose={onClose} onClick={(e) => e.target === dialog.current && onClose()}>
+      <div className="lp-auth">
+        <aside className="lp-auth-art">
+          <div className="lp-auth-orb" />
+          <Logo />
+          <p>"Guard answers what is measured now. ErythroPilot answers what it means."</p>
+          <span className="lp-mono">HemoForge · research preview</span>
+        </aside>
+        <form className="lp-auth-form" onSubmit={submit}>
+          <button type="button" className="lp-close" onClick={onClose} aria-label="Close"><LocalIcon name="x" /></button>
+          <h2>Welcome back</h2>
+          <p className="lp-muted">Sign in to your research workspace.</p>
+          <label>
+            <span>Work email</span>
+            <input type="email" name="email" placeholder="you@lab.org" autoComplete="email" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" name="password" placeholder="••••••••" autoComplete="current-password" />
+          </label>
+          <div className="lp-auth-row">
+            <label className="lp-check"><input type="checkbox" /> Keep me signed in</label>
+            <button type="button" className="lp-link">Forgot password?</button>
+          </div>
+          <button className="lp-btn primary wide" disabled={busy}>
+            {busy ? <><i className="lp-spinner" /> Preparing workspace…</> : <>Sign in <LocalIcon name="arrow" /></>}
+          </button>
+          <div className="lp-divider"><span>or</span></div>
+          <button type="button" className="lp-btn ghost wide" onClick={submit}>Continue with institution SSO</button>
+          <p className="lp-fine">Research preview: credentials are not required yet.</p>
+        </form>
+      </div>
+    </dialog>
+  )
+}
+
+export default function Landing({ onEnter }: { onEnter: () => void }) {
+  const root = useRef<HTMLDivElement>(null)
+  const [scrolled, setScrolled] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const [signIn, setSignIn] = useState(false)
+
+  useEffect(() => {
+    const el = root.current!
+    const reveal = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          entry.target.classList.add("is-in")
+          reveal.unobserve(entry.target)
+        }),
+      { threshold: 0.15, rootMargin: "0px 0px -8% 0px" },
+    )
+    el.querySelectorAll("[data-reveal]").forEach((node) => reveal.observe(node))
+
+    let frame = 0
+    const onScroll = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        setScrolled(scrollY > 12)
+        el.style.setProperty("--hero-p", String(Math.min(scrollY / (innerHeight * 0.8), 1)))
+      })
+    }
+    onScroll()
+    addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      reveal.disconnect()
+      removeEventListener("scroll", onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [])
+
+  // Section links scroll instead of setting the hash, which belongs to the workspace.
+  function go(id: string) {
+    setMenu(false)
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  return (
+    <div className="lp" ref={root}>
+      <header className={`lp-nav${scrolled ? " scrolled" : ""}${menu ? " open" : ""}`}>
+        <div className="lp-nav-inner">
+          <button className="lp-brand" onClick={() => scrollTo({ top: 0, behavior: "smooth" })}>
+            <Logo />
+            <span>HemoForge</span>
+          </button>
+          <nav aria-label="Sections">
+            {sections.map(([id, label]) => (
+              <button key={id} onClick={() => go(id)}>{label}</button>
+            ))}
+          </nav>
+          <div className="lp-nav-cta">
+            <button className="lp-link" onClick={() => setSignIn(true)}>Sign in</button>
+            <button className="lp-btn primary sm" onClick={() => setSignIn(true)}>Launch workspace</button>
+            <button className="lp-menu" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+              <LocalIcon name={menu ? "x" : "menu"} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section className="lp-hero">
+        <div className="lp-hero-bg" />
+        <Suspense fallback={null}><LandingCells /></Suspense>
+        <div className="lp-hero-fade" />
+        <div className="lp-wrap lp-hero-inner">
+          <div className="lp-hero-copy">
+            <span className="lp-badge lp-rise" style={{ "--d": 0 } as CSSProperties}>
+              <b>New</b> GenoHack 2026 · research preview
+            </span>
+            <h1 className="lp-rise" style={{ "--d": 1 } as CSSProperties}>
+              The command center for <em>lab-grown blood.</em>
+            </h1>
+            <p className="lp-lede lp-rise" style={{ "--d": 2 } as CSSProperties}>
+              HemoForge unites rare-antigen screening, culture planning, multi-batch monitoring and three-hourly
+              interpretation in one auditable workspace for cultured red blood cell research.
+            </p>
+            <div className="lp-actions lp-rise" style={{ "--d": 3 } as CSSProperties}>
+              <button className="lp-btn primary lg" onClick={() => setSignIn(true)}>
+                Launch workspace <LocalIcon name="arrow" />
+              </button>
+              <button className="lp-btn ghost lg" onClick={() => go("platform")}>Explore the platform</button>
+            </div>
+            <ul className="lp-proof lp-rise" style={{ "--d": 4 } as CSSProperties}>
+              <li><LocalIcon name="check" /> Replays real, citable data</li>
+              <li><LocalIcon name="check" /> No invented measurements</li>
+              <li><LocalIcon name="check" /> Every number traceable</li>
+            </ul>
+          </div>
+        </div>
+        <div className="lp-scroll-cue" aria-hidden="true"><i /></div>
+      </section>
+
+      <div className="lp-wrap lp-shot-wrap">
+        <div className="lp-shot">
+          <GuardMock />
+        </div>
+      </div>
+
+      <section className="lp-sources" aria-label="Data sources and frameworks">
+        <p>Built on open, citable science and recognised quality frameworks</p>
+        <div className="lp-marquee">
+          <div>
+            {[...sources, ...sources].map((s, i) => <span key={i} aria-hidden={i >= sources.length}>{s}</span>)}
+          </div>
+        </div>
+      </section>
+
+      <section id="problem" className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-split">
+            <div data-reveal>
+              <span className="lp-eyebrow red">The problem</span>
+              <h2>A country short of <em>1.2 million</em> bags of blood.</h2>
+              <p className="lp-muted">
+                Accident victims, mothers with postpartum bleeding, cancer and thalassemia patients all depend on safe
+                blood that arrives on time. In 2025 Indonesia collected 4.4 million bags against an estimated need of
+                5.6 million.
+              </p>
+              <div className="lp-stats">
+                <div><strong><Counter to={5.6} decimals={1} suffix="M" /></strong><span>bags needed each year</span></div>
+                <div><strong><Counter to={4.4} decimals={1} suffix="M" /></strong><span>bags available in 2025</span></div>
+                <div><strong className="red"><Counter to={21} suffix="%" /></strong><span>of estimated need unmet</span></div>
+              </div>
+              <p className="lp-cite">Kementerian Kesehatan RI, January 2026. Figures apply to that year and definition.</p>
+            </div>
+            <div className="lp-bags" data-reveal aria-label="56 drops: 44 filled for bags available, 12 empty for the gap">
+              {Array.from({ length: 56 }, (_, i) => (
+                <i key={i} className={i < 44 ? "full" : "gap"} style={{ "--i": i } as CSSProperties} />
+              ))}
+              <div className="lp-bags-legend">
+                <span><i className="full" /> 100k bags available</span>
+                <span><i className="gap" /> 100k bags short</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lp-donor" data-reveal>
+            <div>
+              <strong>2–3 months</strong>
+              <span>between whole-blood donations from a single donor</span>
+            </div>
+            <div>
+              <strong>HIV · HBV · HCV · syphilis</strong>
+              <span>screening and cross-matching required for every unit</span>
+            </div>
+            <div>
+              <strong>Rare antigens</strong>
+              <span>compatible donors for rare profiles can be very few</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head" data-reveal>
+            <span className="lp-eyebrow">The promise and the bottleneck</span>
+            <h2>Cultured red blood cells could complement donors. <em>Growing them is the hard part.</em></h2>
+            <p className="lp-muted">
+              The RESTORE trial transfused laboratory-grown red cells into people for the first time. Broad clinical use
+              still needs development and validation, and at research scale the bottleneck is not only biology: it is
+              fragmented data and late interpretation.
+            </p>
+          </div>
+          <div className="lp-bento">
+            {challenges.map((c, i) => (
+              <article key={c.title} className="lp-card glow" data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className="lp-card-icon"><LocalIcon name={c.icon} /></span>
+                <h3>{c.title}</h3>
+                <p>{c.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="platform" className="lp-section lp-platform">
+        <div className="lp-wrap">
+          <div className="lp-head center" data-reveal>
+            <span className="lp-eyebrow">The platform</span>
+            <h2>Four modules. <em>One evidence trail.</em></h2>
+            <p className="lp-muted">
+              Each module supports a different decision across the culture lifecycle, and all of them read from the same
+              validated source records.
+            </p>
+          </div>
+          <div data-reveal><ModuleSwitcher /></div>
+
+          <div className="lp-flow" data-reveal aria-label="Process order">
+            {[...modules.map((m) => [m.name, m.verb]), ["Harvest & QC", "Lab-owned"]].map(([name, verb], i) => (
+              <div key={name} className={`lp-flow-step${i === 4 ? " lab" : ""}`} style={{ "--d": i } as CSSProperties}>
+                <span className="lp-flow-dot" />
+                <strong>{name}</strong>
+                <small>{verb}</small>
+              </div>
+            ))}
+            <div className="lp-flow-line"><i /></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="guard" className="lp-section">
+        <div className="lp-wrap lp-split wide">
+          <div className="lp-sticky" data-reveal>
+            <span className="lp-eyebrow teal">Bioreactor Guard</span>
+            <h2>See every batch. <em>Trust every warning.</em></h2>
+            <p className="lp-muted">
+              The research command center. Batch cards show the cell line, culture time, source, last update, cell count
+              and data status. Select one to compare its trend with replicates and experiment context.
+            </p>
+            <div className="lp-formula">
+              <div><span className="lp-mono">Fold change</span><code>FC(t) = N(t) / N(t₀)</code></div>
+              <div><span className="lp-mono">Interval growth</span><code>μᵢ = (ln N(tᵢ) − ln N(tᵢ₋₁)) / (tᵢ − tᵢ₋₁)</code></div>
+              <p>Only for N &gt; 0 and increasing time. Zeros, gaps and unit mismatches return <code>insufficient_data</code>, never a made-up number.</p>
+            </div>
+          </div>
+          <div className="lp-guard-side">
+            <div data-reveal><GuardMock compact /></div>
+            <div className="lp-rules" data-reveal>
+              <h3>Warning rules, each with a reason you can inspect</h3>
+              <ol>
+                <li><b>i</b> Value outside a researcher-set limit, with experiment context</li>
+                <li><b>ii</b> Data that is stale or out of order</li>
+                <li><b>iii</b> Two consecutive drops in viable cell count</li>
+                <li><b>iv</b> Metabolite change meeting an exploratory trend rule</li>
+              </ol>
+              <div className="lp-states">
+                <span className="lp-status normal">normal</span>
+                <span className="lp-status warning">warning</span>
+                <span className="lp-status needs_review">needs_review</span>
+                <span className="lp-status no_data">no_data</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section lp-pilot">
+        <div className="lp-wrap lp-split">
+          <div data-reveal><CheckpointRing /></div>
+          <div data-reveal>
+            <span className="lp-eyebrow amber">ErythroPilot</span>
+            <h2>168 checkpoints. <em>One every three hours.</em></h2>
+            <p className="lp-muted">
+              A helicopter view on top of Guard. Across a planned 21-day cycle, each checkpoint report records when it
+              was made, the data window it read, the last valid values, the change since the previous report, open
+              warnings and what an analyst should review.
+            </p>
+            <ul className="lp-checks">
+              <li><LocalIcon name="check" /> Says "no new data" plainly when nothing was measured</li>
+              <li><LocalIcon name="check" /> Report cadence never changes lab measurement cadence</li>
+              <li><LocalIcon name="check" /> Stage classifier trained on GSE53983, scored with out-of-fold Macro-F1</li>
+              <li><LocalIcon name="check" /> Exportable timeline with prediction uncertainty in view</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="integrity" className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head center" data-reveal>
+            <span className="lp-eyebrow">Integrity</span>
+            <h2>Honest by design. <em>Auditable by default.</em></h2>
+            <p className="lp-muted">
+              In a field where a convincing chart can cost a culture, HemoForge treats provenance as a feature.
+            </p>
+          </div>
+          <div className="lp-integrity">
+            <article className="lp-card big" data-reveal>
+              <span className="lp-card-icon"><LocalIcon name="lock" /></span>
+              <h3>Every input lives in a manifest</h3>
+              <p>Title, DOI, licence, download time, SHA-256, units, sample counts and consistency checks, for every source.</p>
+              <pre className="lp-code" aria-label="Example manifest entry">
+{`{
+  `}<span className="k">"dataset_id"</span>{`: `}<span className="s">"bel-a-growth"</span>{`,
+  `}<span className="k">"doi"</span>{`: `}<span className="s">"10.15125/BATH-01456"</span>{`,
+  `}<span className="k">"license"</span>{`: `}<span className="s">"CC BY 4.0"</span>{`,
+  `}<span className="k">"sha256"</span>{`: `}<span className="s">"9f2c…e81a"</span>{`,
+  `}<span className="k">"replicates"</span>{`: `}<span className="n">3</span>{`,
+  `}<span className="k">"seed"</span>{`: `}<span className="n">42</span>{`,
+  `}<span className="k">"evidence"</span>{`: `}<span className="s">"reference"</span>{`
+}`}
+              </pre>
+            </article>
+            {[
+              ["guard", "Replay is labelled Replay", "Live is reserved for real sensor connections. Reference data and simulations always say what they are."],
+              ["pilot", "No interpolation posing as data", "Sparse lab samples are never smoothed into a continuous sensor trace. Gaps stay visible."],
+              ["layers", "Two independent status axes", "Execution (succeeded / failed) is kept apart from evidence quality (reference, exploratory, needs_review, insufficient_data)."],
+              ["report", "Grounded in quality frameworks", "Designed with ICH Q9(R1) risk management, WHO TRS 1033 data integrity and ICH Q8(R2) in mind. Referenced, not certified."],
+            ].map(([icon, title, body], i) => (
+              <article key={title} className="lp-card" data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className="lp-card-icon"><LocalIcon name={icon} /></span>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <div className="lp-wrap lp-split">
+          <div data-reveal>
+            <span className="lp-eyebrow">Architecture</span>
+            <h2>One dashboard. <em>One API.</em> No competing truths.</h2>
+            <p className="lp-muted">
+              A React and TypeScript workspace talks to a single FastAPI service that ingests, validates, replays and
+              applies warning rules. Analyses are fingerprinted by source checksum, code version, configuration and seed,
+              and timestamps are stored in UTC.
+            </p>
+          </div>
+          <div className="lp-stack" data-reveal aria-label="System layers">
+            {[
+              ["React + TypeScript", "Guard dashboard · reports · HemoBot"],
+              ["FastAPI", "Ingest · validate · replay · warning rules"],
+              ["ErythroPilot · CulturePlan · RareMatch", "Analysis modules"],
+              ["SQLite + manifest", "BEL-A · GEO · 1000 Genomes"],
+            ].map(([title, sub], i) => (
+              <div key={title} className="lp-layer" style={{ "--i": i } as CSSProperties}>
+                <strong>{title}</strong>
+                <span>{sub}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="audience" className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head" data-reveal>
+            <span className="lp-eyebrow">Who it's for</span>
+            <h2>Made for the people <em>at the culture bench.</em></h2>
+          </div>
+          <div className="lp-personas">
+            {personas.map((p, i) => (
+              <article key={p.title} className="lp-card glow" data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className="lp-card-icon"><LocalIcon name={p.icon} /></span>
+                <h3>{p.title}</h3>
+                <p>{p.body}</p>
+                <div className="lp-tags">{p.tags.map((t) => <span key={t}>{t}</span>)}</div>
+              </article>
+            ))}
+          </div>
+          <div className="lp-not-box" data-reveal>
+            <div>
+              <span className="lp-eyebrow red">Clear boundaries</span>
+              <h3>What HemoForge is not</h3>
+              <p className="lp-muted">Its value is clear monitoring and traceable analysis, not a claim of transfusion-ready blood.</p>
+            </div>
+            <ul>{notList.map((n) => <li key={n}><LocalIcon name="x" /> {n}</li>)}</ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head" data-reveal>
+            <span className="lp-eyebrow teal">Data</span>
+            <h2>Three public studies, <em>kept apart.</em></h2>
+            <p className="lp-muted">
+              They come from different experiments and individuals. HemoForge never presents them as one donor-to-harvest
+              batch, and fills nothing a source does not contain.
+            </p>
+          </div>
+          <div className="lp-datasets">
+            {datasets.map((d, i) => (
+              <article key={d.name} className="lp-dataset" data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className="lp-tag">{d.tag}</span>
+                <h3>{d.name}</h3>
+                <span className="lp-mono lp-org">{d.org}</span>
+                <ul>{d.facts.map((f) => <li key={f}>{f}</li>)}</ul>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head" data-reveal>
+            <span className="lp-eyebrow amber">Roadmap</span>
+            <h2>Built in three days. <em>Designed for the lab.</em></h2>
+          </div>
+          <ol className="lp-roadmap">
+            {roadmap.map((r, i) => (
+              <li key={r.title} data-reveal style={{ "--d": i } as CSSProperties} className={i === 3 ? "next" : ""}>
+                <span className="lp-mono">{r.when}</span>
+                <h3>{r.title}</h3>
+                <p>{r.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <div className="lp-wrap">
+          <div className="lp-head center" data-reveal>
+            <span className="lp-eyebrow">Team</span>
+            <h2>Team <em>HemoForge</em></h2>
+            <p className="lp-muted">GenoHack 2026</p>
+          </div>
+          <div className="lp-team">
+            {team.map((name, i) => {
+              const parts = name.split(" ")
+              return (
+                <div key={name} className="lp-member" data-reveal style={{ "--d": i } as CSSProperties}>
+                  <span className="lp-avatar">{parts[0][0]}{parts[parts.length - 1][0]}</span>
+                  <strong>{name}</strong>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="lp-section">
+        <div className="lp-wrap lp-split wide">
+          <div className="lp-sticky" data-reveal>
+            <span className="lp-eyebrow">FAQ</span>
+            <h2>Questions, <em>answered plainly.</em></h2>
+          </div>
+          <div className="lp-faq" data-reveal>
+            {faqs.map((f) => (
+              <details key={f.q}>
+                <summary>{f.q}<i /></summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-final">
+        <div className="lp-final-glow" />
+        <div className="lp-wrap" data-reveal>
+          <h2>Bring evidence to <em>every culture.</em></h2>
+          <p className="lp-muted">Open the workspace and replay a real BEL-A run, checkpoint by checkpoint.</p>
+          <div className="lp-actions center">
+            <button className="lp-btn primary lg" onClick={() => setSignIn(true)}>Launch workspace <LocalIcon name="arrow" /></button>
+            <button className="lp-btn ghost lg" onClick={() => go("platform")}>Tour the modules</button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="lp-footer">
+        <div className="lp-wrap">
+          <div className="lp-footer-top">
+            <div className="lp-brand static"><Logo /><span>HemoForge</span></div>
+            <nav aria-label="Footer">
+              {sections.map(([id, label]) => <button key={id} onClick={() => go(id)}>{label}</button>)}
+            </nav>
+          </div>
+          <p className="lp-fine">
+            Research decision support only. Not for clinical use, transfusion decisions, product release or bioreactor
+            control. Data: University of Bath BEL-A (CC BY 4.0), NCBI GEO GSE53983, 1000 Genomes Phase 3, Ensembl.
+          </p>
+          <p className="lp-fine">© 2026 Team HemoForge · GenoHack 2026</p>
+        </div>
+      </footer>
+
+      <SignIn open={signIn} onClose={() => setSignIn(false)} onEnter={onEnter} />
+    </div>
+  )
+}
