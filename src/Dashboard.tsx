@@ -74,7 +74,7 @@ function zoomTo(range: Range, factor: number, anchor = 0.5): Range {
 
 // Card chart: warning lines dashed, action lines solid, automated corrections as
 // vertical markers with a triangle. Drag pans and Ctrl+wheel (or pinch) zooms the
-// time range shared by every card.
+// time range shared by every card; without onRange the chart is a fixed view.
 function MiniChart({
   samples,
   actions,
@@ -90,7 +90,7 @@ function MiniChart({
   hour: number
   dots?: boolean
   range: Range
-  onRange: (next: Range) => void
+  onRange?: (next: Range) => void
 }) {
   const svg = useRef<SVGSVGElement>(null)
   const drag = useRef<{ x: number; range: Range; moved: boolean } | null>(null)
@@ -98,17 +98,24 @@ function MiniChart({
     height = 120,
     pad = 6
   const lines = settings ? limitLines(settings) : []
-  const inView = samples.filter(
-    (sample) => sample.hour <= hour && sample.hour >= range[0] - 1 && sample.hour <= range[1] + 1,
-  )
-  // Scale to what is on screen, so zooming into a stretch shows its detail.
-  const values = [...inView.map((sample) => sample.value), ...lines.map((line) => line.value)]
+  const seen = samples.filter((sample) => sample.hour <= hour)
+  // Keep the nearest sample beyond each edge so the line runs off the chart instead of
+  // stopping short; sparse series (daily counts) often have none inside a short window.
+  const first = Math.max(0, seen.findIndex((sample) => sample.hour >= range[0]) - 1)
+  const after = seen.findIndex((sample) => sample.hour > range[1])
+  const inView = seen.slice(first, after === -1 ? undefined : after + 1)
+  // Dense series scale to what is on screen, so zooming shows detail. Sparse ones scale to
+  // all samples so far: two points stretched to full height would fake a spike or crash.
+  const values = [
+    ...(dots ? seen : inView).map((sample) => sample.value),
+    ...lines.map((line) => line.value),
+  ]
   const min = Math.min(...values),
     max = Math.max(...values)
   const span = max - min || 1
   const x = (h: number) => ((h - range[0]) / (range[1] - range[0])) * width
   const y = (v: number) => height - pad - ((v - min) / span) * (height - pad * 2)
-  const last = inView.at(-1)
+  const last = seen.at(-1)
 
   // React wheel listeners are passive, so preventDefault needs a native one.
   const latest = useRef({ range, onRange })
@@ -116,7 +123,7 @@ function MiniChart({
   useEffect(() => {
     const element = svg.current!
     const wheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return
+      if (!latest.current.onRange || (!event.ctrlKey && !event.metaKey)) return
       event.preventDefault()
       const rect = element.getBoundingClientRect()
       const anchor = (event.clientX - rect.left) / rect.width
@@ -130,11 +137,12 @@ function MiniChart({
     <span className="dash-mini-wrap">
       <svg
         ref={svg}
-        className="dash-mini"
+        className={`dash-mini${onRange ? "" : " is-fixed"}`}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
         aria-hidden="true"
         onPointerDown={(event) => {
+          if (!onRange) return
           drag.current = { x: event.clientX, range, moved: false }
           event.currentTarget.setPointerCapture(event.pointerId)
         }}
@@ -143,7 +151,7 @@ function MiniChart({
           const dx = event.clientX - drag.current.x
           if (Math.abs(dx) > 3) drag.current.moved = true
           if (drag.current.moved)
-            onRange(panRange(drag.current.range, extent, -dx / event.currentTarget.getBoundingClientRect().width))
+            onRange!(panRange(drag.current.range, extent, -dx / event.currentTarget.getBoundingClientRect().width))
         }}
         onPointerUp={() => {
           // Keep the flag until the click that follows, then clear it.
@@ -172,6 +180,9 @@ function MiniChart({
           points={inView.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
           className="dash-line"
         />
+        {dots && last && last.hour < hour && (
+          <line x1={x(last.hour)} x2={x(hour)} y1={y(last.value)} y2={y(last.value)} className="dash-carry" />
+        )}
         {/* Zero-length round-capped strokes stay circular in the stretched viewBox. */}
         {dots
           ? inView.map((sample) => (
@@ -412,7 +423,9 @@ export default function Dashboard({
               <small>×10⁶ cells</small>
             </span>
           </span>
-          <MiniChart samples={countSamples} actions={[]} hour={hour} range={range} onRange={setPinned} dots />
+          {/* Fixed full run (0h to end of data), independent of the shared window. With a live
+              stream the right edge would grow with the newest sample. */}
+          <MiniChart samples={countSamples} actions={[]} hour={hour} range={extent} dots />
           <span className="dash-card-foot">
             {countState.latest
               ? `${culture.batchId(replicate)} · sampled ${countState.latest.hour}h${
