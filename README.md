@@ -34,6 +34,28 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
+## Updating the live site (hemoforge.my.id)
+
+Push to `main`, then from Windows:
+
+```bash
+ssh atlas@192.168.1.32
+sudo docker exec -it -u friend -w /home/friend/Hemoforge arch-friend bash deploy/update-server.sh
+```
+
+It pulls, installs dependencies, builds, restarts both servers and prints the
+health check. How the server is wired:
+
+- `arch-friend` shares the network of `arch-friend-tailscale`, which publishes only
+  `10.50.0.3:3001` and `10.50.0.3:8000`. openresty sends `hemoforge.my.id` to **3001**.
+- 3001: `vite preview` of `dist/`, bound to `0.0.0.0`; it forwards `/api` to 8000.
+- 8000: the Python API, bound to `0.0.0.0`.
+- Both reject unknown hosts, so `hemoforge.my.id` is passed through
+  `HEMOBOT_ALLOWED_HOSTS` (API) and `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS` (Vite).
+- `DATABASE_URL` lives in `/home/friend/Hemoforge/.env` (not in git).
+- 502 from openresty: nothing listening on 3001. 400 / "Blocked request": host check.
+  Logs are in `logs/api.log` and `logs/vite.log`.
+
 ## Private model server and Docker
 
 [HEMOBOT.md](HEMOBOT.md) explains the implementation, local configuration,
