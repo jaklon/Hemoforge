@@ -2,6 +2,8 @@ import { useEffect, useState } from "react"
 
 import ForecastChart from "./ForecastChart"
 
+import pilotContextSprite from "./assets/pilot-context.svg"
+
 import { plotNumber } from "./plot-navigation"
 
 import { useCultureData, useWorkspace } from "./workspace-context"
@@ -141,6 +143,26 @@ export function SimulationPanel({
 
   const end = result?.distribution.at(-1)
 
+  const placeholderTitle = settingError
+    ? "Check your simulation settings"
+    : fitState.status === "needs_review"
+      ? "Review the source samples"
+      : blocked
+        ? "More context needed"
+        : error
+          ? "The chart couldn't load"
+          : "Preparing your growth chart"
+
+  const placeholderDescription = settingError
+    ? "Fix the highlighted fields to prepare the growth chart."
+    : fitState.status === "needs_review"
+      ? "Review the flagged counts or select another batch before simulating growth."
+      : blocked
+        ? "Try advancing the replay with Play or Next. The chart needs at least 3 valid samples."
+        : error
+          ? "Review the error above, then adjust the replay or settings to try again."
+          : "Using the available samples to calculate future growth paths."
+
   return (
     <Panel
       title="Simulate future growth"
@@ -234,19 +256,27 @@ export function SimulationPanel({
           {error}
         </p>
       )}
-      {!blocked && !error && !result ? (
-        <div className="simulation-skeleton" role="status" aria-label="Running growth simulation">
-          <div className="guard-metrics">
-            {[0, 1, 2].map((item) => (
-              <div key={item}>
-                <span className="skeleton-line short" />
-                <span className="skeleton-line value" />
-              </div>
-            ))}
-          </div>
-          <div className="skeleton-block" />
+      {!result || !end ? (
+        <div
+          className="simulation-empty"
+          role="status"
+          aria-busy={!blocked && !error}
+        >
+          <img
+            className="simulation-sprite"
+            src={pilotContextSprite}
+            width="112"
+            height="88"
+            alt=""
+            aria-hidden="true"
+          />
+          <h3>{placeholderTitle}</h3>
+          <p>{placeholderDescription}</p>
+          {blocked && !settingError && fitState.status !== "needs_review" && (
+            <small>{fitState.valid.length} of 3 valid samples available</small>
+          )}
         </div>
-      ) : result && end ? (
+      ) : (
         <div className={predicting ? "simulation-result is-refreshing" : "simulation-result"} aria-busy={predicting}>
           <div className="guard-metrics">
             <div>
@@ -279,7 +309,7 @@ export function SimulationPanel({
             </p>
           )}
         </div>
-      ) : null}
+      )}
       <Details title="What this simulation assumes">
         {current && (
           <p>

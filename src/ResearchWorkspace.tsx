@@ -35,7 +35,7 @@ import {
   MarkerScreen,
 } from "./AnalysisPanels"
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
 import AboutPage from "./AboutPage"
@@ -232,6 +232,8 @@ function ReplayControls({
 }
 
 function Pilot({
+  replayControls,
+
   hour,
 
   replicate,
@@ -240,6 +242,8 @@ function Pilot({
 
   navigate,
 }: {
+  replayControls: ReactNode
+
   hour: number
 
   replicate: number
@@ -292,6 +296,8 @@ function Pilot({
     reports.find((report) => report.checkpoint_hour === activeHour) ??
     reports.at(-1)
 
+  const state = analyzeMeasurements(batchMeasurements(replicate), hour)
+
   function exportReports() {
     downloadFile(
       `hemogpt-R${replicate}-reports-${hour}h.json`,
@@ -315,7 +321,7 @@ function Pilot({
   }
 
   return (
-    <>
+    <div className="pilot-workspace">
       <PageTitle
         title="ErythroPilot"
         description="Simulate growth and review checkpoint reports."
@@ -329,11 +335,17 @@ function Pilot({
           </Button>
         }
       />
-      <div className="context-strip">
-        <span>
-          Reading Guard · through <b>{hour}h</b>
-        </span>
-        <label>
+      <div
+        className={`workspace-overview${state.events.length ? " has-attention" : ""}`}
+      >
+        <div className="workspace-overview-message">
+          <Icon name={state.events.length ? "alert" : "pilot"} />
+          <div>
+            <h2>Reading Guard through {hour}h</h2>
+            <p>Reports use configured rules.</p>
+          </div>
+        </div>
+        <label className="pilot-batch-picker">
           Batch
           <select
             value={replicate}
@@ -352,9 +364,28 @@ function Pilot({
             ))}
           </select>
         </label>
-        <Badge>Reports use configured rules</Badge>
+        <dl className="workspace-overview-stats">
+          <div>
+            <dt>Valid samples</dt>
+            <dd>{state.valid.length}</dd>
+          </div>
+          <div>
+            <dt>Checkpoints</dt>
+            <dd>{reports.length}</dd>
+          </div>
+          <div>
+            <dt>Warnings</dt>
+            <dd>{state.events.length}</dd>
+          </div>
+        </dl>
       </div>
-      <SimulationPanel replicate={replicate} hour={hour} />
+      {replayControls}
+      <section
+        className="pilot-section"
+        aria-label="Growth simulation"
+      >
+        <SimulationPanel replicate={replicate} hour={hour} />
+      </section>
       <div className="pilot-grid">
         <Panel
           title="Checkpoint reports"
@@ -493,7 +524,7 @@ function Pilot({
           )}
         </Panel>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -1314,8 +1345,12 @@ function ResearchWorkspaceContent() {
           </button>
         </div>
       </header>
-      <main id="main-content" className="workspace" tabIndex={-1}>
-        {(view === "pilot" || view === "bot") && (
+      <main
+        id="main-content"
+        className={`workspace workspace-${view}`}
+        tabIndex={-1}
+      >
+        {view === "bot" && (
           <ReplayControls
             hour={hour}
             setHour={setHour}
@@ -1324,7 +1359,6 @@ function ResearchWorkspaceContent() {
             speed={speed}
             setSpeed={setSpeed}
             replicate={replicate}
-            sticky={view === "pilot"}
           />
         )}
         {view === "bot" ? (
@@ -1372,6 +1406,18 @@ function ResearchWorkspaceContent() {
         ) : view === "pilot" ? (
           <>
             <Pilot
+              replayControls={
+                <ReplayControls
+                  hour={hour}
+                  setHour={setHour}
+                  playing={playing}
+                  setPlaying={setPlaying}
+                  speed={speed}
+                  setSpeed={setSpeed}
+                  replicate={replicate}
+                  sticky
+                />
+              }
               hour={hour}
               replicate={replicate}
               setReplicate={setReplicate}

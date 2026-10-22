@@ -72,6 +72,17 @@ batch cards, then a growth/warning review split and environment/report handoff.
 The chart only reveals samples at or before the replay cursor. Lines are guides,
 not additional observed measurements. No forecast is presented as an observation.
 
+CulturePlan, RareMatch, and ErythroPilot align their page titles with Guard's 4px
+top margin inside the workspace. ErythroPilot follows Guard's title, summary,
+and replay order. Both pages share the `workspace-overview` styles in
+`src/index.css`; Pilot summarizes only the selected batch's revealed samples,
+checkpoints, and configured warnings. Neither page uses a Jump to row.
+When no simulation result can be shown, ErythroPilot uses a small pixel-style lab
+assistant from `src/assets/pilot-context.svg` on the plain chart surface. The
+empty state explains missing context and suggests Play or Next to reveal at
+least three valid samples. Invalid settings, flagged samples, pending work, and
+errors retain their own guidance. Keep this illustration still and decorative.
+
 Below 900px the sidebar folds into an inline menu beneath the header. Navigation
 closes the menu and focuses the new page heading. Below 740px analytics panels
 stack; below 520px batches become full-width compact rows. Tables scroll inside

@@ -563,30 +563,10 @@ export default function BioreactorGuard({
           </div>
         }
       />
-      <nav className="guard-jump-nav" aria-label="On this page">
-        <span>Jump to</span>
-        {[
-          ["guard-batches", "Batches"],
-          ["guard-growth", "Growth chart"],
-          ["guard-review", "Warnings"],
-          ["guard-environment", "Environment"],
-          ["guard-settings", "Rules"],
-          ["guard-raw", "Raw measurements"],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className="text-button"
-            onClick={() => jump(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
       <div
-        className={`guard-overview${attention.length ? " has-attention" : ""}`}
+        className={`workspace-overview${attention.length ? " has-attention" : ""}`}
       >
-        <div className="guard-overview-message">
+        <div className="workspace-overview-message">
           <Icon
             name={
               attention.length
@@ -615,7 +595,7 @@ export default function BioreactorGuard({
             </p>
           </div>
         </div>
-        <dl className="guard-fleet-stats">
+        <dl className="workspace-overview-stats">
           <div>
             <dt>Batches</dt>
             <dd>{batches.length}</dd>
