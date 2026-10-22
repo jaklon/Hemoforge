@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from backend.agent_config import AgentSettings
 from backend.agent_models import MarkerInput
 from backend.agent_store import fingerprint
 from backend.api import app
+from backend.db import use_temporary_schema
 from backend.evo2_models import PairedFastaRequest, VcfWindowRequest
 from backend.evo2_service import load_preparation, marker_readiness, prepare, validate_bundle
 from backend.evo2_worker import run_local, score_with_model
@@ -33,11 +33,7 @@ def vcf_request():
 
 class Evo2PreparationTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.database = str(Path(self.directory.name) / "audit.sqlite3")
-
-    def tearDown(self):
-        self.directory.cleanup()
+        use_temporary_schema(self)
 
     def test_marker_readiness_does_not_reconstruct_sequences(self):
         source = MarkerInput(name="test.csv", evidence="software_test_only", rows=[
@@ -52,12 +48,12 @@ class Evo2PreparationTests(unittest.TestCase):
 
     def test_preparation_is_local_reproducible_exportable_and_never_scored(self):
         with patch("socket.create_connection", side_effect=AssertionError("network must not run")):
-            first = prepare(pair_request(), self.database)
-            second = prepare(pair_request(), self.database)
+            first = prepare(pair_request())
+            second = prepare(pair_request())
         self.assertNotEqual(first.preparation_id, second.preparation_id)
         self.assertEqual(first.manifest_fingerprint, second.manifest_fingerprint)
         self.assertEqual(validate_bundle(first.model_dump()), first)
-        self.assertEqual(load_preparation(first.preparation_id, self.database), first)
+        self.assertEqual(load_preparation(first.preparation_id), first)
         task = first.manifest.tasks[0]
         self.assertEqual(task.variant_index_0based, 16)
         self.assertIsNone(task.position_1based)
@@ -72,27 +68,27 @@ class Evo2PreparationTests(unittest.TestCase):
             data = pair_request().model_dump()
             data.update(change)
             with self.subTest(change=list(change)), self.assertRaises(ValueError):
-                prepare(PairedFastaRequest(**data), self.database)
+                prepare(PairedFastaRequest(**data))
 
     def test_vcf_coordinates_ref_alleles_and_sample_genotypes_are_checked(self):
         request = vcf_request()
-        task = prepare(request, self.database).manifest.tasks[0]
+        task = prepare(request).manifest.tasks[0]
         self.assertEqual(task.position_1based, 1016)
         for old, new in [("1016", "1015"), ("\tA\tG\t", "\tC\tG\t"), ("\tA\tG\t", "\tA\tG,T\t"),
                          ("\tA\tG\t", "\tAA\tG\t"), ("\t.\t.\t.\n", "\t.\tLowQual\t.\n")]:
             data = request.model_dump()
             data["vcf_text"] = data["vcf_text"].replace(old, new)
             with self.subTest(change=new), self.assertRaises(ValueError):
-                prepare(VcfWindowRequest(**data), self.database)
+                prepare(VcfWindowRequest(**data))
         data = request.model_dump()
         data["vcf_text"] = data["vcf_text"].replace("\tINFO\n", "\tINFO\tFORMAT\tSYNTHETIC-ONLY\n").replace("\t.\t.\t.\n", "\t.\t.\t.\tGT\t0/1\n")
-        self.assertEqual(prepare(VcfWindowRequest(**data), self.database).manifest.tasks[0].genotype, "0/1")
+        self.assertEqual(prepare(VcfWindowRequest(**data)).manifest.tasks[0].genotype, "0/1")
         for genotype in ["./.", "0/0", "0/2"]:
             with self.subTest(genotype=genotype), self.assertRaises(ValueError):
-                prepare(VcfWindowRequest(**{**data, "vcf_text": data["vcf_text"].replace("0/1", genotype)}), self.database)
+                prepare(VcfWindowRequest(**{**data, "vcf_text": data["vcf_text"].replace("0/1", genotype)}))
 
     def test_manifest_tampering_and_fake_scores_fail_validation(self):
-        bundle = prepare(pair_request(), self.database).model_dump()
+        bundle = prepare(pair_request()).model_dump()
         for change in ["sequence", "score", "policy", "task_hash"]:
             data = copy.deepcopy(bundle)
             if change == "sequence": data["manifest"]["tasks"][0]["alternate_sequence"] = "G" * 33
@@ -105,7 +101,7 @@ class Evo2PreparationTests(unittest.TestCase):
                 validate_bundle(data)
 
     def test_worker_budget_lock_precedes_all_heavy_imports(self):
-        bundle = prepare(pair_request(), self.database)
+        bundle = prepare(pair_request())
         with patch.dict(os.environ, {"EVO2_ENABLE_LOCAL_INFERENCE": "0"}), patch("builtins.__import__", wraps=__import__) as imports:
             result = run_local(bundle, None, None, execute=True)
         self.assertEqual(result["status"], "disabled_budget_lock")
@@ -115,7 +111,7 @@ class Evo2PreparationTests(unittest.TestCase):
             run_local(bundle, None, None, execute=True)
 
     def test_scorer_contract_uses_fixed_options_and_labels_test_results_unverified(self):
-        bundle = prepare(pair_request(), self.database)
+        bundle = prepare(pair_request())
         class SyntheticScorer:
             def score_sequences(inner, sequences, **options):
                 self.assertEqual(options["reduce_method"], "sum")
@@ -128,8 +124,7 @@ class Evo2PreparationTests(unittest.TestCase):
         self.assertEqual(result["laboratory_status"], "pending_lab_verification")
 
     def test_api_policy_validation_local_export_and_score_lock(self):
-        settings = AgentSettings(database_path=self.database)
-        with patch("backend.evo2_routes.get_settings", return_value=settings), patch("socket.create_connection", side_effect=AssertionError("no external requests")):
+        with patch("socket.create_connection", side_effect=AssertionError("no external requests")):
             client = TestClient(app)
             self.assertFalse(client.get("/api/v1/evo2/status").json()["policy"]["inference_enabled"])
             response = client.post("/api/v1/evo2/prepare", json=pair_request().model_dump())
@@ -186,11 +181,12 @@ class BundledPublicDatasetTests(unittest.TestCase):
         self.assertTrue(all(row["donor_genotype"] is None for row in anchors))
 
     def test_every_bundled_ui_example_prepares_locally_without_inference(self):
+        use_temporary_schema(self)
         root = Path(__file__).resolve().parents[1] / "public" / "datasets" / "evo2"
         examples = json.loads((root / "examples.json").read_text())
-        with tempfile.TemporaryDirectory() as directory, patch("socket.create_connection", side_effect=AssertionError("no network")):
+        with patch("socket.create_connection", side_effect=AssertionError("no network")):
             for example in examples:
-                bundle = prepare(PairedFastaRequest(**example["request"]), str(Path(directory) / "audit.sqlite3"))
+                bundle = prepare(PairedFastaRequest(**example["request"]))
                 task = bundle.manifest.tasks[0]
                 self.assertEqual(task.evidence, "public_reference_unverified")
                 self.assertEqual(task.sequence_length, 257)

@@ -1,4 +1,3 @@
-import sqlite3
 from typing import Literal
 
 import httpx
@@ -10,6 +9,7 @@ from backend.agent_llm import headers, model_info
 from backend.agent_models import AnalyzeRequest, AnalyzeResponse
 from backend.agent_service import analyze, export_audit
 from backend.agent_store import AuditStore
+from backend.db import Error
 
 router = APIRouter(prefix="/api/v1/hemobot", tags=["HemoBot"])
 
@@ -27,7 +27,7 @@ def agent_status():
             pass
     return {"name": "HemoBot", "model": settings.ollama_model, "model_digest": digest,
             "llm_status": state, "fallback_available": True, "rag_enabled": settings.rag_enabled,
-            "audit_storage": "local_sqlite", "language": "en", "evo2_status": "roadmap_preview_only"}
+            "audit_storage": "supabase_postgres", "language": "en", "evo2_status": "roadmap_preview_only"}
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -37,8 +37,8 @@ def agent_analyze(request: AnalyzeRequest):
     except (ValueError, OverflowError) as error:
         # Numeric/input failures do not masquerade as completed analyses.
         raise HTTPException(status_code=422, detail="Analysis could not be computed. Check the batch, sample times, and numeric input ranges.") from error
-    except (sqlite3.Error, OSError) as error:
-        raise HTTPException(status_code=503, detail="The local audit store is unavailable. Check its directory permissions and free disk space.") from error
+    except (Error, OSError) as error:
+        raise HTTPException(status_code=503, detail="The audit store is unavailable. Check DATABASE_URL and the Supabase project status.") from error
 
 
 @router.get("/analyses/{response_id}/export")
@@ -46,8 +46,8 @@ def agent_export(response_id: str, format: Literal["json", "html", "markdown"] =
     if len(response_id) != 40 or not response_id.startswith("hemobot-"):
         raise HTTPException(status_code=404, detail="Analysis not found.")
     try:
-        bundle = AuditStore(get_settings().database_path).get(response_id)
-    except (sqlite3.Error, OSError) as error:
+        bundle = AuditStore().get(response_id)
+    except (Error, OSError) as error:
         raise HTTPException(status_code=503, detail="Audit storage is unavailable.") from error
     if bundle is None:
         raise HTTPException(status_code=404, detail="Analysis not found.")

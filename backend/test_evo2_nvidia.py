@@ -14,11 +14,11 @@ import httpx
 import numpy as np
 from fastapi.testclient import TestClient
 
-from backend.agent_config import AgentSettings
 from backend.api import app
+from backend.db import use_temporary_schema
 from backend.evo2_dataset import get_public_dataset, row_id
 from backend.evo2_nvidia import (ENDPOINT, MAX_BYTES, SLOT, NvidiaScoreRequest, NvidiaSettings, TrialError,
-    connect_store, decode_logits, forward, get_nvidia_settings, read_key, score_public_variant, trial_status)
+    decode_logits, forward, get_nvidia_settings, read_key, score_public_variant, trial_status)
 
 
 def archive(sequence, *, layer="output_layer", shape=None, invalid=False):
@@ -43,7 +43,7 @@ class NvidiaTrialTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.database = str(Path(self.directory.name) / "audit.sqlite3")
+        use_temporary_schema(self)
         self.key = "nvapi-SYNTHETIC_TEST_KEY_NEVER_REAL"
         key_file = Path(self.directory.name) / "key.txt"
         key_file.write_text(self.key)
@@ -66,7 +66,6 @@ class NvidiaTrialTests(unittest.TestCase):
         self.mock_client = patch("backend.evo2_nvidia.httpx.Client", side_effect=lambda **kwargs:
             original(transport=httpx.MockTransport(synthetic_provider), **kwargs))
         contexts = [patch("backend.evo2_routes.get_nvidia_settings", return_value=self.settings),
-                    patch("backend.evo2_routes.get_settings", return_value=AgentSettings(database_path=self.database)),
                     patch("socket.create_connection", side_effect=AssertionError("No real network permitted")),
                     patch.dict(os.environ, {"EVO2_NVIDIA_API_KEY": ""})]
         for context in contexts:
@@ -123,13 +122,13 @@ class NvidiaTrialTests(unittest.TestCase):
     def test_quota_reservations_survive_new_config_and_cached_results_do_not_consume_more(self):
         settings = self.settings.model_copy(update={"daily_request_limit": 2})
         with self.mock_client:
-            score_public_variant(self.request, self.dataset, settings, self.database)
-            score_public_variant(self.request, self.dataset, settings, self.database)
+            score_public_variant(self.request, self.dataset, settings)
+            score_public_variant(self.request, self.dataset, settings)
             other = NvidiaScoreRequest(variant_id=row_id(self.dataset.rows[1]))
             with self.assertRaises(TrialError) as blocked:
-                score_public_variant(other, self.dataset, settings, self.database)
+                score_public_variant(other, self.dataset, settings)
             self.assertEqual(blocked.exception.code, "daily_limit_reached")
-            status = trial_status(NvidiaSettings(**settings.model_dump()), self.database)
+            status = trial_status(NvidiaSettings(**settings.model_dump()))
             self.assertEqual(status["requests_remaining"], 0)
             self.assertEqual(len(self.external), 2)
 
@@ -151,9 +150,9 @@ class NvidiaTrialTests(unittest.TestCase):
         with patch("backend.evo2_nvidia.forward", side_effect=TrialError("provider_payment_required", "Trial access unavailable")) as network:
             for _ in range(2):
                 with self.assertRaises(TrialError):
-                    score_public_variant(self.request, self.dataset, self.settings, self.database)
+                    score_public_variant(self.request, self.dataset, self.settings)
             self.assertEqual(network.call_count, 1)
-        status = trial_status(self.settings, self.database)
+        status = trial_status(self.settings)
         self.assertEqual(status["requests_used_today"], 2)
         self.assertFalse(status["ready"])
         self.assertEqual(status["status"], "provider_payment_required")

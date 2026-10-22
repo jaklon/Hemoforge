@@ -20,8 +20,7 @@ COPY public/examples ./public/examples
 COPY public/datasets/evo2 ./public/datasets/evo2
 COPY --from=frontend /app/dist ./dist
 USER hemobot
-ENV HEMOBOT_DATABASE_PATH=/app/data/hemobot.sqlite3 \
-    HEMOBOT_RAG_PATH=/app/data/chroma \
+ENV HEMOBOT_RAG_PATH=/app/data/chroma \
     HEMOBOT_CORPUS_PATH=/app/knowledge/corpus \
     PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8000

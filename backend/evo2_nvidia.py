@@ -17,7 +17,8 @@ import httpx
 import numpy as np
 from pydantic import Field
 
-from backend.agent_store import AuditStore, fingerprint
+from backend.agent_store import fingerprint
+from backend.db import connect
 from backend.evo2_dataset import DatasetPreparationRequest
 from backend.models import InputModel
 
@@ -78,31 +79,15 @@ def read_key(settings):
     return key if re.fullmatch(r"nvapi-[A-Za-z0-9_-]{16,2048}", key) else ""
 
 
-def connect_store(database_path):
-    store = AuditStore(database_path)
-    with store.connect() as db:
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS evo2_nvidia_attempts (
-                id TEXT PRIMARY KEY, day TEXT NOT NULL, sequence_sha256 TEXT NOT NULL,
-                status TEXT NOT NULL, created_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS evo2_nvidia_cache (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS evo2_nvidia_results (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS evo2_nvidia_pause (day TEXT PRIMARY KEY, reason TEXT NOT NULL);
-        """)
-    return store
-
-
 def today():
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def trial_status(settings, database_path):
-    store = connect_store(database_path)
+def trial_status(settings):
     day = today()
-    with store.connect() as db:
-        used = db.execute("SELECT COUNT(*) FROM evo2_nvidia_attempts WHERE day=?", (day,)).fetchone()[0]
-        pause = db.execute("SELECT reason FROM evo2_nvidia_pause WHERE day=?", (day,)).fetchone()
+    with connect() as db:
+        used = db.execute("SELECT COUNT(*) FROM evo2_nvidia_attempts WHERE day=%s", (day,)).fetchone()[0]
+        pause = db.execute("SELECT reason FROM evo2_nvidia_pause WHERE day=%s", (day,)).fetchone()
     key_present = bool(read_key(settings))
     reason = ("disabled" if not settings.enabled else "free_trial_not_confirmed" if not settings.free_api_confirmed
               else "api_key_missing" if not key_present else pause[0] if pause else
@@ -205,7 +190,7 @@ def forward(sequence, key, layer):
         raise TrialError("provider_network_error", "NVIDIA trial request could not complete. No automatic retry was used.") from None
 
 
-def score_public_variant(request, dataset, settings, database_path):
+def score_public_variant(request, dataset, settings):
     selection = request.selection()
     row = dataset.variant(selection.variant_ids[0])  # Unknown IDs fail before quota/network.
     if not settings.enabled or not settings.free_api_confirmed:
@@ -216,20 +201,20 @@ def score_public_variant(request, dataset, settings, database_path):
     if not SLOT.acquire(blocking=False):
         raise TrialError("busy", "Another NVIDIA trial request is running. No new request was sent.", 409)
     try:
-        store = connect_store(database_path)
         day = today()
         sequences = [row["reference_sequence"], row["alternate_sequence"]]
         ids = [cache_id(sequence, settings.logits_layer) for sequence in sequences]
         values, reservations = {}, {}
-        with store.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
+        with connect() as db:
+            # Serializes quota reservations across workers until this transaction commits.
+            db.execute("LOCK TABLE evo2_nvidia_attempts IN EXCLUSIVE MODE")
             for id in ids:
-                cached = db.execute("SELECT value_json FROM evo2_nvidia_cache WHERE id=?", (id,)).fetchone()
+                cached = db.execute("SELECT value_json FROM evo2_nvidia_cache WHERE id=%s", (id,)).fetchone()
                 if cached:
                     values[id] = json.loads(cached[0])
             missing = [id for id in ids if id not in values]
-            pause = db.execute("SELECT reason FROM evo2_nvidia_pause WHERE day=?", (day,)).fetchone()
-            used = db.execute("SELECT COUNT(*) FROM evo2_nvidia_attempts WHERE day=?", (day,)).fetchone()[0]
+            pause = db.execute("SELECT reason FROM evo2_nvidia_pause WHERE day=%s", (day,)).fetchone()
+            used = db.execute("SELECT COUNT(*) FROM evo2_nvidia_attempts WHERE day=%s", (day,)).fetchone()[0]
             if missing and pause:
                 raise TrialError(pause[0], "NVIDIA trial requests are paused for today after a provider error. Cached results remain available.", 409)
             if used + len(missing) > settings.daily_request_limit:
@@ -238,7 +223,7 @@ def score_public_variant(request, dataset, settings, database_path):
                 if id in missing:
                     attempt_id = uuid4().hex
                     reservations[id] = attempt_id
-                    db.execute("INSERT INTO evo2_nvidia_attempts VALUES (?, ?, ?, ?, ?)",
+                    db.execute("INSERT INTO evo2_nvidia_attempts VALUES (%s, %s, %s, %s, %s)",
                                (attempt_id, day, hashlib.sha256(sequence.encode()).hexdigest(), "reserved",
                                 datetime.now(timezone.utc).isoformat()))
         try:
@@ -247,15 +232,15 @@ def score_public_variant(request, dataset, settings, database_path):
                     continue
                 value = forward(sequence, key, settings.logits_layer)
                 values[id] = value
-                with store.connect() as db:
-                    db.execute("INSERT OR REPLACE INTO evo2_nvidia_cache VALUES (?, ?)", (id, json.dumps(value, allow_nan=False)))
-                    db.execute("UPDATE evo2_nvidia_attempts SET status='completed' WHERE id=?", (reservations[id],))
+                with connect() as db:
+                    db.execute("INSERT INTO evo2_nvidia_cache VALUES (%s, %s) ON CONFLICT (id) DO UPDATE SET value_json = excluded.value_json", (id, json.dumps(value, allow_nan=False)))
+                    db.execute("UPDATE evo2_nvidia_attempts SET status='completed' WHERE id=%s", (reservations[id],))
         except TrialError as error:
-            with store.connect() as db:
+            with connect() as db:
                 for attempt_id in reservations.values():
-                    db.execute("UPDATE evo2_nvidia_attempts SET status=? WHERE id=? AND status='reserved'", (error.code, attempt_id))
+                    db.execute("UPDATE evo2_nvidia_attempts SET status=%s WHERE id=%s AND status='reserved'", (error.code, attempt_id))
                 if error.code in {"provider_payment_required", "provider_access_denied", "provider_unavailable", "provider_rate_limited", "invalid_provider_output"}:
-                    db.execute("INSERT OR REPLACE INTO evo2_nvidia_pause VALUES (?, ?)", (day, error.code))
+                    db.execute("INSERT INTO evo2_nvidia_pause VALUES (%s, %s) ON CONFLICT (day) DO UPDATE SET reason = excluded.reason", (day, error.code))
             raise
         ref, alt = (values[id] for id in ids)
         result = {"schema_version": "hemoforge-evo2-nvidia-result-v1", "result_id": "evo2nv-" + uuid4().hex,
@@ -274,28 +259,28 @@ def score_public_variant(request, dataset, settings, database_path):
                                   "First base is excluded; no BOS token is added. Do not compare directly with the offline worker's BOS scoring.",
                                   "A likelihood difference is not pathogenicity, antigen phenotype, or clinical validation.",
                                   "Public sequence examples are not donor genotypes. HemoBot does not automatically consume these results."]}
-        with store.connect() as db:
-            db.execute("INSERT INTO evo2_nvidia_results VALUES (?, ?)", (result["result_id"], json.dumps(result, allow_nan=False)))
+        with connect() as db:
+            db.execute("INSERT INTO evo2_nvidia_results (id, value_json) VALUES (%s, %s)", (result["result_id"], json.dumps(result, allow_nan=False)))
         return result
     finally:
         SLOT.release()
 
 
-def load_result(id, database_path):
+def load_result(id):
     if re.fullmatch(r"evo2nv-[a-f0-9]{32}", id) is None:
         return None
-    with connect_store(database_path).connect() as db:
-        row = db.execute("SELECT value_json FROM evo2_nvidia_results WHERE id=?", (id,)).fetchone()
+    with connect() as db:
+        row = db.execute("SELECT value_json FROM evo2_nvidia_results WHERE id=%s", (id,)).fetchone()
     return json.loads(row[0]) if row else None
 
 
-def latest_result(variant_id, dataset_hash, layer, database_path):
-    with connect_store(database_path).connect() as db:
+def latest_result(variant_id, dataset_hash, layer):
+    with connect() as db:
         row = db.execute("""SELECT value_json FROM evo2_nvidia_results
-            WHERE json_extract(value_json, '$.variant.id') = ?
-            AND json_extract(value_json, '$.dataset_sequence_pairs_sha256') = ?
-            AND json_extract(value_json, '$.provider_model') = ?
-            AND json_extract(value_json, '$.scoring.method') = ?
-            AND json_extract(value_json, '$.reference.logits_layer') = ?
-            ORDER BY rowid DESC LIMIT 1""", (variant_id, dataset_hash, MODEL, METHOD, layer)).fetchone()
+            WHERE value_json::jsonb #>> '{variant,id}' = %s
+            AND value_json::jsonb ->> 'dataset_sequence_pairs_sha256' = %s
+            AND value_json::jsonb ->> 'provider_model' = %s
+            AND value_json::jsonb #>> '{scoring,method}' = %s
+            AND value_json::jsonb #>> '{reference,logits_layer}' = %s
+            ORDER BY created_at DESC LIMIT 1""", (variant_id, dataset_hash, MODEL, METHOD, layer)).fetchone()
     return json.loads(row[0]) if row else None

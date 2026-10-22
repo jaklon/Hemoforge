@@ -1,11 +1,9 @@
-"""Local SQLite snapshots. No raw data or prompts are written to application logs."""
+"""Supabase Postgres snapshots. No raw data or prompts are written to application logs."""
 
 import hashlib
 import json
-import os
-import sqlite3
-from contextlib import contextmanager
-from pathlib import Path
+
+from backend.db import connect
 
 
 def canonical(value):
@@ -17,50 +15,20 @@ def fingerprint(value):
 
 
 class AuditStore:
-    def __init__(self, path):
-        self.path = path
-        Path(path).parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        descriptor = os.open(path, os.O_CREAT | os.O_WRONLY, 0o600)
-        os.close(descriptor)
-        with self.connect() as db:
-            db.execute("PRAGMA journal_mode=WAL")
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS workspaces (
-                    id TEXT PRIMARY KEY, inputs_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS analyses (
-                    response_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL,
-                    fingerprint TEXT NOT NULL, context_json TEXT NOT NULL,
-                    request_json TEXT NOT NULL, response_json TEXT NOT NULL,
-                    FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
-                );
-                CREATE INDEX IF NOT EXISTS analyses_fingerprint ON analyses(fingerprint);
-            """)
-
-    @contextmanager
-    def connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
-        try:
-            db.execute("PRAGMA foreign_keys=ON")
-            with db:
-                yield db
-        finally:
-            db.close()
-
     def save(self, request, context, response):
         inputs = request.inputs.model_dump()
         workspace_id = fingerprint(inputs)
         metadata = request.model_dump(exclude={"inputs"})
-        with self.connect() as db:
-            db.execute("INSERT OR IGNORE INTO workspaces VALUES (?, ?)", (workspace_id, canonical(inputs)))
-            db.execute("INSERT INTO analyses VALUES (?, ?, ?, ?, ?, ?)", (
+        with connect() as db:
+            db.execute("INSERT INTO workspaces VALUES (%s, %s) ON CONFLICT DO NOTHING", (workspace_id, canonical(inputs)))
+            db.execute("INSERT INTO analyses VALUES (%s, %s, %s, %s, %s, %s)", (
                 response.response_id, workspace_id, response.analysis_fingerprint,
                 canonical(context), canonical(metadata), response.model_dump_json(),
             ))
 
     def get(self, response_id):
-        with self.connect() as db:
-            row = db.execute("SELECT context_json, request_json, response_json FROM analyses WHERE response_id = ?",
+        with connect() as db:
+            row = db.execute("SELECT context_json, request_json, response_json FROM analyses WHERE response_id = %s",
                              (response_id,)).fetchone()
         if row is None:
             return None

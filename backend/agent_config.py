@@ -23,7 +23,6 @@ class AgentSettings(InputModel):
     timeout_seconds: float = Field(default=120, ge=1, le=300)
     num_thread: int = Field(default=8, ge=1, le=64)
     num_ctx: int = Field(default=8192, ge=4096, le=8192)
-    database_path: str = str(ROOT / "data" / "hemobot.sqlite3")
     rag_enabled: bool = False
     rag_path: str = str(ROOT / "data" / "chroma")
     embedding_model: str = "nomic-embed-text"

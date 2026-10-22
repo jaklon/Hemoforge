@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from backend.agent_config import AgentSettings
 from backend.api import app
+from backend.db import connect, use_temporary_schema
 from backend.evo2_dataset import DATASET_ROOT, DatasetPreparationRequest, PublicDataset, get_public_dataset, row_id
 from backend.evo2_service import load_preparation, validate_bundle
 from backend.evo2_worker import run_local
@@ -20,12 +20,11 @@ class DatasetIntegrationTests(unittest.TestCase):
         cls.dataset = PublicDataset(DATASET_ROOT)
 
     def setUp(self):
+        use_temporary_schema(self)
         self.directory = tempfile.TemporaryDirectory()
-        self.database = str(Path(self.directory.name) / "audit.sqlite3")
-        self.settings = patch("backend.evo2_routes.get_settings", return_value=AgentSettings(database_path=self.database))
         self.source = patch("backend.evo2_routes.get_public_dataset", return_value=self.dataset)
         self.network = patch("socket.create_connection", side_effect=AssertionError("No network or inference allowed"))
-        for context in (self.settings, self.source, self.network):
+        for context in (self.source, self.network):
             context.start()
             self.addCleanup(context.stop)
         self.addCleanup(self.directory.cleanup)
@@ -68,7 +67,7 @@ class DatasetIntegrationTests(unittest.TestCase):
         first = self.client.post("/api/v1/evo2/dataset/prepare", json=request)
         self.assertEqual(first.status_code, 200, first.text)
         bundle = validate_bundle(first.json())
-        self.assertEqual(load_preparation(bundle.preparation_id, self.database), bundle)
+        self.assertEqual(load_preparation(bundle.preparation_id), bundle)
         self.assertIsNone(bundle.manifest.reference_window_start_1based)
         self.assertEqual(bundle.manifest.source_hashes["dataset_sequence_pairs_sha256"], self.dataset.pairs_sha256)
         for row, task in zip(rows, bundle.manifest.tasks):
@@ -102,7 +101,8 @@ class DatasetIntegrationTests(unittest.TestCase):
         for payload, status in cases:
             with self.subTest(payload=payload):
                 self.assertEqual(self.client.post("/api/v1/evo2/dataset/prepare", json=payload).status_code, status)
-        self.assertFalse(Path(self.database).exists())
+        with connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM evo2_preparations").fetchone()[0], 0)
         for query in [{"limit": 101}, {"offset": -1}, {"gene": "OTHER"}, {"split": "other"}]:
             self.assertEqual(self.client.get("/api/v1/evo2/dataset/variants", params=query).status_code, 422)
         self.assertEqual(self.client.get("/api/v1/evo2/dataset/variants/unknown").status_code, 404)
@@ -123,7 +123,7 @@ class DatasetIntegrationTests(unittest.TestCase):
 
     def test_maximum_twenty_variant_batch_is_valid(self):
         selection = DatasetPreparationRequest(variant_ids=[row_id(row) for row in self.dataset.rows[:20]])
-        bundle = self.dataset.prepare(selection, self.database)
+        bundle = self.dataset.prepare(selection)
         self.assertEqual(len(validate_bundle(bundle.model_dump()).manifest.tasks), 20)
 
 

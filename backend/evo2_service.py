@@ -5,7 +5,8 @@ import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from backend.agent_store import AuditStore, fingerprint
+from backend.agent_store import fingerprint
+from backend.db import connect
 from backend.marker_calls import normalize_call
 from backend.evo2_models import CostPolicy, PairedFastaRequest, PreparationManifest, PreparedBundle, SequenceTask
 
@@ -140,7 +141,7 @@ def parse_vcf(request, reference):
     return tasks
 
 
-def prepare(request, database_path):
+def prepare(request):
     record_id, reference = parse_fasta(request.reference_fasta, 8191 if isinstance(request, PairedFastaRequest) else 131072)
     if record_id != request.contig:
         raise ValueError("The reference FASTA record ID must exactly match the declared contig; orientation/aliases are not inferred.")
@@ -163,26 +164,22 @@ def prepare(request, database_path):
     manifest = PreparationManifest(input_fingerprint=fingerprint(request.model_dump()), reference_label=request.reference_label,
                                    reference_window_start_1based=request.reference_start_1based,
                                    source_hashes=hashes, tasks=tasks, warnings=warnings)
-    return persist_preparation(manifest, database_path)
+    return persist_preparation(manifest)
 
 
-def persist_preparation(manifest, database_path):
+def persist_preparation(manifest):
     bundle = PreparedBundle(preparation_id="evo2prep-" + uuid4().hex, prepared_at=datetime.now(timezone.utc).isoformat(),
                             manifest_fingerprint=fingerprint(manifest.model_dump()), manifest=manifest)
-    store = AuditStore(database_path)
-    with store.connect() as db:
-        db.execute("CREATE TABLE IF NOT EXISTS evo2_preparations (id TEXT PRIMARY KEY, bundle_json TEXT NOT NULL)")
-        db.execute("INSERT INTO evo2_preparations VALUES (?, ?)", (bundle.preparation_id, bundle.model_dump_json()))
+    with connect() as db:
+        db.execute("INSERT INTO evo2_preparations VALUES (%s, %s)", (bundle.preparation_id, bundle.model_dump_json()))
     return bundle
 
 
-def load_preparation(id, database_path):
+def load_preparation(id):
     if re.fullmatch(r"evo2prep-[a-f0-9]{32}", id) is None:
         return None
-    store = AuditStore(database_path)
-    with store.connect() as db:
-        exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='evo2_preparations'").fetchone()
-        row = db.execute("SELECT bundle_json FROM evo2_preparations WHERE id = ?", (id,)).fetchone() if exists else None
+    with connect() as db:
+        row = db.execute("SELECT bundle_json FROM evo2_preparations WHERE id = %s", (id,)).fetchone()
     return PreparedBundle.model_validate_json(row[0]) if row else None
 
 

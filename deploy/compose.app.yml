@@ -11,6 +11,7 @@ services:
       HEMOBOT_OLLAMA_URL: ${HEMOBOT_OLLAMA_URL:-http://127.0.0.1:11434}
       HEMOBOT_OLLAMA_TOKEN_FILE: /run/secrets/ollama_token
       HEMOBOT_RAG_ENABLED: "false"
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the Supabase session pooler connection string}
     secrets: [ollama_token]
     volumes:
       - audit-data:/app/data

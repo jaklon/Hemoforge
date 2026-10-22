@@ -1,7 +1,5 @@
 import json
-import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -14,6 +12,7 @@ from backend.agent_service import INFERENCE_SLOT, analyze
 from backend.agent_store import AuditStore, fingerprint
 from backend.agent_tools import claim_catalog, collect_context
 from backend.api import app
+from backend.db import use_temporary_schema
 
 
 def payload():
@@ -33,11 +32,8 @@ def payload():
 
 class AgentTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.settings = AgentSettings(mode="template", database_path=str(Path(self.directory.name) / "audit.sqlite3"))
-
-    def tearDown(self):
-        self.directory.cleanup()
+        use_temporary_schema(self)
+        self.settings = AgentSettings(mode="template")
 
     def test_replay_context_withholds_future_counts_channels_and_warnings(self):
         data = payload()
@@ -90,7 +86,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(first.analysis_fingerprint, second.analysis_fingerprint)
         self.assertNotEqual(first.response_id, second.response_id)
         self.assertEqual(first.analysis_fingerprint, "sha256:" + fingerprint(first.audit_manifest))
-        audit = AuditStore(self.settings.database_path).get(first.response_id)
+        audit = AuditStore().get(first.response_id)
         self.assertEqual(first.context_fingerprint, "sha256:" + fingerprint(audit["context"]))
         self.assertNotIn("99999", json.dumps(audit))
         self.assertEqual(first.evidence_quality, "software_test_only")

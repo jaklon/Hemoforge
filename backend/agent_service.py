@@ -113,7 +113,7 @@ def analyze(request, settings):
         citations=[c for c in context["citations"] if c["id"] in modules], literature=literature, rag_status=rag_status,
         mandatory_scientific_disclaimers=DISCLAIMER, rarematch_roadmap_evo2_extension=ROADMAP,
         analysis_fingerprint="sha256:" + audit_hash, context_fingerprint="sha256:" + context_hash, audit_manifest=audit_manifest)
-    AuditStore(settings.database_path).save(request, context, response)
+    AuditStore().save(request, context, response)
     return response
 
 

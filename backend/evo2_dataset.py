@@ -78,7 +78,7 @@ class PublicDataset:
         row = self.by_id[id]
         return {"id": id, **row, "reference_window_start_1based": row["position_1based"] - FLANK}
 
-    def prepare(self, selection, database_path):
+    def prepare(self, selection):
         # Resolve every ID before any persistence. Clients cannot replace sequences or scores.
         rows = [self.by_id[id] for id in selection.variant_ids]
         tasks = []
@@ -102,7 +102,7 @@ class PublicDataset:
                 "Tasks are independent public reference examples, not donor samples. study_id records the development split.",
                 "Each task has its own reference start: position_1based minus variant_index_0based. No common reference window or phasing is implied.",
             ])
-        return persist_preparation(manifest, database_path)
+        return persist_preparation(manifest)
 
 
 @lru_cache(maxsize=1)

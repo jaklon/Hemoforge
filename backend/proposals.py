@@ -1,15 +1,13 @@
-"""Business proposals from the Work with us page, kept in a local SQLite file."""
+"""Business proposals from the Work with us page, kept in Supabase Postgres."""
 
-import sqlite3
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-DATABASE = Path(__file__).resolve().parents[1] / "data" / "proposals.sqlite3"
+from backend.db import Error, connect
 
 router = APIRouter(prefix="/api", tags=["Proposals"])
 
@@ -24,26 +22,14 @@ class Proposal(BaseModel):
     proposal: str = Field(min_length=1, max_length=5000)
 
 
-def connect():
-    DATABASE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    db = sqlite3.connect(DATABASE, timeout=10)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS proposals (
-            id TEXT PRIMARY KEY, received_at TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,
-            company TEXT NOT NULL, plan TEXT NOT NULL, proposal TEXT NOT NULL
-        )
-    """)
-    return db
-
-
 # ponytail: no rate limit or spam check; add one before exposing the API beyond the allowed hosts.
 @router.post("/proposals", status_code=201)
 def submit(proposal: Proposal):
     record = {"id": uuid.uuid4().hex, "received_at": datetime.now(timezone.utc).isoformat(), **proposal.model_dump()}
-    db = connect()
     try:
-        with db:
-            db.execute("INSERT INTO proposals VALUES (:id, :received_at, :name, :email, :company, :plan, :proposal)", record)
-    finally:
-        db.close()
+        with connect() as db:
+            db.execute("INSERT INTO proposals VALUES (%(id)s, %(received_at)s, %(name)s, %(email)s, %(company)s, %(plan)s, %(proposal)s)",
+                       record)
+    except (Error, OSError) as error:
+        raise HTTPException(status_code=503, detail="Proposal storage is unavailable. Please try again later.") from error
     return {"id": record["id"], "received_at": record["received_at"]}

@@ -1,11 +1,10 @@
-import sqlite3
 import json
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from backend.agent_config import get_settings
+from backend.db import Error
 from backend.evo2_models import PreparationRequest, PreparedBundle, ReadinessRequest
 from backend.evo2_service import load_preparation, marker_readiness, prepare, status
 from backend.evo2_dataset import DatasetPreparationRequest, get_public_dataset
@@ -51,12 +50,12 @@ def evo2_dataset_variant(variant_id: str):
 @router.post("/dataset/prepare", response_model=PreparedBundle)
 def evo2_dataset_prepare(request: DatasetPreparationRequest):
     try:
-        return public_dataset().prepare(request, get_settings().database_path)
+        return public_dataset().prepare(request)
     except KeyError as error:
         raise HTTPException(404, "A selected public variant was not found. Nothing was prepared.") from error
     except ValueError as error:
         raise HTTPException(422, "Public sequence preparation validation failed.") from error
-    except (sqlite3.Error, OSError) as error:
+    except (Error, OSError) as error:
         raise HTTPException(503, "The local preparation audit store is unavailable.") from error
 
 
@@ -68,19 +67,19 @@ def evo2_readiness(request: ReadinessRequest):
 @router.post("/prepare", response_model=PreparedBundle)
 def evo2_prepare(request: PreparationRequest):
     try:
-        return prepare(request, get_settings().database_path)
+        return prepare(request)
     except ValueError as error:
         # Parser errors contain fixed explanations, never uploaded sequence contents.
         raise HTTPException(422, str(error) if not hasattr(error, "errors") else "Sequence preparation validation failed.") from error
-    except (sqlite3.Error, OSError) as error:
+    except (Error, OSError) as error:
         raise HTTPException(503, "The local preparation audit store is unavailable.") from error
 
 
 @router.get("/preparations/{preparation_id}/export")
 def evo2_export(preparation_id: str):
     try:
-        bundle = load_preparation(preparation_id, get_settings().database_path)
-    except (sqlite3.Error, OSError) as error:
+        bundle = load_preparation(preparation_id)
+    except (Error, OSError) as error:
         raise HTTPException(503, "The local preparation audit store is unavailable.") from error
     if bundle is None:
         raise HTTPException(404, "Preparation not found.")
@@ -106,8 +105,8 @@ def nvidia_error(error):
 @router.get("/nvidia/status")
 def evo2_nvidia_status():
     try:
-        return trial_status(get_nvidia_settings(), get_settings().database_path)
-    except (TrialError, ValueError, OSError, sqlite3.Error) as error:
+        return trial_status(get_nvidia_settings())
+    except (TrialError, ValueError, OSError, Error) as error:
         nvidia_error(error)
 
 
@@ -120,18 +119,18 @@ def evo2_nvidia_score(request: NvidiaScoreRequest, http_request: Request):
             "http://127.0.0.1:8443", "http://localhost:8443", "http://127.0.0.1:8000", "http://localhost:8000"})):
         raise HTTPException(403, "Use the local Evo 2 workspace to request trial inference.")
     try:
-        return score_public_variant(request, public_dataset(), get_nvidia_settings(), get_settings().database_path)
+        return score_public_variant(request, public_dataset(), get_nvidia_settings())
     except KeyError:
         raise HTTPException(404, "Public variant not found. No inference was requested.") from None
-    except (TrialError, ValueError, OSError, sqlite3.Error) as error:
+    except (TrialError, ValueError, OSError, Error) as error:
         nvidia_error(error)
 
 
 @router.get("/nvidia/results/{result_id}/export")
 def evo2_nvidia_export(result_id: str):
     try:
-        result = load_result(result_id, get_settings().database_path)
-    except (OSError, sqlite3.Error, ValueError) as error:
+        result = load_result(result_id)
+    except (OSError, Error, ValueError) as error:
         nvidia_error(error)
     if result is None:
         raise HTTPException(404, "NVIDIA trial result not found.")
@@ -146,10 +145,10 @@ def evo2_nvidia_saved(variant_id: str = Query(max_length=120)):
     try:
         dataset = public_dataset()
         dataset.variant(variant_id)
-        result = latest_result(variant_id, dataset.pairs_sha256, get_nvidia_settings().logits_layer, get_settings().database_path)
+        result = latest_result(variant_id, dataset.pairs_sha256, get_nvidia_settings().logits_layer)
     except KeyError:
         raise HTTPException(404, "Public variant not found.") from None
-    except (TrialError, OSError, sqlite3.Error, ValueError) as error:
+    except (TrialError, OSError, Error, ValueError) as error:
         nvidia_error(error)
     if result is None:
         raise HTTPException(404, "No saved NVIDIA result for this variant and scoring configuration. No upstream request was made.")
