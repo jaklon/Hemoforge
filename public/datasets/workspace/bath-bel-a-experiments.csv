@@ -1,0 +1,13 @@
+condition_id,lactate_mg_l,ammonia_mg_l,response,response_unit
+L850-A0,850.0,0.0,6.03,live_cells_1e5_per_ml
+L850-A41,850.0,41.0,5.5,live_cells_1e5_per_ml
+L0-A41,0.0,41.0,6.41,live_cells_1e5_per_ml
+L0-A0,0.0,0.0,6.34,live_cells_1e5_per_ml
+L0-A41,0.0,41.0,5.63,live_cells_1e5_per_ml
+L850-A41,850.0,41.0,5.68,live_cells_1e5_per_ml
+L850-A0,850.0,0.0,6.13,live_cells_1e5_per_ml
+L0-A41,0.0,41.0,4.76,live_cells_1e5_per_ml
+L850-A41,850.0,41.0,4.65,live_cells_1e5_per_ml
+L0-A0,0.0,0.0,5.63,live_cells_1e5_per_ml
+L850-A0,850.0,0.0,5.61,live_cells_1e5_per_ml
+L0-A0,0.0,0.0,6.1,live_cells_1e5_per_ml

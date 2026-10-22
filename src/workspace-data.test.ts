@@ -233,3 +233,20 @@ test("report intervals and monitoring rules change actual summaries without futu
     /interval/,
   )
 })
+
+test("public Bath and 1000 Genomes conversions parse as workspace uploads", async () => {
+  const { readFileSync } = await import("node:fs")
+  const read = (name: string) =>
+    readFileSync(new URL(`../public/datasets/workspace/${name}`, import.meta.url), "utf8")
+  const culture = parseInput(read("bath-bel-a-culture.csv"), "bath-bel-a-culture.csv")
+  assert.equal(culture.kind, "culture")
+  assert.equal(culture.rows.length, 24)
+  assert.equal(new Set((culture.rows as CultureRow[]).map((row) => row.batch_id)).size, 3)
+  const experiments = parseInput(read("bath-bel-a-experiments.csv"), "bath-bel-a-experiments.csv")
+  assert.equal(experiments.kind, "experiments")
+  assert.equal(new Set((experiments.rows as ExperimentRow[]).map((row) => row.condition_id)).size, 4)
+  const markers = parseInput(read("1000g-phase3-markers.csv"), "1000g-phase3-markers.csv")
+  assert.equal(markers.kind, "markers")
+  assert.equal(markers.rows.length, 2504)
+  assert.ok((markers.rows as MarkerRow[]).every((row) => Object.values(row.calls).every((call) => /^[AG]\/[AG]$/.test(call))))
+})
