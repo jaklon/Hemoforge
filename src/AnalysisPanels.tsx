@@ -105,7 +105,7 @@ export function SimulationPanel({
 
   const stale = !!result && result.fromHour !== hour
 
-  const outdated = !!matching && matching.result.fromHour !== hour
+  const outdated = !matching || matching.result.fromHour !== hour
 
   async function run() {
     if (predicting) return
@@ -125,11 +125,16 @@ export function SimulationPanel({
     }
   }
 
-  // Refresh the shown run once replay settles at a new cutoff.
+  const request = JSON.stringify([replicate, hour, source.sha256, settings])
+
+  // A new cutoff, batch or setting clears the last error so the run retries.
+  useEffect(() => setError(""), [request])
+
+  // Runs automatically once the replay cursor or a setting settles.
   useEffect(() => {
     if (!outdated || blocked || predicting || error) return
 
-    const timer = window.setTimeout(() => void run(), 600)
+    const timer = window.setTimeout(() => void run(), 250)
 
     return () => window.clearTimeout(timer)
   })
@@ -140,9 +145,14 @@ export function SimulationPanel({
     <Panel
       title="Simulate future growth"
       action={
-        <a className="method-link" href="#methods/growth">
-          Equations &amp; references
-        </a>
+        <div className="header-actions">
+          <a className="method-link" href="#methods/growth">
+            Equations &amp; references
+          </a>
+          <a className="method-link" href="#methods/intervals">
+            Range &amp; log-axis formulas
+          </a>
+        </div>
       }
     >
       <div className="simulation-controls">
@@ -153,7 +163,6 @@ export function SimulationPanel({
           min={1}
           max={720}
           step={1}
-          disabled={predicting}
         />
         <NumberField
           label="Simulation paths"
@@ -162,7 +171,6 @@ export function SimulationPanel({
           min={10}
           max={2000}
           step={1}
-          disabled={predicting}
         />
         <NumberField
           label="Random seed"
@@ -171,15 +179,10 @@ export function SimulationPanel({
           min={0}
           max={2147483647}
           step={1}
-          disabled={predicting}
         />
-        <Button
-          primary
-          disabled={blocked || predicting}
-          onClick={() => void run()}
-        >
-          {predicting ? "Running in Python…" : "Run growth simulation"}
-        </Button>
+        <span className="simulation-status" role="status">
+          {predicting ? "Updating…" : ""}
+        </span>
       </div>
       <Details title="Growth assumptions & fitting window">
         <div className="settings-grid">
@@ -189,7 +192,6 @@ export function SimulationPanel({
             optional
             min={0.01}
             max={100000}
-            disabled={predicting}
             hint="Blank uses all samples available at the replay cutoff."
             onChange={(value) =>
               setSettings({ ...settings, lookbackHours: value })
@@ -201,7 +203,6 @@ export function SimulationPanel({
             optional
             min={-1}
             max={1}
-            disabled={predicting}
             hint="Blank fits from data. An override creates a researcher-defined scenario."
             onChange={(value) => setSettings({ ...settings, drift: value })}
           />
@@ -211,7 +212,6 @@ export function SimulationPanel({
             optional
             min={0}
             max={2}
-            disabled={predicting}
             hint="Blank fits from data; 0 produces deterministic growth."
             onChange={(value) =>
               setSettings({ ...settings, volatility: value })
@@ -234,7 +234,7 @@ export function SimulationPanel({
           {error}
         </p>
       )}
-      {(predicting || (outdated && !blocked && !error)) && !result ? (
+      {!blocked && !error && !result ? (
         <div className="simulation-skeleton" role="status" aria-label="Running growth simulation">
           <div className="guard-metrics">
             {[0, 1, 2].map((item) => (
@@ -279,16 +279,7 @@ export function SimulationPanel({
             </p>
           )}
         </div>
-      ) : (
-        <div className="empty-state simulation-empty">
-          <strong>
-            {simulation
-              ? "Run again for these settings"
-              : "No simulation run yet"}
-          </strong>
-          <p>Choose a batch and replay time, then run.</p>
-        </div>
-      )}
+      ) : null}
       <Details title="What this simulation assumes">
         {current && (
           <p>
@@ -297,7 +288,7 @@ export function SimulationPanel({
           </p>
         )}
         <p>
-          Changing input, time, or any growth setting requires a new run. Later
+          Changing input, time, or any growth setting reruns the simulation. Later
           recorded samples are excluded. Results are included in the JSON/HTML
           export.
         </p>

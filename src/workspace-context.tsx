@@ -272,8 +272,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       )
       setBackendStatus("online")
     } catch (error) {
+      // Runs follow the replay cursor, so failures show inline instead of as toasts.
       recordFailure(error)
-      notify(`Growth simulation failed for ${batch.id}`, "error")
       throw error
     }
     if (
@@ -281,7 +281,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sequence !== simulationSequence.current
     )
       return
-    notify(`Growth simulation finished for ${batch.id}`, "success")
     flag("pilot")
     setSimulation({
       batchId: batch.id,

@@ -24,7 +24,6 @@ import HemoBot, { useHemoBot } from "./HemoBot"
 
 import { botStatus, type BotAnalysis, type BotModule, type BotStatus } from "./hemobot-api"
 
-import MonitoringControls from "./MonitoringControls"
 
 import Guard from "./BioreactorGuard"
 
@@ -273,8 +272,6 @@ function Pilot({
     reportInterval,
   } = useCultureData()
 
-  const { roadmapDays } = useWorkspace()
-
   const reports = useMemo(
     () => checkpointReports(replicate, hour),
 
@@ -496,54 +493,6 @@ function Pilot({
           )}
         </Panel>
       </div>
-      <Details title={`${roadmapDays}-day reporting roadmap · planned`}>
-        <div
-          className="roadmap-days"
-          aria-label={`${roadmapDays}-day checkpoint roadmap`}
-        >
-          {Array.from({ length: roadmapDays }, (_, i) => (
-            <div key={i} className={(i + 1) * 24 <= hour ? "reached" : ""}>
-              <span>D{i + 1}</span>
-              <i />
-              <small>
-                {(i + 1) * 24 <= hour ? "Replay reached" : "Planned"}
-              </small>
-            </div>
-          ))}
-        </div>
-        <p className="panel-note">
-          {roadmapDays} days · {Math.floor((roadmapDays * 24) / reportInterval)}{" "}
-          planned report intervals. The culture input stops at {replayEndHour}h;
-          observations are not invented after it ends. Harvest and QC remain
-          pending.
-        </p>
-      </Details>
-      <Details title="Erythroid stage reference · GSE53983">
-        <div className="two-column">
-          <div>
-            <h3>A separate transcriptomic study</h3>
-            <p>
-              15 human reference samples across 5 erythroblast stages, according
-              to the proposal. These are independent of culture replay; there is
-              no matched longitudinal assay for {batchId(replicate)}.
-            </p>
-            <Badge>Batch maturation: insufficient data</Badge>
-          </div>
-          <div>
-            <h3>Evaluation pending</h3>
-            <p>
-              Planned: log₂(CPM + 1), feature selection and standardization
-              inside each training fold, L2 logistic regression, and stratified
-              3-fold evaluation against a baseline. Macro-F1, balanced accuracy,
-              and confusion matrices require actual model outputs.
-            </p>
-            <p>
-              No trained model, verified counts file, or evaluation artifact is
-              bundled. HemoForge summaries here use deterministic rules.
-            </p>
-          </div>
-        </div>
-      </Details>
     </>
   )
 }
@@ -1417,7 +1366,6 @@ function ResearchWorkspaceContent() {
               setReplicate={setReplicate}
               navigate={navigate}
             />
-            <MonitoringControls />
           </>
         ) : view === "plan" ? (
           <ExperimentPlanner

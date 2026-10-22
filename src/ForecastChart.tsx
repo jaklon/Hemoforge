@@ -13,60 +13,59 @@ export default function ForecastChart({
 }) {
   const [paths, setPaths] = useState(true)
   const [interval, setInterval] = useState("95")
-  const [inspection, setInspection] = useState("")
   const last = result.distribution.at(-1)!
-  const options = [
-    ...samples.map((sample) => ({
-      hour: sample.hour,
-      kind: "Measured",
-      value: sample.count!,
-      lower: null as number | null,
-      upper: null as number | null,
-    })),
-    ...result.distribution.map((point) => ({
-      hour: point.hour,
-      kind: "Simulated",
-      value: point.median,
-      lower: point.lower95,
-      upper: point.upper95,
-    })),
-  ]
-  const selected =
-    options.find((point) => `${point.kind}-${point.hour}` === inspection) ??
-    options.at(-1)!
   const lower = (point: CultureForecast["distribution"][number]) =>
     interval === "95" ? point.lower95 : point.lower80
   const upper = (point: CultureForecast["distribution"][number]) =>
     interval === "95" ? point.upper95 : point.upper80
+  const points = [
+    ...samples.map((sample) => ({
+      x: sample.hour,
+      y: sample.count!,
+      lines: [
+        `Measured · ${plotNumber(sample.hour)}h`,
+        `${plotNumber(sample.count!)} ×10⁶ cells`,
+      ],
+    })),
+    ...result.distribution.map((point) => ({
+      x: point.hour,
+      y: point.median,
+      lines: [
+        `Simulated · ${plotNumber(point.hour)}h`,
+        `Median ${point.median.toPrecision(4)} ×10⁶ cells`,
+        `${interval}% range ${lower(point).toPrecision(3)}–${upper(point).toPrecision(3)}`,
+      ],
+    })),
+  ]
   return (
     <>
-      <div className="guard-chart-controls">
-        <a className="method-link" href="#methods/intervals">
-          Range &amp; log-axis formulas
-        </a>
-        <fieldset className="guard-segmented">
-          <legend className="sr-only">Simulated interval</legend>
-          {["95", "80"].map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={interval === value}
-              onClick={() => setInterval(value)}
-            >
-              {value}% range
-            </button>
-          ))}
-        </fieldset>
-        <label className="inline-check">
-          <input
-            type="checkbox"
-            checked={paths}
-            onChange={(event) => setPaths(event.target.checked)}
-          />
-          Sample paths
-        </label>
-      </div>
       <InteractivePlot
+        controls={
+          <>
+            <fieldset className="guard-segmented">
+              <legend className="sr-only">Simulated interval</legend>
+              {["95", "80"].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={interval === value}
+                  onClick={() => setInterval(value)}
+                >
+                  {value}% range
+                </button>
+              ))}
+            </fieldset>
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={paths}
+                onChange={(event) => setPaths(event.target.checked)}
+              />
+              Sample paths
+            </label>
+          </>
+        }
+        points={points}
         title="Growth simulation chart"
         xExtent={[Math.min(0, samples[0]?.hour ?? 0), last.hour]}
         values={[
@@ -120,12 +119,7 @@ export default function ForecastChart({
                 cy={y(point.count!)}
                 r="3.5"
                 className="forecast-observation"
-              >
-                <title>
-                  Measured · {plotNumber(point.hour)}h · {point.count} million
-                  cells
-                </title>
-              </circle>
+              />
             ))}
             <polyline
               points={[
@@ -153,23 +147,6 @@ export default function ForecastChart({
             >
               Simulation starts
             </text>
-            <line
-              x1={x(selected.hour)}
-              x2={x(selected.hour)}
-              y1={top + 20}
-              y2={bottom}
-              className="guard-inspection-line"
-            />
-            <circle
-              cx={x(selected.hour)}
-              cy={y(selected.value)}
-              r="5"
-              className={
-                selected.kind === "Measured"
-                  ? "forecast-observation"
-                  : "forecast-inspected"
-              }
-            />
           </>
         )}
       </InteractivePlot>
@@ -186,42 +163,6 @@ export default function ForecastChart({
           <i className="legend-band" />
           {interval}% simulated range
         </span>
-      </div>
-      <div className="guard-inspector forecast-inspector">
-        <label>
-          Inspect a time point
-          <select
-            value={`${selected.kind}-${selected.hour}`}
-            onChange={(event) => setInspection(event.target.value)}
-          >
-            {options.map((point) => (
-              <option
-                key={`${point.kind}-${point.hour}`}
-                value={`${point.kind}-${point.hour}`}
-              >
-                {plotNumber(point.hour)}h · {point.kind}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div>
-          <span>
-            {selected.kind === "Measured"
-              ? "Measured count"
-              : "Simulated median"}
-          </span>
-          <strong>
-            {selected.value.toPrecision(5)} <small>×10⁶ cells</small>
-          </strong>
-        </div>
-        <div>
-          <span>95% simulated range</span>
-          <strong>
-            {selected.lower !== null
-              ? `${selected.lower.toPrecision(4)}–${selected.upper!.toPrecision(4)}`
-              : "Observed source value"}
-          </strong>
-        </div>
       </div>
     </>
   )
