@@ -38,6 +38,10 @@ Files are held in the browser; prediction records are sent to loopback Python
 and processed in memory. Explicit HemoBot analyses additionally persist source
 snapshots, deterministic context, and audit responses in local SQLite. Ollama
 mode sends the bounded evidence catalog and query to the configured model server.
+HemoBot uses the configured LLM without an analysis-mode selector. Analyze evidence
+is disabled while the LLM is offline, disabled, or its connection is unconfirmed.
+Check connection refreshes availability; analysis rechecks the connection before
+submitting source records. A disabled action includes visible connection guidance.
 2 MB / 10,000 rows per file, 30 batches and 60 conditions
 are the local limits. Culture counts use absolute million cells. Relative times
 must increase per batch; duplicate/out-of-order times are rejected instead of

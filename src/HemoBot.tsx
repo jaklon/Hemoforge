@@ -9,7 +9,6 @@ export function useHemoBot(context: BotContext) {
   const { inputs, notify, flag } = useWorkspace()
   const [query, setQuery] = useState(botQuestions.all)
   const [module, setModule] = useState<BotModule>("all")
-  const [mode, setMode] = useState<"auto" | "template">("auto")
   const [result, setResult] = useState<BotAnalysis | null>(null)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -41,7 +40,7 @@ export function useHemoBot(context: BotContext) {
     setError("")
     setResult(null)
     try {
-      const response = await analyzeWithBot(botPayload(inputs, context, query, module, mode), requestController.signal)
+      const response = await analyzeWithBot(botPayload(inputs, context, query, module, "auto"), requestController.signal)
       if (sequence === generation.current) {
         setResult(response)
         notify("HemoBot analysis finished", "success")
@@ -61,7 +60,7 @@ export function useHemoBot(context: BotContext) {
     setModule(next)
     setQuery(botQuestions[next])
   }
-  return { query, setQuery, module, mode, setMode, result, error, busy, run, cancel, prepare }
+  return { query, setQuery, module, result, error, busy, run, cancel, prepare }
 }
 
 type BotState = ReturnType<typeof useHemoBot>
@@ -76,12 +75,14 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
   const statusController = useRef<AbortController | null>(null)
   const refresh = useCallback(async () => {
     statusController.current?.abort()
+    setStatus(null)
+    setStatusError("")
     const requestController = new AbortController()
     statusController.current = requestController
     const timer = window.setTimeout(() => requestController.abort(), 10000)
     try {
       const next = await botStatus(requestController.signal)
-      if (statusController.current === requestController) { setStatus(next); setStatusError("") }
+      if (statusController.current === requestController) { setStatus(next); setStatusError(""); return next }
     } catch {
       if (statusController.current === requestController && !requestController.signal.aborted) {
         setStatus(null); setStatusError("HemoBot API unavailable. Restart the local Python service and retry.")
@@ -89,9 +90,11 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
         setStatus(null); setStatusError("Status check timed out. Retry the connection check.")
       }
     } finally { window.clearTimeout(timer) }
+    return null
   }, [])
   useEffect(() => { void refresh(); return () => { statusController.current?.abort(); statusController.current = null } }, [refresh])
   const result = bot.result
+  const llmOnline = status?.llm_status === "online"
   function showCitation(id: string) {
     const element = document.getElementById(`citation-${id}`)
     const disclosure = element?.closest("details")
@@ -114,8 +117,8 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
   }
   return <>
     <PageTitle title="HemoBot" description="Review laboratory evidence with your biomedical research assistant."
-      action={<Badge tone={status?.llm_status === "online" ? "success" : "warning"}>
-        {status?.llm_status === "online" ? "Ollama connected" : status ? "Template fallback available" : statusError ? "API unavailable" : "Checking connection"}
+      action={<Badge tone={llmOnline ? "success" : "warning"}>
+        {llmOnline ? "LLM connected" : status ? status.llm_status === "disabled" ? "LLM disabled" : "LLM offline" : statusError ? "API unavailable" : "Checking connection"}
       </Badge>} />
     <div className="context-strip"><label>Analysis batch <select value={context.batch_id} onChange={event => onBatchChange(event.target.value)}>
       {batchChoices.map(id => <option key={id}>{id}</option>)}</select></label><span>Replay <b>{context.replay_elapsed_hours}h</b> · Biomedical English</span>
@@ -131,16 +134,22 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
         <label htmlFor="hemobot-query">Research question in English</label>
         <textarea className="resize-none" id="hemobot-query" rows={3} maxLength={1200} value={bot.query} disabled={bot.busy}
           onChange={event => bot.setQuery(event.target.value)} />
-        <div className="bot-run-actions"><label>Analysis mode<select value={bot.mode} disabled={bot.busy}
-          onChange={event => bot.setMode(event.target.value as "auto" | "template")}>
-          <option value="auto">Ollama with template fallback</option><option value="template">Deterministic template only</option>
-        </select></label>
-          <Button primary disabled={bot.busy || bot.query.trim().length < 3} onClick={() => void bot.run()}>
+        <div className="bot-run-actions">
+          <Button primary disabled={!llmOnline || bot.busy || bot.query.trim().length < 3} onClick={async () => {
+            const connection = await refresh()
+            if (connection?.llm_status === "online") void bot.run()
+          }}>
             {bot.busy ? "Reviewing evidence…" : "Analyze evidence"}</Button>
           {bot.busy && <Button onClick={bot.cancel}>Stop waiting</Button>}
         </div>
-        <p className="panel-note">Analysis saves the source snapshot and audit locally. In Ollama mode, evidence statements and your question are sent to the configured model server.</p>
-        <p role="status" className="bot-progress">{bot.busy ? "CPU inference can take a few minutes. You may switch modules while waiting." : ""}</p>
+        <p className="panel-note">Analysis saves the source snapshot and audit locally. Evidence statements and your question are sent to the configured model server.</p>
+        <p role="status" className="bot-progress">{bot.busy
+          ? "CPU inference can take a few minutes. You may switch modules while waiting."
+          : !llmOnline
+            ? status || statusError
+              ? "Connect the LLM, then select Check connection to enable analysis."
+              : "Checking the LLM connection…"
+            : ""}</p>
       </div>
     </Panel>
     {bot.error && <p role="alert" className="import-error">{bot.error}</p>}
