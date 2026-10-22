@@ -16,7 +16,7 @@ import MonitoringControls from "./MonitoringControls"
 
 import InteractivePlot from "./InteractivePlot"
 
-import { ChannelPanel } from "./AnalysisPanels"
+import { ChannelPanel, MvpCharts } from "./AnalysisPanels"
 
 import { csv, downloadFile } from "./workspace-utils"
 
@@ -739,9 +739,14 @@ export default function BioreactorGuard({
           </Button>
         </div>
       )}
-      <div className="guard-main-grid" id="guard-growth">
+      <section className="guard-graphs" id="guard-growth">
+        <div className="section-heading">
+          <div>
+            <h2>Culture graphs</h2>
+          </div>
+        </div>
         <Panel
-          title={`${selected.id} · growth`}
+          title={`${selected.id} · growth & MVP variables`}
           caption={`${state.trend} · original sample times`}
           className="guard-growth-panel"
           action={
@@ -816,6 +821,8 @@ export default function BioreactorGuard({
               </strong>
             </div>
           </div>
+          <div className="guard-graphs-grid">
+          <div>
           <GrowthChart
             batches={batchViews}
             selected={selected}
@@ -832,8 +839,15 @@ export default function BioreactorGuard({
                 ?.focus({ preventScroll: true })
             }}
           />
+          </div>
+          <div className="guard-mvp">
+            <h3>MVP variables</h3>
+            <MvpCharts replicate={replicate} hour={hour} />
+          </div>
+          </div>
         </Panel>
-        <div className="guard-side">
+      </section>
+      <div className="guard-main-grid">
         <section
           id="guard-review"
           className="panel guard-review-panel"
@@ -1002,7 +1016,6 @@ export default function BioreactorGuard({
             </div>
           </div>
         </Panel>
-        </div>
       </div>
       <div className="guard-secondary-grid" id="guard-environment">
         <ChannelPanel

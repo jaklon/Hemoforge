@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import ForecastChart from "./ForecastChart"
+
+import InteractivePlot from "./InteractivePlot"
 
 import pilotContextSprite from "./assets/pilot-context.svg"
 
@@ -11,6 +13,7 @@ import { useCultureData, useWorkspace } from "./workspace-context"
 import {
   channels,
   filterMarkers,
+  type CultureRow,
   type ExperimentRow,
   type MarkerRow,
 } from "./workspace-data"
@@ -874,6 +877,168 @@ export function ExperimentPlanner({
 }
 
 export { default as MarkerScreen } from "./MarkerScreen"
+
+const mvpKeys = [
+  "lactate_mmol_l",
+  "ammonia_mmol_l",
+  "glucose_mmol_l",
+  "glutamine_mmol_l",
+  "ph",
+]
+
+// Small multiples: each variable keeps its own y-scale so pH and mmol/L stay readable.
+// Axes span the whole run, so replay reveals points without rescaling the lines.
+function MvpChart({
+  rows,
+
+  channelKey,
+
+  hour,
+
+  end,
+}: {
+  rows: CultureRow[]
+
+  channelKey: string
+
+  hour: number
+
+  end: number
+}) {
+  const box = useRef<HTMLDivElement>(null)
+
+  const [height, setHeight] = useState(150)
+
+  useEffect(() => {
+    if (!box.current) return
+
+    const observer = new ResizeObserver(([entry]) =>
+      setHeight(Math.max(130, entry.contentRect.height)),
+    )
+
+    observer.observe(box.current)
+
+    return () => observer.disconnect()
+  }, [])
+
+  const channel = channels.find((item) => item.key === channelKey)!
+
+  const label = channelKey === "ph" ? "pH medium" : channel.label
+
+  const all = rows.filter((row) => row.channels[channelKey] != null)
+
+  const values = all.filter((row) => row.hour <= hour)
+
+  const value = (row: CultureRow) => row.channels[channelKey]!
+
+  return (
+    <figure>
+      <figcaption>
+        {label}
+        <small>
+          {values.length
+            ? `${value(values.at(-1)!).toPrecision(3)} ${channel.unit}`
+            : "No data"}
+        </small>
+      </figcaption>
+      <div className="mvp-chart-box" ref={box}>
+        <InteractivePlot
+          compact
+          height={height}
+          title={`${label} through ${hour}h`}
+          xExtent={[0, end]}
+          // Full-run values fix the y-axis, so replay reveals points without rescaling.
+          values={all.map(value)}
+          fromZero={false}
+          yLabel={channel.unit || "pH"}
+          points={values.map((row, index) => {
+            const previous = values[index - 1]
+
+            return {
+              x: row.hour,
+
+              y: value(row),
+
+              lines: [
+                `${label} · ${plotNumber(row.hour)}h`,
+
+                `${plotNumber(value(row))} ${channel.unit}`,
+
+                ...(previous
+                  ? [
+                      `${value(row) >= value(previous) ? "+" : ""}${plotNumber(
+                        value(row) - value(previous),
+                      )} vs ${plotNumber(previous.hour)}h`,
+                    ]
+                  : []),
+              ],
+            }
+          })}
+        >
+          {({ x, y, top, bottom }) => (
+            <>
+              {hour < end && (
+                <rect
+                  x={x(hour)}
+                  y={top}
+                  width={Math.max(0, x(end) - x(hour))}
+                  height={bottom - top}
+                  fill="var(--guard-future)"
+                />
+              )}
+              <polyline
+                points={values
+                  .map((row) => `${x(row.hour)},${y(value(row))}`)
+                  .join(" ")}
+                fill="none"
+                stroke="#0d8279"
+                strokeWidth="2"
+              />
+              {values.map((row) => (
+                <circle
+                  key={row.hour}
+                  cx={x(row.hour)}
+                  cy={y(value(row))}
+                  r="3"
+                  fill="#0d8279"
+                />
+              ))}
+              {!all.length && (
+                <text x={x(end / 2)} y={(top + bottom) / 2} textAnchor="middle">
+                  Not measured yet
+                </text>
+              )}
+            </>
+          )}
+        </InteractivePlot>
+      </div>
+    </figure>
+  )
+}
+
+export function MvpCharts({
+  replicate,
+
+  hour,
+}: {
+  replicate: number
+
+  hour: number
+}) {
+  const { batchMeasurements, replayEndHour } = useCultureData()
+
+  const rows = batchMeasurements(replicate)
+
+  const end = Math.max(replayEndHour, 1)
+
+  return (
+    <div className="mvp-charts">
+      {mvpKeys.map((key) => (
+        <MvpChart key={key} rows={rows} channelKey={key} hour={hour} end={end} />
+      ))}
+    </div>
+  )
+}
 
 export function ChannelPanel({
   replicate,

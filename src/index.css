@@ -554,6 +554,22 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .guard-note-label { display: grid; gap: 7px; font-size: var(--text-caption); font-weight: 550; }
 .guard-note-label textarea { min-height: 95px; font-size: var(--text-caption); }
 .guard-note-status { display: block; font-size: var(--text-xs); color: var(--muted); margin: 7px 0 13px; min-height: 28px; }
+.guard-graphs { margin-bottom: 18px; }
+.guard-graphs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.guard-graphs-grid > * { min-width: 0; }
+.guard-mvp { border-left: 1px solid var(--line); align-self: stretch; display: flex; flex-direction: column; }
+.guard-mvp .mvp-charts { flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(150px, 1fr); }
+.guard-mvp .mvp-charts figure:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.mvp-charts figure { display: flex; flex-direction: column; }
+.mvp-chart-box { flex: 1; min-height: 110px; position: relative; }
+.mvp-chart-box .interactive-plot { position: absolute; inset: 0; }
+.guard-mvp h3 { padding: 14px 20px 0; font-size: var(--text-base); font-weight: 550; color: var(--navy); }
+@media (max-width: 1100px) { .guard-graphs-grid { grid-template-columns: minmax(0, 1fr); } .guard-mvp { border-left: 0; border-top: 1px solid var(--line); } }
+.mvp-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 6px 12px; padding: 14px 10px; }
+.mvp-charts figure { margin: 0; min-width: 0; }
+.mvp-charts figcaption { display: flex; justify-content: space-between; gap: 8px; padding: 0 10px; font-size: var(--text-caption); color: #44566a; }
+.mvp-charts figcaption small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.mvp-charts .channel-chart { padding: 0; }
 .guard-secondary-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
 .guard-secondary-grid .channel-grid strong { color: var(--navy); font-variant-numeric: tabular-nums; }
 .guard-sensor-empty { padding: 24px; text-align: center; color: var(--muted); }

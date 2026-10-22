@@ -214,7 +214,7 @@ export const initialInputs: WorkspaceInputs = {
 
         unit: "million cells",
 
-        channels: {},
+        channels: { ...sample.medium },
       })),
     ),
   ),
