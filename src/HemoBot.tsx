@@ -6,7 +6,7 @@ import { analyzeWithBot, botExportUrl, botPayload, botQuestions, botStatus,
   type BotAnalysis, type BotContext, type BotModule, type BotStatus } from "./hemobot-api"
 
 export function useHemoBot(context: BotContext) {
-  const { inputs } = useWorkspace()
+  const { inputs, notify } = useWorkspace()
   const [query, setQuery] = useState(botQuestions.all)
   const [module, setModule] = useState<BotModule>("all")
   const [mode, setMode] = useState<"auto" | "template">("auto")
@@ -42,8 +42,12 @@ export function useHemoBot(context: BotContext) {
     setResult(null)
     try {
       const response = await analyzeWithBot(botPayload(inputs, context, query, module, mode), requestController.signal)
-      if (sequence === generation.current) setResult(response)
+      if (sequence === generation.current) {
+        setResult(response)
+        notify("HemoBot analysis finished", "success")
+      }
     } catch (failure) {
+      if (sequence === generation.current) notify("HemoBot analysis failed", "error")
       if (sequence === generation.current) setError(requestController.signal.aborted
         ? "The request timed out. Check the Python API and model server, then retry."
         : failure instanceof Error ? failure.message : "Analysis failed. Check the Python API connection and retry.")

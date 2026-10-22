@@ -133,6 +133,16 @@ export default function DataWorkspace({
     })
     setErrors(messages)
     setBusy(false)
+    if (messages.length)
+      workspace.notify(
+        `${messages.length} file${messages.length > 1 ? "s" : ""} rejected`,
+        "error",
+      )
+    else if (parsed.length)
+      workspace.notify(
+        `Loaded ${parsed.map((file) => file.name).join(", ")}`,
+        "success",
+      )
     if (inputRef.current) inputRef.current.value = ""
     // Show the upload straight away so it can be checked or corrected below.
     if (parsed.length) loadIntoEditor(parsed[0].kind, parsed[0])
@@ -168,6 +178,7 @@ export default function DataWorkspace({
       setEditorDirty(false)
       onRun(files.length === 1 ? files[0].kind : undefined)
     } catch (error) {
+      workspace.notify("Apply failed · existing data remain active", "error")
       setEditorErrors([
         error instanceof Error
           ? error.message
@@ -210,6 +221,7 @@ export default function DataWorkspace({
       )
       setStaged(files)
       setErrors([])
+      workspace.notify("Loaded example data", "success")
       loadIntoEditor(
         editor.kind,
         files.find((file) => file.kind === editor.kind),

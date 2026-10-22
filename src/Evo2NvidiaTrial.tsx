@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Badge, Button, Details, Panel } from "./workspace-ui"
+import { useWorkspace } from "./workspace-context"
 import { evo2NvidiaExportUrl, evo2NvidiaPayload, type Evo2Variant } from "./evo2-data"
 
 interface TrialStatus {
@@ -25,6 +26,7 @@ async function api<T>(path: string, signal: AbortSignal, body?: unknown): Promis
 }
 
 export default function Evo2NvidiaTrial({ selected }: { selected: Evo2Variant[] }) {
+  const { notify } = useWorkspace()
   const [status, setStatus] = useState<TrialStatus | null>(null)
   const [result, setResult] = useState<Scored | null>(null)
   const [error, setError] = useState("")
@@ -76,7 +78,9 @@ export default function Evo2NvidiaTrial({ selected }: { selected: Evo2Variant[] 
     try {
       const value = await api<Scored>("score", controller.signal, evo2NvidiaPayload([id]))
       if (mounted.current && currentSelection.current === id && !controller.signal.aborted) setResult(value)
+      notify(`Evo 2 scoring finished for ${id}`, "success")
     } catch (failure) {
+      notify(`Evo 2 scoring failed for ${id}`, "error")
       if (mounted.current) setError(controller.signal.aborted ? "The browser stopped waiting. The backend may still finish; reserved requests count toward the cap. Use Load saved result before retrying." : failure instanceof Error ? failure.message : "NVIDIA trial request failed.")
     } finally {
       window.clearTimeout(timer); running.current = false

@@ -80,12 +80,20 @@ interface WorkspaceContextValue {
   backendStatus: "checking" | "online" | "offline"
   checkBackend: () => Promise<void>
   apply: (files: InputFile[]) => Promise<void>
+  notice: Notice | null
+  notify: (message: string | null, tone?: Notice["tone"]) => void
   simulate: (
     batchIndex: number,
     hour: number,
     settings: GrowthSettings,
   ) => Promise<void>
   refitPlan: (settings: PlanSettings) => Promise<void>
+}
+// A message ending in "…" is progress: it stays until replaced.
+export interface Notice {
+  id: number
+  message: string
+  tone: "info" | "success" | "error"
 }
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 export async function checksum(value: BufferSource) {
@@ -108,6 +116,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [editor, setEditor] = useState<ScenarioTable>({ kind: "culture", columns: [], rows: [] })
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
+  const [notice, setNotice] = useState<Notice | null>(null)
+  function notify(message: string | null, tone: Notice["tone"] = "info") {
+    setNotice(message ? { id: Date.now(), message, tone } : null)
+  }
+  const lastStatus = useRef(backendStatus)
+  useEffect(() => {
+    const previous = lastStatus.current
+    lastStatus.current = backendStatus
+    if (backendStatus === "offline" && previous !== "offline")
+      notify("Python API is offline. Predictions are paused.", "error")
+    // "checking" → "online" is the normal start-up, not news.
+    if (backendStatus === "online" && previous === "offline")
+      notify("Python API is back online", "success")
+  }, [backendStatus])
+  useEffect(() => {
+    const downloaded = (event: Event) =>
+      notify(`Downloaded ${(event as CustomEvent<string>).detail}`, "success")
+    window.addEventListener("workspace-download", downloaded)
+    return () => window.removeEventListener("workspace-download", downloaded)
+  }, [])
   const activeInputs = useRef(inputs)
   const planSequence = useRef(0)
   const simulationSequence = useRef(0)
@@ -133,6 +161,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   async function apply(files: InputFile[]) {
     const sequence = ++planSequence.current
     simulationSequence.current++
+    const names = files.map((file) => file.name).join(", ")
+    notify(
+      files.length
+        ? `Applying ${names} to the workspace…`
+        : "Re-running analyses…",
+    )
     const next = { ...inputs }
     for (const file of files) next[file.kind] = file
     const id = await checksum(
@@ -167,8 +201,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       planError =
         error instanceof Error ? error.message : "Experimental model failed."
     }
-    if (sequence !== planSequence.current)
+    if (sequence !== planSequence.current) {
+      notify(null)
       throw new Error("Inputs changed during analysis. Run again.")
+    }
+    if (planError)
+      notify(`Data applied, but CulturePlan refit failed: ${planError}`, "error")
+    else
+      notify(
+        files.length ? `Applied ${names} to all pages` : "Analyses re-run",
+        "success",
+      )
     activeInputs.current = next
     simulationSequence.current++
     setInputs(next)
@@ -214,6 +257,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setBackendStatus("online")
     } catch (error) {
       recordFailure(error)
+      notify(`Growth simulation failed for ${batch.id}`, "error")
       throw error
     }
     if (
@@ -221,6 +265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sequence !== simulationSequence.current
     )
       return
+    notify(`Growth simulation finished for ${batch.id}`, "success")
     setSimulation({
       batchId: batch.id,
       sourceHash: inputs.culture.sha256,
@@ -245,10 +290,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setBackendStatus("online")
     } catch (error) {
       recordFailure(error)
+      notify("CulturePlan fit failed", "error")
       throw error
     }
     if (activeInputs.current !== inputs || sequence !== planSequence.current)
       return
+    notify("CulturePlan fit finished · conditions re-ranked", "success")
     const { result: plan, ...prediction } = response
     const id = await checksum(
       new TextEncoder().encode(
@@ -294,6 +341,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         editor,
         setEditor,
         apply,
+        notice,
+        notify,
         simulate,
         refitPlan,
         backendStatus,

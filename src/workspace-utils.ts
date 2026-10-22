@@ -10,6 +10,9 @@ export function downloadFile(name: string, content: string, type: string) {
   link.click()
 
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+
+  // The workspace provider listens for this and shows a notification.
+  window.dispatchEvent(new CustomEvent("workspace-download", { detail: name }))
 }
 
 export function csv(rows: (string | number | null)[][]) {

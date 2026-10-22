@@ -1088,6 +1088,27 @@ function ResearchWorkspaceContent() {
   const { batches, batchIndexes, replayEndHour, source } = useCultureData()
 
   const workspaceData = useWorkspace()
+  const { notice, notify } = workspaceData
+
+  const noticeProgress = notice?.message.endsWith("…")
+  // Errors stay longer so they can be read.
+  const noticeMs = notice?.tone === "error" ? 8000 : 5000
+
+  // The notice clears when its exit animation ends (see onAnimationEnd).
+  const [leavingId, setLeavingId] = useState<number | null>(null)
+  const noticeLeaving = notice !== null && leavingId === notice.id
+
+  function dismissNotice() {
+    if (!notice) return
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) notify(null)
+    else setLeavingId(notice.id)
+  }
+
+  useEffect(() => {
+    if (!notice || noticeProgress) return
+    const timer = setTimeout(dismissNotice, noticeMs)
+    return () => clearTimeout(timer)
+  }, [notice])
 
   const [view, setView] = useState<View>(() =>
     navigation.some((item) => item.id === location.hash.slice(1).split("/")[0])
@@ -1460,6 +1481,35 @@ function ResearchWorkspaceContent() {
           />
         )}
       </main>
+      <div className="toast-region" role="status" aria-live="polite">
+        {notice && (
+          // The key restarts the entry animation and countdown per notice.
+          <div
+            className={`toast is-${notice.tone}${noticeLeaving ? " is-leaving" : ""}`}
+            key={notice.id}
+            onAnimationEnd={(event) => {
+              if (event.animationName === "toast-out") notify(null)
+            }}
+          >
+            <Icon name="data" />
+            <span>{notice.message}</span>
+            {!noticeProgress && (
+              <i
+                className="toast-bar"
+                style={{ animationDuration: `${noticeMs}ms` }}
+              />
+            )}
+            <button
+              type="button"
+              className="toast-close"
+              aria-label="Dismiss notification"
+              onClick={dismissNotice}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
