@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useWorkspace } from "./workspace-context"
 import { Badge, Button, Details, PageTitle, Panel } from "./workspace-ui"
 import { downloadFile } from "./workspace-utils"
@@ -65,8 +65,8 @@ export function useHemoBot(context: BotContext) {
 
 type BotState = ReturnType<typeof useHemoBot>
 
-export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
-  bot: BotState; context: BotContext; batchChoices: string[]; onBatchChange: (id: string) => void
+export default function HemoBot({ bot, context, batchChoices, onBatchChange, replayControls }: {
+  bot: BotState; context: BotContext; batchChoices: string[]; onBatchChange: (id: string) => void; replayControls: ReactNode
 }) {
   const [status, setStatus] = useState<BotStatus | null>(null)
   const [statusError, setStatusError] = useState("")
@@ -123,6 +123,7 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange }: {
     <div className="context-strip"><label>Analysis batch <select value={context.batch_id} onChange={event => onBatchChange(event.target.value)}>
       {batchChoices.map(id => <option key={id}>{id}</option>)}</select></label><span>Replay <b>{context.replay_elapsed_hours}h</b> · Biomedical English</span>
       <Button onClick={() => void refresh()}>Check connection</Button></div>
+    {replayControls}
     {statusError && <p role="alert" className="import-error">{statusError}</p>}
     <Panel title="Ask HemoBot">
       <div className="bot-composer">

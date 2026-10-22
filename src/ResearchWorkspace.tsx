@@ -1248,12 +1248,9 @@ function ResearchWorkspaceContent() {
             navigate("about")
           }}
         >
-          <span className="brand-mark">
-            <Icon name="dna" />
-          </span>
+          <img className="brand-mark" src="/favicon.svg" width="40" height="40" alt="" />
           <span>
-            <strong>HemoForge</strong>
-            <small>GenoHack 2026</small>
+            <strong>Hemo<span>Forge</span></strong>
           </span>
         </a>
         <nav aria-label="Research modules">
@@ -1319,7 +1316,8 @@ function ResearchWorkspaceContent() {
             navigate("about")
           }}
         >
-          HemoForge
+          <img className="brand-mark" src="/favicon.svg" width="40" height="40" alt="" />
+          <strong>Hemo<span>Forge</span></strong>
         </a>
         <div className="header-actions">
           <ServiceStatus backend={workspaceData.backendStatus} />
@@ -1350,19 +1348,20 @@ function ResearchWorkspaceContent() {
         className={`workspace workspace-${view}`}
         tabIndex={-1}
       >
-        {view === "bot" && (
-          <ReplayControls
-            hour={hour}
-            setHour={setHour}
-            playing={playing}
-            setPlaying={setPlaying}
-            speed={speed}
-            setSpeed={setSpeed}
-            replicate={replicate}
-          />
-        )}
         {view === "bot" ? (
           <HemoBot
+            replayControls={
+              <ReplayControls
+                hour={hour}
+                setHour={setHour}
+                playing={playing}
+                setPlaying={setPlaying}
+                speed={speed}
+                setSpeed={setSpeed}
+                replicate={replicate}
+                sticky
+              />
+            }
             bot={bot}
             context={botContext}
             batchChoices={batches.map((batch) => batch.id)}

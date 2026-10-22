@@ -72,9 +72,11 @@ batch cards, then a growth/warning review split and environment/report handoff.
 The chart only reveals samples at or before the replay cursor. Lines are guides,
 not additional observed measurements. No forecast is presented as an observation.
 
-CulturePlan, RareMatch, and ErythroPilot align their page titles with Guard's 4px
-top margin inside the workspace. ErythroPilot follows Guard's title, summary,
-and replay order. Both pages share the `workspace-overview` styles in
+CulturePlan, RareMatch, ErythroPilot, HemoBot, Research Report, and Methods & References
+align their page titles with Guard's 4px top margin inside the workspace.
+ErythroPilot and HemoBot follow Guard's title, summary, and replay order, with
+the shared replay controls sticky on supported desktop viewports.
+Guard and ErythroPilot share the `workspace-overview` styles in
 `src/index.css`; Pilot summarizes only the selected batch's revealed samples,
 checkpoints, and configured warnings. Neither page uses a Jump to row.
 When no simulation result can be shown, ErythroPilot uses a small pixel-style lab
@@ -93,6 +95,12 @@ past the active input's final source time. Native selects own OS popup geometry.
 Page names use title case in navigation, page headings, cross-links, and browser
 titles; preserve product spellings such as RareMatch and ErythroPilot. Both desktop
 and mobile HemoForge logos open About Us through the shared navigation handler.
+The logo is a geometric H made from two opposing solid forms with a diagonal
+negative-space cut through the crossbar. `public/favicon.svg` owns this shared
+sidebar, mobile, and favicon mark. Its coral red (#e34b53) stays visible on navy
+and white; the application action color remains `--red`. Pair it with a compact,
+medium-weight uppercase wordmark with open tracking. Keep the symbol unframed,
+without a badge, outline, gradient, or event subtitle.
 About Us is the informational exception to the workspace's compact presentation:
 a flat navy introduction pairs project context with the existing blood-supply
 figures. The four module columns fill the content width, then switch to two and
