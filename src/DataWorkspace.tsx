@@ -1,12 +1,13 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useWorkspace, checksum } from "./workspace-context"
 import {
+  channels,
   exampleFiles,
   parseInput,
+  scenarioCsv,
+  toScenarioTable,
   type DataKind,
   type InputFile,
-  type CultureRow,
-  type MarkerRow,
 } from "./workspace-data"
 import { Button, Panel, Badge, PageTitle, Icon, Details } from "./workspace-ui"
 import { downloadFile } from "./workspace-utils"
@@ -15,6 +16,30 @@ const kindNames: Record<DataKind, string> = {
   experiments: "Experiment results",
   markers: "Genetic marker calls",
 }
+const columnLabels: Record<string, string> = {
+  batch_id: "Batch",
+  cell_line: "Cell line",
+  elapsed_hours: "Time (h)",
+  cell_count_million: "Cells (million)",
+  condition_id: "Condition",
+  lactate_mg_l: "Lactate (mg/L)",
+  ammonia_mg_l: "Ammonia (mg/L)",
+  response: "Result",
+  response_unit: "Result unit",
+  sample_id: "Sample",
+  ...Object.fromEntries(
+    channels.map((channel) => [
+      channel.key,
+      channel.unit ? `${channel.label} (${channel.unit})` : channel.label,
+    ]),
+  ),
+}
+const columnLabel = (key: string) =>
+  columnLabels[key] ??
+  key.replace(/^(?:(.+)_)?(rs\d+)$/, (_, gene, rs) =>
+    gene ? `${gene.toUpperCase()} ${rs}` : rs,
+  )
+const pageSize = 20
 export default function DataWorkspace({
   onRun,
 }: {
@@ -29,15 +54,22 @@ export default function DataWorkspace({
   const [busy, setBusy] = useState(false)
   const [running, setRunning] = useState(false)
   const [dragging, setDragging] = useState(false)
-  async function readFiles(files: File[]) {
-    if (!files.length) return
-    if (files.length > 3) {
-      setErrors(["Choose up to three files at a time: one per data type."])
-      return
-    }
-    const token = ++generation.current
-    setBusy(true)
-    setErrors([])
+  const [editorErrors, setEditorErrors] = useState<string[]>([])
+  const [page, setPage] = useState(0)
+  function loadIntoEditor(kind: DataKind, source?: InputFile) {
+    const file =
+      source ??
+      staged.find((item) => item.kind === kind) ??
+      workspace.inputs[kind]
+    setEditor(toScenarioTable(file, workspace.markerSettings.targets))
+    setEditorErrors([])
+    setPage(0)
+  }
+  useEffect(() => {
+    // Only fill an empty editor; edits survive switching pages.
+    if (!editor.rows.length) loadIntoEditor(editor.kind)
+  }, [])
+  async function parseFiles(files: File[]) {
     const parsed: InputFile[] = []
     const messages: string[] = []
     for (const file of files) {
@@ -71,6 +103,18 @@ export default function DataWorkspace({
         )
       }
     }
+    return { parsed, messages }
+  }
+  async function readFiles(files: File[]) {
+    if (!files.length) return
+    if (files.length > 3) {
+      setErrors(["Choose up to three files at a time: one per data type."])
+      return
+    }
+    const token = ++generation.current
+    setBusy(true)
+    setErrors([])
+    const { parsed, messages } = await parseFiles(files)
     if (token !== generation.current) return
     setStaged((old) => {
       const all = [...old]
@@ -85,6 +129,57 @@ export default function DataWorkspace({
     setBusy(false)
     if (inputRef.current) inputRef.current.value = ""
   }
+  async function applyEditor() {
+    if (running || busy) return
+    const { parsed, messages } = await parseFiles([
+      new File([scenarioCsv(editor)], `edited-${editor.kind}.csv`),
+    ])
+    if (messages.length) {
+      setEditorErrors(
+        // Parser rows count the CSV header; the table does not.
+        messages.map((message) =>
+          message
+            .replace(/^edited-\w+\.csv: /, "")
+            .replace(/^Row (\d+)/, (_, row) => `Row ${Number(row) - 1}`)
+            .replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (key) =>
+              editor.columns.includes(key) ? `"${columnLabel(key)}"` : key,
+            ),
+        ),
+      )
+      return
+    }
+    setEditorErrors([])
+    setRunning(true)
+    try {
+      await workspace.apply(parsed)
+      setStaged(staged.filter((file) => file.kind !== editor.kind))
+      onRun(editor.kind)
+    } catch (error) {
+      setEditorErrors([
+        error instanceof Error
+          ? error.message
+          : "The run failed. Existing data remain available.",
+      ])
+    } finally {
+      setRunning(false)
+    }
+  }
+  function updateCell(row: number, column: number, value: string) {
+    setEditor({
+      ...editor,
+      rows: editor.rows.map((cells, i) =>
+        i === row
+          ? cells.map((cell, j) => (j === column ? value : cell))
+          : cells,
+      ),
+    })
+  }
+  const pages = Math.max(1, Math.ceil(editor.rows.length / pageSize))
+  const firstRow = Math.min(page, pages - 1) * pageSize
+  const editorSource = (
+    staged.find((item) => item.kind === editor.kind) ??
+    workspace.inputs[editor.kind]
+  ).name
   async function run() {
     if (running || busy) return
     setRunning(true)
@@ -125,7 +220,7 @@ export default function DataWorkspace({
     <>
       <PageTitle
         title="Data & runs"
-        description="Import data, edit a scenario, or start from an example."
+        description="Edit values, import files, or start from an example."
         action={
           <div className="header-actions">
             <Badge
@@ -152,16 +247,17 @@ export default function DataWorkspace({
         }
       />
       <Panel
-        title="Scenario editor"
+        title="Edit data"
+        caption="Change values in the table, then apply them to every page"
       >
         <div className="settings-grid panel-note">
           <label>
-            Data type
+            Data to edit
             <select
               value={editor.kind}
               disabled={busy || running}
               onChange={(event) =>
-                setEditor({ ...editor, kind: event.target.value as DataKind })
+                loadIntoEditor(event.target.value as DataKind)
               }
             >
               {(Object.keys(kindNames) as DataKind[]).map((kind) => (
@@ -171,117 +267,153 @@ export default function DataWorkspace({
               ))}
             </select>
           </label>
-          <label>
-            Scenario filename
-            <input
-              value={editor.name}
-              disabled={busy || running}
-              onChange={(event) =>
-                setEditor({ ...editor, name: event.target.value })
-              }
-            />
-          </label>
+          <p className="scenario-source">
+            Editing a copy of <strong>{editorSource}</strong>. The original
+            file is not changed.
+          </p>
         </div>
-        <div className="run-actions">
-          <Button
-            disabled={busy || running}
+        <div className="table-scroll scenario-table">
+          <table>
+            <thead>
+              <tr>
+                <th aria-label="Row number">#</th>
+                {editor.columns.map((key) => (
+                  <th key={key} title={key}>
+                    {columnLabel(key)}
+                  </th>
+                ))}
+                <th aria-label="Row actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {editor.rows
+                .slice(firstRow, firstRow + pageSize)
+                .map((cells, i) => {
+                  const row = firstRow + i
+                  return (
+                    <tr key={row}>
+                      <td className="numeric">{row + 1}</td>
+                      {cells.map((value, column) => (
+                        <td key={column}>
+                          <input
+                            value={value}
+                            disabled={running}
+                            aria-label={`Row ${row + 1} ${columnLabel(editor.columns[column])}`}
+                            onChange={(event) =>
+                              updateCell(row, column, event.target.value)
+                            }
+                          />
+                        </td>
+                      ))}
+                      <td>
+                        <button
+                          className="text-button"
+                          disabled={running}
+                          aria-label={`Delete row ${row + 1}`}
+                          onClick={() =>
+                            setEditor({
+                              ...editor,
+                              rows: editor.rows.filter((_, j) => j !== row),
+                            })
+                          }
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+            </tbody>
+          </table>
+        </div>
+        <div className="scenario-pager">
+          <button
+            className="text-button"
+            disabled={running}
             onClick={() => {
-              const file =
-                staged.find((file) => file.kind === editor.kind) ??
-                workspace.inputs[editor.kind]
-              const markers =
-                file.kind === "markers"
-                  ? [
-                      ...new Map(
-                        [
-                          ...(file.markers ?? []),
-                          ...workspace.markerSettings.targets,
-                        ].map(({ gene, rsId, alleles }) => [
-                          rsId,
-                          { gene, rsId, alleles },
-                        ]),
-                      ).values(),
-                    ]
-                  : undefined
-              const rows =
-                file.kind === "culture"
-                  ? (file.rows as CultureRow[]).map((row) => ({
-                      batch_id: row.batch_id,
-                      cell_line: row.cell_line,
-                      elapsed_hours: row.hour,
-                      cell_count_million: row.count,
-                      ...row.channels,
-                    }))
-                  : markers
-                    ? (file.rows as MarkerRow[]).map((row) => ({
-                        ...row,
-                        calls: Object.fromEntries(
-                          markers.map((marker) => [
-                            marker.rsId,
-                            row.calls[marker.rsId] ?? "./.",
-                          ]),
-                        ),
-                      }))
-                    : file.rows
+              // A copy of the last row is the quickest start for a new sample.
               setEditor({
                 ...editor,
-                name: `researcher-${editor.kind}.json`,
-                text: JSON.stringify(
-                  { ...(markers ? { markers } : {}), rows },
-                  null,
-                  2,
-                ),
+                rows: [
+                  ...editor.rows,
+                  editor.rows.at(-1)?.slice() ??
+                    editor.columns.map(() => ""),
+                ],
               })
+              setPage(Math.floor(editor.rows.length / pageSize))
             }}
           >
-            Load active data into editor
-          </Button>
-          <Button
-            disabled={busy || running}
-            onClick={() =>
-              setEditor({
-                ...editor,
-                text: exampleFiles[editor.kind],
-                name: `researcher-${editor.kind}.csv`,
-              })
-            }
-          >
-            Load example into editor
-          </Button>
+            + Add row
+          </button>
+          {pages > 1 && (
+            <span>
+              <button
+                className="text-button"
+                disabled={firstRow === 0}
+                onClick={() => setPage(firstRow / pageSize - 1)}
+              >
+                Previous
+              </button>{" "}
+              Rows {firstRow + 1}–
+              {Math.min(firstRow + pageSize, editor.rows.length)} of{" "}
+              {editor.rows.length}{" "}
+              <button
+                className="text-button"
+                disabled={firstRow + pageSize >= editor.rows.length}
+                onClick={() => setPage(firstRow / pageSize + 1)}
+              >
+                Next
+              </button>
+            </span>
+          )}
         </div>
-        <label className="scenario-editor">
-          Scenario data (CSV, TSV, or JSON)
-          <textarea
-            className="resize-none"
-            spellCheck={false}
-            disabled={busy || running}
-            value={editor.text}
-            onChange={(event) =>
-              setEditor({ ...editor, text: event.target.value })
-            }
-            placeholder="Load active data or an example, then edit any value or add/remove rows."
-          />
-        </label>
+        <div aria-live="polite">
+          {editorErrors.map((message, i) => (
+            <p className="import-error" role="alert" key={i}>
+              {message}
+            </p>
+          ))}
+        </div>
         <div className="run-actions">
           <Button
             primary
-            disabled={
-              busy || running || !editor.text.trim() || !editor.name.trim()
-            }
+            disabled={busy || running || !editor.rows.length}
+            onClick={() => void applyEditor()}
+          >
+            {running ? "Applying…" : "Apply changes"}
+          </Button>
+          <Button
+            disabled={busy || running}
+            onClick={() => loadIntoEditor(editor.kind)}
+          >
+            Undo all changes
+          </Button>
+          <Button
+            disabled={busy || running}
             onClick={() =>
-              void readFiles([new File([editor.text], editor.name)])
+              loadIntoEditor(editor.kind, {
+                ...parseInput(exampleFiles[editor.kind], "example.csv"),
+                name: `hemogpt-example-${editor.kind}.csv`,
+                sha256: "",
+                loaded_at: "",
+                evidence: "software_test_only",
+              })
             }
           >
-            Validate & stage scenario
+            Start from example
           </Button>
           <Button
             icon="download"
-            disabled={!editor.text.trim() || !editor.name.trim()}
+            disabled={!editor.rows.length}
             onClick={() =>
-              downloadFile(editor.name, editor.text, "text/plain;charset=utf-8")
+              downloadFile(
+                `edited-${editor.kind}.csv`,
+                scenarioCsv(editor),
+                "text/csv;charset=utf-8",
+              )
             }
           >
-            Download scenario
+            Download CSV
           </Button>
         </div>
       </Panel>

@@ -226,8 +226,16 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .marker-card .button { justify-self: start; }
 .custom-marker-form { padding: 18px; border-top: 1px solid var(--line); }
 .custom-marker-form .panel-note { padding: 12px 0; border: 0; }
-.scenario-editor { display: block; padding: 0 18px 18px; font-size: var(--text-caption); color: var(--muted); }
-.scenario-editor textarea { margin-top: 8px; min-height: 280px; font-family: var(--font-mono, monospace); white-space: pre; overflow: auto; }
+.scenario-source { align-self: end; color: var(--muted); font-size: var(--text-caption); }
+.scenario-source strong { color: #44566a; font-weight: 550; overflow-wrap: anywhere; }
+.scenario-table { border-top: 1px solid var(--line); }
+.scenario-table table { min-width: 0; }
+.scenario-table th, .scenario-table td { padding: 6px 8px; white-space: nowrap; }
+.scenario-table td:first-child { color: var(--muted); width: 1%; }
+.scenario-table input { width: 100%; min-width: 88px; min-height: 32px; padding: 5px 7px; border: 1px solid #dbe2ea; border-radius: 4px; background: var(--surface); color: var(--navy); font-variant-numeric: tabular-nums; }
+.scenario-table input:focus { border-color: #9c232c; outline: none; }
+.scenario-pager { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 18px; color: var(--muted); font-size: var(--text-caption); }
+.scenario-pager .text-button:disabled { color: var(--muted); text-decoration: none; cursor: default; }
 .context-strip a { margin-left: auto; }
 .screening-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 0 0 20px; color: #526174; font-size: var(--text-caption); }
 .screening-stats b { font-size: var(--text-section); font-weight: 550; color: #172033; margin-right: 7px; }

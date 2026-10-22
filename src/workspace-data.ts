@@ -88,6 +88,89 @@ export const channels = [
   { key: "viability_percent", label: "Viability", unit: "%" },
 ]
 
+/** Spreadsheet-style copy of one input, edited cell by cell in the scenario editor. */
+export interface ScenarioTable {
+  kind: DataKind
+  columns: string[]
+  rows: string[][]
+}
+
+export function toScenarioTable(
+  file: InputFile,
+  markers: MarkerDefinition[] = [],
+): ScenarioTable {
+  const cell = (value: unknown) => (value == null ? "" : String(value))
+  if (file.kind === "culture") {
+    const rows = file.rows as CultureRow[]
+    // Hide sensor channels this file never measured.
+    const used = channels.filter((channel) =>
+      rows.some((row) => row.channels[channel.key] != null),
+    )
+    return {
+      kind: "culture",
+      columns: [
+        "batch_id",
+        "cell_line",
+        "elapsed_hours",
+        "cell_count_million",
+        ...used.map((channel) => channel.key),
+      ],
+      rows: rows.map((row) => [
+        row.batch_id,
+        row.cell_line,
+        cell(row.hour),
+        cell(row.count),
+        ...used.map((channel) => cell(row.channels[channel.key])),
+      ]),
+    }
+  }
+  if (file.kind === "experiments") {
+    const columns = [
+      "condition_id",
+      "lactate_mg_l",
+      "ammonia_mg_l",
+      "response",
+      "response_unit",
+    ] as const
+    return {
+      kind: "experiments",
+      columns: [...columns],
+      rows: (file.rows as ExperimentRow[]).map((row) =>
+        columns.map((key) => cell(row[key])),
+      ),
+    }
+  }
+  const panel = [
+    ...new Map(
+      [...(file.markers ?? []), ...markers].map((marker) => [
+        marker.rsId,
+        marker,
+      ]),
+    ).values(),
+  ]
+  return {
+    kind: "markers",
+    columns: [
+      "sample_id",
+      ...panel.map((marker) =>
+        marker.gene ? `${marker.gene.toLowerCase()}_${marker.rsId}` : marker.rsId,
+      ),
+    ],
+    rows: (file.rows as MarkerRow[]).map((row) => [
+      row.sample_id,
+      ...panel.map((marker) => row.calls[marker.rsId] ?? "./."),
+    ]),
+  }
+}
+
+export function scenarioCsv(table: ScenarioTable) {
+  const quote = (value: string) =>
+    /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+  return [table.columns, ...table.rows]
+    .map((row) => row.map(quote).join(","))
+    .join("\n")
+}
+
 export const exampleFiles: Record<DataKind, string> = {
   culture:
     "batch_id,cell_line,elapsed_hours,cell_count_million,ph,temperature_c,glucose_mmol_l,lactate_mmol_l\nEXAMPLE-A,BEL-A,0,1.02,7.2,37,10,1\nEXAMPLE-A,BEL-A,24,1.47,7.18,37,8.7,1.7\nEXAMPLE-A,BEL-A,48,2.21,7.16,37,7.5,2.6\nEXAMPLE-A,BEL-A,72,3.84,7.13,37,6.2,3.5\nEXAMPLE-A,BEL-A,96,3.62,7.08,37,5.1,4.5\nEXAMPLE-A,BEL-A,120,3.31,7.02,37,4,5.4\nEXAMPLE-A,BEL-A,144,5.08,7.04,37,3.5,6.1\nEXAMPLE-A,BEL-A,168,6.42,7.05,37,2.8,6.8\nEXAMPLE-B,BEL-A,0,1.11,7.2,37,10,1\nEXAMPLE-B,BEL-A,24,1.36,7.19,37,8.9,1.5\nEXAMPLE-B,BEL-A,48,2.06,7.17,37,7.8,2.3\nEXAMPLE-B,BEL-A,72,3.61,7.14,37,6.4,3.2\nEXAMPLE-B,BEL-A,96,3.44,7.1,37,5.4,4.1\nEXAMPLE-B,BEL-A,120,3.18,7.05,37,4.3,5.1\nEXAMPLE-B,BEL-A,144,4.86,7.06,37,3.6,5.9\nEXAMPLE-B,BEL-A,168,6.17,7.07,37,3,6.5\n",

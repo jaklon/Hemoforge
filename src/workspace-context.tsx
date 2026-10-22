@@ -35,7 +35,7 @@ import {
   PythonServiceError,
   type PredictionEnvelope,
 } from "./python-api"
-import type { ExperimentRow } from "./workspace-data"
+import type { ExperimentRow, ScenarioTable } from "./workspace-data"
 import { analyzeMeasurements, type Measurement } from "./culture-monitoring"
 import { defaultGuardView, type GuardView } from "./guard-insights"
 export interface SimulationResult {
@@ -75,16 +75,8 @@ interface WorkspaceContextValue {
   setReportInterval: Dispatch<SetStateAction<number>>
   roadmapDays: number
   setRoadmapDays: Dispatch<SetStateAction<number>>
-  editor: {
-    kind: DataKind
-    text: string
-    name: string
-  }
-  setEditor: Dispatch<SetStateAction<{
-    kind: DataKind
-    text: string
-    name: string
-  }>>
+  editor: ScenarioTable
+  setEditor: Dispatch<SetStateAction<ScenarioTable>>
   backendStatus: "checking" | "online" | "offline"
   checkBackend: () => Promise<void>
   apply: (files: InputFile[]) => Promise<void>
@@ -112,11 +104,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [guardView, setGuardView] = useState(defaultGuardView)
   const [reportInterval, setReportInterval] = useState(3)
   const [roadmapDays, setRoadmapDays] = useState(21)
-  const [editor, setEditor] = useState<{
-    kind: DataKind
-    text: string
-    name: string
-  }>({ kind: "markers", text: "", name: "researcher-markers.csv" })
+  // Empty rows tell the editor to load the active data for its kind.
+  const [editor, setEditor] = useState<ScenarioTable>({ kind: "culture", columns: [], rows: [] })
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
   const activeInputs = useRef(inputs)

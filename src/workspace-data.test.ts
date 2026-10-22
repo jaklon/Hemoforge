@@ -7,6 +7,8 @@ import {
   getBatches,
   reportsForSamples,
   filterMarkers,
+  scenarioCsv,
+  toScenarioTable,
   type InputFile,
   type ExperimentRow,
   type MarkerRow,
@@ -249,4 +251,16 @@ test("public Bath and 1000 Genomes conversions parse as workspace uploads", asyn
   assert.equal(markers.kind, "markers")
   assert.equal(markers.rows.length, 2504)
   assert.ok((markers.rows as MarkerRow[]).every((row) => Object.values(row.calls).every((call) => /^[AG]\/[AG]$/.test(call))))
+})
+
+test("scenario tables round-trip every data type through CSV", () => {
+  for (const kind of ["culture", "experiments", "markers"] as const) {
+    const parsed = parseInput(exampleFiles[kind], "example.csv")
+    const file = { ...parsed, name: "example.csv", sha256: "", loaded_at: "", evidence: "software_test_only" as const }
+    const table = toScenarioTable(file)
+    assert.equal(table.rows.length, parsed.rows.length)
+    assert.deepEqual(parseInput(scenarioCsv(table), "edited.csv").rows, parsed.rows)
+  }
+  const quoted = scenarioCsv({ kind: "experiments", columns: ["condition_id"], rows: [['a,"b"']] })
+  assert.equal(quoted, 'condition_id\n"a,""b"""')
 })
