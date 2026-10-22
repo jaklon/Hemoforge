@@ -1,4 +1,5 @@
-import { Details, Icon, PageTitle, Panel } from "./workspace-ui"
+import type { ReactNode } from "react"
+import { Details, Icon } from "./workspace-ui"
 
 // Content follows the team proposal "HemoForge: HemoGPT untuk Monitoring dan
 // Analisis Proses Blood Biofactory Berbasis AI" (GenoHack 2026).
@@ -184,201 +185,273 @@ const references = [
   ["WHO, “Guideline on data integrity,” Technical Report Series 1033, Annex 4, 2021.", ""],
 ]
 
+const problems = [
+  {
+    title: "Donors are limited",
+    text: "Supply depends on people overcoming fear of needles, meeting health criteria and waiting 2–3 months between donations. Every bag is screened for HIV, hepatitis B/C and syphilis and cross-matched.",
+  },
+  {
+    title: "Rare blood is rarer",
+    text: "For patients who need a rare antigen profile, a matching donor may simply not exist. Cultured red blood cells could add a source, and the RESTORE trial has already transfused lab-grown cells into people.",
+  },
+  {
+    title: "Culture data is scattered",
+    text: "Growth counts, sensor readings, culture notes, lab results and genomics arrive from different places at different rates. Media and lab time are expensive, so a late warning makes every failed run cost more.",
+  },
+]
+
+const integrity = [
+  "SHA-256 per source file",
+  "Licence and DOI in the manifest",
+  "Run status kept apart from evidence quality",
+  "Replay on real measurement times",
+  "Seed 42, times in UTC",
+  "Test fixtures marked software_test_only",
+]
+
 function goTo() {
   window.scrollTo({ top: 0, behavior: "instant" })
 }
 
+function Section({
+  id,
+  eyebrow,
+  title,
+  intro,
+  children,
+}: {
+  id?: string
+  eyebrow: string
+  title: string
+  intro?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="landing-section" id={id}>
+      <header>
+        <span className="landing-eyebrow">{eyebrow}</span>
+        <h2>{title}</h2>
+        {intro && <p>{intro}</p>}
+      </header>
+      {children}
+    </section>
+  )
+}
+
 export default function AboutPage() {
   return (
-    <>
-      <PageTitle
-        title="About us"
-        description="HemoForge brings HemoGPT to GenoHack 2026: AI-assisted monitoring and analysis for blood biofactory research."
-      />
-
-      <Panel title="Why this matters" caption="Indonesia, Ministry of Health figures published January 2026">
-        <div className="about-body">
-          <ul className="about-stats">
-            {stats.map(([value, label]) => (
-              <li key={value}>
-                <strong>{value}</strong>
-                <span>{label}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="about-fine">
-            These figures describe that year and that source's definition, not
-            a fixed national deficit.
-          </p>
-          <p className="about-lead">
-            Voluntary donors remain the foundation of transfusion, but supply
-            depends on people overcoming fear of needles, meeting health
-            criteria and waiting 2–3 months between donations. Every bag is
-            screened for HIV, hepatitis B/C and syphilis and cross-matched.
-            For patients who need a rare antigen profile, a matching donor may
-            simply not exist.
-          </p>
-          <p>
-            Cultured red blood cells (cRBC) could add a source for rare
-            antigens. The RESTORE trial has already transfused lab-grown cells
-            into people, but wide clinical use still needs development and
-            validation. Culture media, lab time and repeated testing are
-            expensive, so every failed run costs more.
-          </p>
-          <p>
-            The problem HemoForge targets is <strong>fragmented data and
-            late interpretation</strong>. Growth counts, sensor readings,
-            culture notes, lab results and genomic analysis arrive from
-            different places at different rates. Researchers need to compare
-            batches, spot trend changes and get warnings that come with
-            evidence. Whether this improves success rates or cuts costs is a
-            hypothesis still to be tested.
-          </p>
+    <div className="landing">
+      <section className="landing-hero">
+        <span className="landing-eyebrow">GenoHack 2026 · Team HemoForge</span>
+        <h1 id="page-title" tabIndex={-1}>
+          Watch every batch on the road to lab-grown blood.
+        </h1>
+        <p>
+          HemoForge brings <strong>HemoGPT</strong>: four connected AI modules
+          that help researchers screen markers, plan cultures, monitor
+          bioreactors and read the results, with every number traceable to
+          its source.
+        </p>
+        <div className="landing-actions">
+          <a className="landing-button is-primary" href="#guard" onClick={goTo}>
+            Open Bioreactor Guard
+            <Icon name="arrow" />
+          </a>
+          <button
+            type="button"
+            className="landing-button"
+            onClick={() =>
+              document
+                .getElementById("about-how")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            See how it works
+          </button>
         </div>
-      </Panel>
+        <ul className="landing-stats">
+          {stats.map(([value, label]) => (
+            <li key={value}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
+        <small>
+          Indonesia, Ministry of Health, January 2026. Figures describe that
+          year and that source's definition, not a fixed national deficit.
+        </small>
+      </section>
 
-      <Panel
-        title="How HemoGPT works"
-        caption="Four modules, each tied to one decision. Bioreactor Guard is the main dashboard."
+      <Section
+        eyebrow="The problem"
+        title="Blood supply can't keep up, and rare types fall furthest behind"
+        intro={
+          <>
+            The challenge HemoForge targets is{" "}
+            <strong>fragmented data and late interpretation</strong> in culture
+            research. Whether better monitoring raises success rates or cuts
+            costs is a hypothesis we still need to test.
+          </>
+        }
       >
-        <ol className="about-modules">
+        <ul className="landing-cards">
+          {problems.map((problem, index) => (
+            <li key={problem.title}>
+              <span className="landing-index">0{index + 1}</span>
+              <h3>{problem.title}</h3>
+              <p>{problem.text}</p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section
+        id="about-how"
+        eyebrow="How HemoGPT works"
+        title="Four modules, one decision each"
+        intro="Bioreactor Guard is the main dashboard. The others feed it or read from it."
+      >
+        <ol className="landing-pipeline">
           {modules.map((module) => (
             <li key={module.id}>
               <a href={`#${module.id}`} onClick={goTo}>
-                <span className="about-step">
+                <span className="landing-step-icon">
                   <Icon name={module.icon} />
-                  {module.role}
                 </span>
-                <strong>{module.name}</strong>
+                <span className="landing-role">{module.role}</span>
+                <h3>{module.name}</h3>
                 <small>{module.when}</small>
-                <span>{module.does}</span>
-                <span className="about-not">{module.not}</span>
+                <p>{module.does}</p>
+                <p className="landing-not">{module.not}</p>
+                <span className="landing-open">
+                  Open {module.name} <Icon name="arrow" />
+                </span>
               </a>
             </li>
           ))}
-          <li>
-            <div className="about-final">
-              <span className="about-step">
+          <li className="is-final">
+            <div>
+              <span className="landing-step-icon">
                 <Icon name="check" />
-                Release
               </span>
-              <strong>Harvest and lab QC</strong>
+              <span className="landing-role">Release</span>
+              <h3>Harvest and lab QC</h3>
               <small>After culture</small>
-              <span>
-                Lab tests results, then RareMatch verifies them against the
-                starting profile. Product release always stays with the lab's
-                own QC process.
-              </span>
+              <p>
+                The lab tests the harvest, then RareMatch checks the results
+                against the starting profile. Product release always stays with
+                the lab's own QC process.
+              </p>
             </div>
           </li>
         </ol>
-        <div className="about-body about-core">
-          <p>
-            Guard answers <q>what is measured right now?</q> ErythroPilot
-            answers <q>what does the change mean, and what might happen
-            next?</q> Research reports, HemoBot and{" "}
-            <a href="#methods" onClick={goTo}>Methods &amp; references</a>{" "}
-            build only on these computed results.
-          </p>
+        <div className="landing-quotes">
+          <blockquote>
+            <span>Bioreactor Guard</span>
+            What is measured right now?
+          </blockquote>
+          <blockquote>
+            <span>ErythroPilot</span>
+            What does the change mean, and what might happen next?
+          </blockquote>
         </div>
-      </Panel>
+        <p className="landing-fine">
+          Research reports, HemoBot and{" "}
+          <a href="#methods" onClick={goTo}>Methods &amp; references</a> build
+          only on these computed results.
+        </p>
+      </Section>
 
-      <Panel title="Methods at a glance" caption="How each number on screen is produced">
-        {methods.map((method) => (
-          <Details key={method.name} title={method.name}>
-            {method.body}
-          </Details>
-        ))}
-      </Panel>
-
-      <Panel
-        title="Data we use"
-        caption="Three public sources from different studies, never presented as one donor-to-harvest batch"
+      <Section
+        eyebrow="Under the hood"
+        title="How each number on screen is produced"
       >
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th>What it is</th>
-                <th>How we use it</th>
-              </tr>
-            </thead>
-            <tbody>
-              {datasets.map((dataset) => (
-                <tr key={dataset.name}>
-                  <td>
-                    <a href={dataset.href} target="_blank" rel="noreferrer">
-                      <strong>{dataset.name}</strong>
-                    </a>
-                  </td>
-                  <td>{dataset.what}</td>
-                  <td>{dataset.used}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="landing-methods">
+          {methods.map((method) => (
+            <Details key={method.name} title={method.name}>
+              {method.body}
+            </Details>
+          ))}
         </div>
-        <div className="about-body">
-          <p>
-            Every input is logged in a manifest with title, URL or DOI,
-            licence, download time, SHA-256, units, sample count and
-            consistency checks. Results carry two separate statuses: run
-            outcome (<code>succeeded</code> / <code>failed</code>) and evidence
-            quality (<code>reference</code>, <code>exploratory</code>,{" "}
-            <code>needs_review</code>, <code>insufficient_data</code>). Replay
-            follows real BEL-A measurement times, so no future point appears
-            early, and test fixtures are labelled{" "}
-            <code>software_test_only</code>, never counted as biological
-            evidence.
-          </p>
-          <p>
-            Built with React and TypeScript on the front end and a FastAPI
-            service over SQLite plus the manifest. Analysis IDs come from
-            source checksums, version, configuration and seed 42; times are
-            stored in UTC, with culture time taken from each study's elapsed
-            hours.
-          </p>
-        </div>
-      </Panel>
+      </Section>
 
-      <Panel title="Scope and limits" caption="What the prototype deliberately does not do">
-        <div className="about-body">
-          <ul className="about-limits">
+      <Section
+        eyebrow="Open data"
+        title="Built on three public sources"
+        intro="They come from different studies, so we never present them as one donor-to-harvest batch."
+      >
+        <ul className="landing-cards">
+          {datasets.map((dataset) => (
+            <li key={dataset.name}>
+              <Icon name="data" />
+              <h3>{dataset.name}</h3>
+              <p className="landing-what">{dataset.what}</p>
+              <p>{dataset.used}</p>
+              <a href={dataset.href} target="_blank" rel="noreferrer">
+                View source
+              </a>
+            </li>
+          ))}
+        </ul>
+        <ul className="landing-chips" aria-label="Integrity measures">
+          {integrity.map((item) => (
+            <li key={item}>
+              <Icon name="check" />
+              {item}
+            </li>
+          ))}
+        </ul>
+        <p className="landing-fine">
+          React and TypeScript front end, with a FastAPI service over SQLite
+          and the data manifest.
+        </p>
+      </Section>
+
+      <Section
+        eyebrow="Honest limits"
+        title="What the prototype deliberately does not do"
+      >
+        <div className="landing-split">
+          <ul className="landing-limits">
             {outOfScope.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <p>
-            BEL-A culture is static and short. GSE53983 is not a 21-day series
-            from a BEL-A batch, and the genomic data comes from different
-            people. The 21-day timeline is a reporting roadmap, not 21 days of
-            observed data. Leak detection needs evidence such as volume, mass,
-            pressure or flow sensors, which the public data does not have, so
-            it appears only as a labelled integration placeholder. All warning
-            thresholds need protocol justification before lab use.
-          </p>
-          <p>
-            The design draws on the risk management principles of ICH Q9(R1),
-            WHO TRS 1033 Annex 4 on data integrity and ICH Q8(R2) process
-            design. Citing them is <strong>not</strong> a claim of
-            certification or compliance.
-          </p>
+          <div className="landing-prose">
+            <p>
+              BEL-A culture is static and short. GSE53983 is not a 21-day
+              series from a BEL-A batch, and the genomic data comes from
+              different people. The 21-day timeline is a reporting roadmap,
+              not 21 days of observed data.
+            </p>
+            <p>
+              Leak detection needs volume, mass, pressure or flow sensors that
+              the public data does not have, so it appears only as a labelled
+              placeholder. Warning thresholds need protocol justification
+              before lab use.
+            </p>
+            <p>
+              The design draws on ICH Q9(R1) risk management, WHO TRS 1033
+              Annex 4 data integrity and ICH Q8(R2) process design. Citing
+              them is <strong>not</strong> a claim of certification.
+            </p>
+          </div>
         </div>
-      </Panel>
+      </Section>
 
-      <Panel title="Hackathon timeline" caption="Built within the GenoHack 2026 window">
-        <ol className="about-timeline">
+      <Section eyebrow="Timeline" title="Three days at GenoHack, then the roadmap">
+        <ol className="landing-timeline">
           {timeline.map(([when, what]) => (
             <li key={when}>
               <strong>{when}</strong>
-              <span>{what}</span>
+              <p>{what}</p>
             </li>
           ))}
         </ol>
-      </Panel>
+      </Section>
 
-      <Panel title="Meet the team" caption="Team HemoForge · GenoHack 2026">
+      <Section eyebrow="The team" title="Meet Team HemoForge">
         <ul className="team-grid">
           {team.map((member) => (
             <li key={member.name}>
@@ -391,9 +464,28 @@ export default function AboutPage() {
             </li>
           ))}
         </ul>
-      </Panel>
+      </Section>
 
-      <Panel title="Key references">
+      <section className="landing-cta">
+        <div>
+          <h2>See it on real public data</h2>
+          <p>
+            Replay BEL-A culture batches, open a warning and follow it to the
+            three-hour report that cites it.
+          </p>
+        </div>
+        <div className="landing-actions">
+          <a className="landing-button is-primary" href="#guard" onClick={goTo}>
+            Open Bioreactor Guard
+            <Icon name="arrow" />
+          </a>
+          <a className="landing-button" href="#data" onClick={goTo}>
+            Load data
+          </a>
+        </div>
+      </section>
+
+      <Details title={`Key references (${references.length})`}>
         <ol className="about-refs">
           {references.map(([text, href]) => (
             <li key={text}>
@@ -406,7 +498,7 @@ export default function AboutPage() {
             </li>
           ))}
         </ol>
-      </Panel>
+      </Details>
 
       <p className="about-note">
         <Icon name="alert" />
@@ -414,6 +506,6 @@ export default function AboutPage() {
         not a medical device and must not be used for clinical or transfusion
         decisions.
       </p>
-    </>
+    </div>
   )
 }
