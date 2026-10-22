@@ -113,3 +113,15 @@ export function predictExperiments(
     },
   )
 }
+
+export interface ProposalRequest {
+  name: string
+  email: string
+  company: string
+  plan: string
+  proposal: string
+}
+
+export function submitProposal(proposal: ProposalRequest) {
+  return request<{ id: string; received_at: string }>("proposals", proposal)
+}

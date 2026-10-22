@@ -195,7 +195,7 @@ const replicates = [
   { id: "R3", tone: "teal", values: [2, 3.4, 6, 10.2, 15.1, 18.7, 17.9, 16.8] },
 ]
 
-function LocalIcon({ name }: { name: string }) {
+export function LocalIcon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
     clock: <path d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />,
     flask: <path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7 15h10" />,
@@ -212,7 +212,7 @@ function LocalIcon({ name }: { name: string }) {
   )
 }
 
-function Logo() {
+export function Logo() {
   return (
     <svg className="lp-logo" viewBox="0 0 40 40" aria-hidden="true">
       <path d="M8 7h5v10h8l-5 6h-3v10H6V9Z" />
@@ -486,65 +486,10 @@ function CheckpointRing() {
   )
 }
 
-function SignIn({ open, onClose, onEnter }: { open: boolean; onClose: () => void; onEnter: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    const el = dialog.current
-    if (!el) return
-    if (open && !el.open) el.showModal()
-    if (!open && el.open) el.close()
-  }, [open])
-
-  // Research preview: no credentials are checked; any submit opens the workspace.
-  function submit(event: { preventDefault(): void }) {
-    event.preventDefault()
-    setBusy(true)
-    setTimeout(onEnter, 900)
-  }
-
-  return (
-    <dialog ref={dialog} className="lp-dialog" onClose={onClose} onClick={(e) => e.target === dialog.current && onClose()}>
-      <div className="lp-auth">
-        <aside className="lp-auth-art">
-          <div className="lp-auth-orb" />
-          <Logo />
-          <p>"Guard answers what is measured now. ErythroPilot answers what it means."</p>
-          <span className="lp-mono">HemoForge · research preview</span>
-        </aside>
-        <form className="lp-auth-form" onSubmit={submit}>
-          <button type="button" className="lp-close" onClick={onClose} aria-label="Close"><LocalIcon name="x" /></button>
-          <h2>Welcome back</h2>
-          <p className="lp-muted">Sign in to your research workspace.</p>
-          <label>
-            <span>Work email</span>
-            <input type="email" name="email" placeholder="you@lab.org" autoComplete="email" />
-          </label>
-          <label>
-            <span>Password</span>
-            <input type="password" name="password" placeholder="••••••••" autoComplete="current-password" />
-          </label>
-          <div className="lp-auth-row">
-            <label className="lp-check"><input type="checkbox" /> Keep me signed in</label>
-            <button type="button" className="lp-link">Forgot password?</button>
-          </div>
-          <button className="lp-btn primary wide" disabled={busy}>
-            {busy ? <><i className="lp-spinner" /> Preparing workspace…</> : <>Sign in <LocalIcon name="arrow" /></>}
-          </button>
-          <div className="lp-divider"><span>or</span></div>
-          <button type="button" className="lp-btn ghost wide" onClick={submit}>Continue with institution SSO</button>
-          <p className="lp-fine">Research preview: credentials are not required yet.</p>
-        </form>
-      </div>
-    </dialog>
-  )
-}
-
 export default function Landing({ onEnter }: { onEnter: () => void }) {
   const root = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const [menu, setMenu] = useState(false)
-  const [signIn, setSignIn] = useState(false)
 
   useEffect(() => {
     const el = root.current!
@@ -596,8 +541,8 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             ))}
           </nav>
           <div className="lp-nav-cta">
-            <button className="lp-link" onClick={() => setSignIn(true)}>Sign in</button>
-            <button className="lp-btn primary sm" onClick={() => setSignIn(true)}>Launch workspace</button>
+            <button className="lp-btn ghost sm" onClick={() => (location.hash = "work-with-us")}>Work with us</button>
+            <button className="lp-btn primary sm" onClick={onEnter}>Launch workspace</button>
             <button className="lp-menu" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
               <LocalIcon name={menu ? "x" : "menu"} />
             </button>
@@ -622,7 +567,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
               interpretation in one auditable workspace for cultured red blood cell research.
             </p>
             <div className="lp-actions lp-rise" style={{ "--d": 3 } as CSSProperties}>
-              <button className="lp-btn primary lg" onClick={() => setSignIn(true)}>
+              <button className="lp-btn primary lg" onClick={onEnter}>
                 Launch workspace <LocalIcon name="arrow" />
               </button>
               <button className="lp-btn ghost lg" onClick={() => go("platform")}>Explore the platform</button>
@@ -979,7 +924,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           <h2>Bring evidence to <em>every culture.</em></h2>
           <p className="lp-muted">Open the workspace and replay a real BEL-A run, checkpoint by checkpoint.</p>
           <div className="lp-actions center">
-            <button className="lp-btn primary lg" onClick={() => setSignIn(true)}>Launch workspace <LocalIcon name="arrow" /></button>
+            <button className="lp-btn primary lg" onClick={onEnter}>Launch workspace <LocalIcon name="arrow" /></button>
             <button className="lp-btn ghost lg" onClick={() => go("platform")}>Tour the modules</button>
           </div>
         </div>
@@ -1001,7 +946,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         </div>
       </footer>
 
-      <SignIn open={signIn} onClose={() => setSignIn(false)} onEnter={onEnter} />
     </div>
   )
 }

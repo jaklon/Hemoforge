@@ -11,6 +11,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend.agent_routes import router as agent_router
 from backend.evo2_routes import router as evo2_router
 from backend.http_limits import BodyLimitMiddleware
+from backend.proposals import router as proposals_router
 
 from backend.models import ExperimentRequest, GrowthRequest
 from backend.predictions import ENGINE, predict_experiments, predict_growth
@@ -21,6 +22,7 @@ extra_hosts = [host.strip() for host in os.environ.get("HEMOBOT_ALLOWED_HOSTS", 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver", *extra_hosts])
 app.include_router(agent_router)
 app.include_router(evo2_router)
+app.include_router(proposals_router)
 
 
 @app.exception_handler(RequestValidationError)
