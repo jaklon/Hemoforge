@@ -92,6 +92,8 @@ export function Icon({ name }: { name: string }) {
 
     arrow: <path d="m9 5 7 7-7 7" />,
 
+    pin: <path d="M8 3h8v6l3 4v2H5v-2l3-4zM12 15v6" />,
+
     download: <path d="M12 3v12m-4-4 4 4 4-4M5 18v3h14v-3" />,
 
     alert: <path d="M12 3 2 21h20zM12 9v5m0 3v1" />,

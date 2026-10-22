@@ -28,7 +28,7 @@ import Evo2Preparation from "./Evo2Preparation"
 
 import HemoBot, { useHemoBot } from "./HemoBot"
 
-import type { BotAnalysis, BotModule } from "./hemobot-api"
+import { botStatus, type BotAnalysis, type BotModule, type BotStatus } from "./hemobot-api"
 
 import MonitoringControls from "./MonitoringControls"
 
@@ -1037,6 +1037,51 @@ function ResearchReport({
   )
 }
 
+const serviceLabels = {
+  checking: "checking…",
+  online: "live",
+  offline: "offline",
+  disabled: "off",
+} as const
+
+/** Top-bar health: the Python API and the model server it talks to. */
+function ServiceStatus({ backend }: { backend: "checking" | "online" | "offline" }) {
+  const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">("checking")
+  useEffect(() => {
+    if (backend !== "online") return
+    let controller: AbortController | undefined
+    const check = () => {
+      controller?.abort()
+      controller = new AbortController()
+      botStatus(controller.signal)
+        .then((status) => setLlm(status.llm_status))
+        .catch((error) => {
+          if (error?.name !== "AbortError") setLlm("offline")
+        })
+    }
+    check()
+    const timer = setInterval(check, 60_000)
+    return () => {
+      clearInterval(timer)
+      controller?.abort()
+    }
+  }, [backend])
+  const services = [
+    ["Backend", backend],
+    ["LLM", backend === "online" ? llm : backend],
+  ] as const
+  return (
+    <span className="service-status" role="status">
+      {services.map(([name, state]) => (
+        <span key={name}>
+          <span className={`status-dot is-${state}`} />
+          {name} {serviceLabels[state]}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function ResearchWorkspaceContent() {
   const { batches, batchIndexes, replayEndHour, source } = useCultureData()
 
@@ -1053,6 +1098,15 @@ function ResearchWorkspaceContent() {
   )
 
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const [sidebarPinned, setSidebarPinned] = useState(true)
+
+  const [sidebarHovered, setSidebarHovered] = useState(false)
+
+  const [sidebarFocused, setSidebarFocused] = useState(false)
+
+  // Desktop sidebar rests as an icon rail; hover/focus floats it open over the page, the pin docks it.
+  const sidebarCollapsed = !sidebarPinned && !sidebarHovered && !sidebarFocused
 
   const [hour, setHour] = useState(120)
 
@@ -1169,7 +1223,9 @@ function ResearchWorkspaceContent() {
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell${sidebarPinned ? " sidebar-pinned" : ""}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
+    >
       <a
         className="skip-link"
         href="#main-content"
@@ -1184,6 +1240,17 @@ function ResearchWorkspaceContent() {
       <aside
         id="research-navigation"
         className={`sidebar${menuOpen ? " is-open" : ""}`}
+        onPointerEnter={(e) => {
+          if (e.pointerType !== "touch") setSidebarHovered(true)
+        }}
+        onPointerLeave={() => setSidebarHovered(false)}
+        onPointerDown={(e) => setSidebarFocused(e.pointerType === "touch")}
+        onFocusCapture={(e) => {
+          if (e.target.matches(":focus-visible")) setSidebarFocused(true)
+        }}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setSidebarFocused(false)
+        }}
       >
         <a
           className="brand"
@@ -1203,15 +1270,32 @@ function ResearchWorkspaceContent() {
           </span>
         </a>
         <nav aria-label="Research modules">
-          {navigationGroups.map((group) => (
+          {navigationGroups.map((group, i) => (
             <div className="nav-group" key={group} role="group" aria-label={group}>
-              <span className="nav-group-label" aria-hidden="true">{group}</span>
+              <div className="nav-group-label">
+                <span aria-hidden="true">{group}</span>
+                {i === 0 && (
+                  <button
+                    type="button"
+                    className="sidebar-pin"
+                    tabIndex={sidebarCollapsed ? -1 : undefined}
+                    aria-label={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+                    title={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
+                    aria-pressed={sidebarPinned}
+                    aria-controls="research-navigation"
+                    onClick={() => setSidebarPinned(!sidebarPinned)}
+                  >
+                    <Icon name="pin" />
+                  </button>
+                )}
+              </div>
               {navigation
                 .filter((item) => item.group === group)
                 .map((item) => (
                   <a
                     href={`#${item.id}`}
                     key={item.id}
+                    title={sidebarCollapsed ? item.name : undefined}
                     aria-current={view === item.id ? "page" : undefined}
                     className={view === item.id ? "active" : ""}
                     onClick={(e) => {
@@ -1239,10 +1323,7 @@ function ResearchWorkspaceContent() {
         </div>
         <strong className="mobile-brand">HemoForge</strong>
         <div className="header-actions">
-          <span className="replay-indicator">
-            <span className="status-dot" />
-            {workspaceData.run ? "Local analysis" : "Demo inputs"}
-          </span>
+          <ServiceStatus backend={workspaceData.backendStatus} />
           {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
             <Button
               icon="pilot"
@@ -1254,12 +1335,6 @@ function ResearchWorkspaceContent() {
               Ask HemoBot
             </Button>
           )}
-          <Button icon="data" onClick={() => navigate("data")}>
-            Import data
-          </Button>
-          <Button icon="report" onClick={() => navigate("report")}>
-            View report
-          </Button>
           <button
             type="button"
             className="button menu-toggle"

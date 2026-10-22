@@ -39,7 +39,7 @@ const columnLabel = (key: string) =>
   key.replace(/^(?:(.+)_)?(rs\d+)$/, (_, gene, rs) =>
     gene ? `${gene.toUpperCase()} ${rs}` : rs,
   )
-const pageSize = 20
+const pageSize = 50
 export default function DataWorkspace({
   onRun,
 }: {
@@ -222,35 +222,19 @@ export default function DataWorkspace({
         title="Data & runs"
         description="Edit values, import files, or start from an example."
         action={
-          <div className="header-actions">
-            <Badge
-              tone={
-                workspace.backendStatus === "online"
-                  ? "success"
-                  : workspace.backendStatus === "offline"
-                    ? "warning"
-                    : "neutral"
-              }
-            >
-              {workspace.backendStatus === "online"
-                ? "Python connected"
-                : workspace.backendStatus === "offline"
-                  ? "Python offline"
-                  : "Connecting…"}
-            </Badge>
-            {workspace.backendStatus === "offline" && (
-              <Button onClick={() => void workspace.checkBackend()}>
-                Retry
-              </Button>
-            )}
-          </div>
+          // The top bar shows backend status; keep only the way to reconnect.
+          workspace.backendStatus === "offline" && (
+            <Button onClick={() => void workspace.checkBackend()}>
+              Retry connection
+            </Button>
+          )
         }
       />
       <Panel
         title="Edit data"
-        caption="Change values in the table, then apply them to every page"
+        caption={`Copy of ${editorSource} · the original file is not changed`}
       >
-        <div className="settings-grid panel-note">
+        <div className="scenario-toolbar">
           <label>
             Data to edit
             <select
@@ -267,10 +251,6 @@ export default function DataWorkspace({
               ))}
             </select>
           </label>
-          <p className="scenario-source">
-            Editing a copy of <strong>{editorSource}</strong>. The original
-            file is not changed.
-          </p>
         </div>
         <div className="table-scroll scenario-table">
           <table>
@@ -307,7 +287,9 @@ export default function DataWorkspace({
                       ))}
                       <td>
                         <button
-                          className="text-button"
+                          type="button"
+                          className="row-delete"
+                          title="Delete row"
                           disabled={running}
                           aria-label={`Delete row ${row + 1}`}
                           onClick={() =>
@@ -317,7 +299,7 @@ export default function DataWorkspace({
                             })
                           }
                         >
-                          Delete
+                          ×
                         </button>
                       </td>
                     </tr>
@@ -345,27 +327,33 @@ export default function DataWorkspace({
           >
             + Add row
           </button>
-          {pages > 1 && (
-            <span>
-              <button
-                className="text-button"
-                disabled={firstRow === 0}
-                onClick={() => setPage(firstRow / pageSize - 1)}
-              >
-                Previous
-              </button>{" "}
-              Rows {firstRow + 1}–
-              {Math.min(firstRow + pageSize, editor.rows.length)} of{" "}
-              {editor.rows.length}{" "}
-              <button
-                className="text-button"
-                disabled={firstRow + pageSize >= editor.rows.length}
-                onClick={() => setPage(firstRow / pageSize + 1)}
-              >
-                Next
-              </button>
-            </span>
-          )}
+          <span className="scenario-pages">
+            Rows {editor.rows.length ? firstRow + 1 : 0}–
+            {Math.min(firstRow + pageSize, editor.rows.length)} of{" "}
+            {editor.rows.length}
+            {pages > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="pager-button"
+                  aria-label="Previous rows"
+                  disabled={firstRow === 0}
+                  onClick={() => setPage(firstRow / pageSize - 1)}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="pager-button"
+                  aria-label="Next rows"
+                  disabled={firstRow + pageSize >= editor.rows.length}
+                  onClick={() => setPage(firstRow / pageSize + 1)}
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </span>
         </div>
         <div aria-live="polite">
           {editorErrors.map((message, i) => (
@@ -387,20 +375,6 @@ export default function DataWorkspace({
             onClick={() => loadIntoEditor(editor.kind)}
           >
             Undo all changes
-          </Button>
-          <Button
-            disabled={busy || running}
-            onClick={() =>
-              loadIntoEditor(editor.kind, {
-                ...parseInput(exampleFiles[editor.kind], "example.csv"),
-                name: `hemogpt-example-${editor.kind}.csv`,
-                sha256: "",
-                loaded_at: "",
-                evidence: "software_test_only",
-              })
-            }
-          >
-            Start from example
           </Button>
           <Button
             icon="download"
@@ -543,9 +517,7 @@ export default function DataWorkspace({
                 : "Run current workspace"}
           </Button>
           <span>
-            {staged.length
-              ? `${staged.length} files ready`
-              : "Using active inputs"}
+            {staged.length > 0 && `${staged.length} files ready`}
             {workspace.run?.planError && (
               <span role="status">
                 Data applied. CulturePlan needs a new fit:{" "}
