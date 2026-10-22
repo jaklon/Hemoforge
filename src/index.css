@@ -548,7 +548,11 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .guard-handoff-panel .handoff h3 { font-size: var(--text-base); font-weight: 550; margin-top: 15px; }
 .guard-handoff-actions { display: flex; flex-direction: column; align-items: start; gap: 10px; margin-top: 17px; }
 .guard-table-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin: 10px 0 16px; }
-#guard-review, #guard-settings { scroll-margin-top: 86px; }
+/* Clears the sticky header plus the sticky replay bar. */
+#guard-batches, #guard-growth, #guard-review, #guard-environment, #guard-settings, #guard-raw { scroll-margin-top: 160px; }
+.guard-jump-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: -6px 0 16px; font-size: var(--text-xs); }
+.guard-jump-nav > span { color: var(--muted); }
+.guard-overview-message p { margin: 2px 0 0; color: var(--muted); font-size: var(--text-xs); }
 #guard-review-heading:focus { outline: none; }
 @media (max-width: 1280px) and (min-width: 901px) { .guard-main-grid, .guard-secondary-grid { grid-template-columns: minmax(0, 1fr); } .guard-side { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); } .guard-review-panel { display: grid; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.2fr); } .guard-review-panel > header, .guard-review-panel > .panel-note { grid-column: 1 / -1; } .guard-review-panel .guard-event-detail { border-top: 0; border-left: 1px solid var(--line); } .guard-warning-list { max-height: 370px; align-content: start; } }
 @media (max-width: 900px) { .guard-main-grid, .guard-secondary-grid { grid-template-columns: minmax(0, 1fr); } .guard-fleet-stats { flex: 1; } .guard-overview > .button { margin-left: auto; } }

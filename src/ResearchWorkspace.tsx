@@ -197,7 +197,7 @@ function ReplayControls({
         </Button>
       </div>
       <label className="replay-field">
-        Cutoff h
+        Go to hour
         <input
           type="number"
           aria-label="Exact cutoff (hours)"
@@ -218,7 +218,7 @@ function ReplayControls({
         />
       </label>
       <label className="replay-field">
-        Speed h/s
+        Speed (h/sec)
         <input
           type="number"
           aria-label="Replay speed (hours per second)"

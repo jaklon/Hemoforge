@@ -316,7 +316,7 @@ function GrowthChart({
       )}
       <div className="guard-inspector">
         <label>
-          Inspect a source sample
+          Look up a sample
           <select
             disabled={!selectedPoints.length}
             value={point?.hour ?? ""}
@@ -457,16 +457,21 @@ export default function BioreactorGuard({
 
   const noteKey = event ? `R${selected.index}-${event.id}` : ""
 
-  function configure() {
-    const details = settingsRef.current?.querySelector("details")
+  // Hash routing owns location.hash, so section links scroll instead of using anchors.
+  function jump(id: string) {
+    const target = document.getElementById(id)
 
-    if (details) {
-      details.open = true
+    const details = target?.querySelector("details")
 
-      details.scrollIntoView({ block: "start", behavior: "instant" })
+    if (details) details.open = true
 
-      details.querySelector("summary")?.focus()
-    }
+    target?.scrollIntoView({ block: "start", behavior: "instant" })
+
+    const focusTarget = target?.querySelector<HTMLElement>("summary, h2")
+
+    if (focusTarget && !focusTarget.matches("summary")) focusTarget.tabIndex = -1
+
+    focusTarget?.focus({ preventScroll: true })
   }
 
   function choose(index: number) {
@@ -484,10 +489,32 @@ export default function BioreactorGuard({
         description="See what changed, what needs review, and which sample to check next."
         action={
           <div className="header-actions">
-            <Button onClick={configure}>Monitoring rules</Button>
+            <Button onClick={() => jump("guard-settings")}>
+              Monitoring rules
+            </Button>
           </div>
         }
       />
+      <nav className="guard-jump-nav" aria-label="On this page">
+        <span>Jump to</span>
+        {[
+          ["guard-batches", "Batches"],
+          ["guard-growth", "Growth chart"],
+          ["guard-review", "Warnings"],
+          ["guard-environment", "Environment"],
+          ["guard-settings", "Rules"],
+          ["guard-raw", "Raw measurements"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className="text-button"
+            onClick={() => jump(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
       <div
         className={`guard-overview${attention.length ? " has-attention" : ""}`}
       >
@@ -508,9 +535,16 @@ export default function BioreactorGuard({
                     attention.length === 1 ? "batch needs" : "batches need"
                   } review`
                 : noData.length === batches.length
-                  ? "Waiting for source measurements"
-                  : "No configured warnings at this cutoff"}
+                  ? "No measurements yet"
+                  : `All batches look normal at ${number(hour)}h`}
             </h2>
+            <p>
+              {urgent
+                ? `Start with ${urgent.id}. It has the most urgent warning.`
+                : hour < replayEndHour
+                  ? "Press Play or Next to step through the culture samples."
+                  : "Every sample so far is within your monitoring rules."}
+            </p>
           </div>
         </div>
         <dl className="guard-fleet-stats">
@@ -529,7 +563,7 @@ export default function BioreactorGuard({
             </dd>
           </div>
           <div>
-            <dt>Without a valid count</dt>
+            <dt>Missing a count</dt>
             <dd>{noData.length}</dd>
           </div>
         </dl>
@@ -566,10 +600,10 @@ export default function BioreactorGuard({
           className="text-button"
           onClick={() => navigate("data")}
         >
-          Edit scenario data
+          Change data source
         </button>
       </div>
-      <div className="section-heading guard-batch-heading">
+      <div className="section-heading guard-batch-heading" id="guard-batches">
         <div>
           <h2>Batch overview</h2>
         </div>
@@ -620,20 +654,20 @@ export default function BioreactorGuard({
             >
               <span>
                 {batch.summary.percentChange === null
-                  ? "Awaiting comparison"
+                  ? "Needs 2 samples to compare"
                   : `${
                       batch.summary.percentChange > 0 ? "+" : ""
-                    }${number(batch.summary.percentChange, 1)}% since prior sample`}
+                    }${number(batch.summary.percentChange, 1)}% since last sample`}
               </span>
               <span>
                 {batch.summary.latest
-                  ? `${number(batch.summary.sampleAge)}h old`
+                  ? `Sampled ${number(batch.summary.sampleAge)}h ago`
                   : "No valid count"}
               </span>
             </div>
             <footer>
               <span>
-                Last valid sample{" "}
+                Last sample{" "}
                 <b>
                   {batch.summary.latest
                     ? `${number(batch.summary.latest.hour)}h`
@@ -641,7 +675,7 @@ export default function BioreactorGuard({
                 </b>
               </span>
               <span>
-                {batch.summary.visible.length}/{batch.total} rows revealed
+                {batch.summary.visible.length} of {batch.total} samples shown
               </span>
             </footer>
           </label>
@@ -650,13 +684,13 @@ export default function BioreactorGuard({
       {!shown.length && (
         <div className="guard-filter-empty">
           <Icon name="check" />
-          <span>No batches have recorded warnings at this cutoff.</span>
+          <span>No batches have warnings at {number(hour)}h.</span>
           <Button onClick={() => setView({ ...view, attentionOnly: false })}>
             Show all batches
           </Button>
         </div>
       )}
-      <div className="guard-main-grid">
+      <div className="guard-main-grid" id="guard-growth">
         <Panel
           title={`${selected.id} · growth`}
           caption={`${state.trend} · original sample times`}
@@ -693,7 +727,7 @@ export default function BioreactorGuard({
               </strong>
             </div>
             <div>
-              <span>Latest valid sample age</span>
+              <span>Time since last sample</span>
               <strong>
                 {number(state.sampleAge)}
                 <small>{state.sampleAge === null ? "" : "h"}</small>
@@ -875,7 +909,7 @@ export default function BioreactorGuard({
         </Panel>
         </div>
       </div>
-      <div className="guard-secondary-grid">
+      <div className="guard-secondary-grid" id="guard-environment">
         <ChannelPanel
           replicate={replicate}
           hour={hour}
@@ -885,7 +919,8 @@ export default function BioreactorGuard({
       <div ref={settingsRef} id="guard-settings">
         <MonitoringControls />
       </div>
-      <Details title={`Source measurements · ${selected.id}`}>
+      <div id="guard-raw">
+      <Details title={`Raw measurements · ${selected.id}`}>
         <div className="guard-table-actions">
           <p>
             {state.visible.length} source rows through {number(hour)}h. Missing
@@ -998,7 +1033,8 @@ export default function BioreactorGuard({
           </Button>
         </div>
       </Details>
-      <Details title="Source & status definitions">
+      </div>
+      <Details title="What the statuses mean">
         <p>
           <b>Source:</b> {source.name}. <b>Evidence:</b> {source.evidence}.
           SHA-256:{" "}
