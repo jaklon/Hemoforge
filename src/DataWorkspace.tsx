@@ -56,6 +56,7 @@ export default function DataWorkspace({
   const [dragging, setDragging] = useState(false)
   const [editorErrors, setEditorErrors] = useState<string[]>([])
   const [page, setPage] = useState(0)
+  const [editorDirty, setEditorDirty] = useState(false)
   function loadIntoEditor(kind: DataKind, source?: InputFile) {
     const file =
       source ??
@@ -63,7 +64,12 @@ export default function DataWorkspace({
       workspace.inputs[kind]
     setEditor(toScenarioTable(file, workspace.markerSettings.targets))
     setEditorErrors([])
+    setEditorDirty(false)
     setPage(0)
+  }
+  function editRows(rows: string[][]) {
+    setEditor({ ...editor, rows })
+    setEditorDirty(true)
   }
   useEffect(() => {
     // Only fill an empty editor; edits survive switching pages.
@@ -128,32 +134,39 @@ export default function DataWorkspace({
     setErrors(messages)
     setBusy(false)
     if (inputRef.current) inputRef.current.value = ""
+    // Show the upload straight away so it can be checked or corrected below.
+    if (parsed.length) loadIntoEditor(parsed[0].kind, parsed[0])
   }
-  async function applyEditor() {
+  async function applyAll() {
     if (running || busy) return
-    const { parsed, messages } = await parseFiles([
-      new File([scenarioCsv(editor)], `edited-${editor.kind}.csv`),
-    ])
-    if (messages.length) {
-      setEditorErrors(
-        // Parser rows count the CSV header; the table does not.
-        messages.map((message) =>
-          message
-            .replace(/^edited-\w+\.csv: /, "")
-            .replace(/^Row (\d+)/, (_, row) => `Row ${Number(row) - 1}`)
-            .replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (key) =>
-              editor.columns.includes(key) ? `"${columnLabel(key)}"` : key,
-            ),
-        ),
-      )
-      return
+    let files = staged
+    if (editorDirty) {
+      const { parsed, messages } = await parseFiles([
+        new File([scenarioCsv(editor)], `edited-${editor.kind}.csv`),
+      ])
+      if (messages.length) {
+        setEditorErrors(
+          // Parser rows count the CSV header; the table does not.
+          messages.map((message) =>
+            message
+              .replace(/^edited-\w+\.csv: /, "")
+              .replace(/^Row (\d+)/, (_, row) => `Row ${Number(row) - 1}`)
+              .replace(/\b[a-z0-9]+(?:_[a-z0-9]+)+\b/g, (key) =>
+                editor.columns.includes(key) ? `"${columnLabel(key)}"` : key,
+              ),
+          ),
+        )
+        return
+      }
+      files = [...staged.filter((file) => file.kind !== editor.kind), ...parsed]
     }
     setEditorErrors([])
     setRunning(true)
     try {
-      await workspace.apply(parsed)
-      setStaged(staged.filter((file) => file.kind !== editor.kind))
-      onRun(editor.kind)
+      await workspace.apply(files)
+      setStaged([])
+      setEditorDirty(false)
+      onRun(files.length === 1 ? files[0].kind : undefined)
     } catch (error) {
       setEditorErrors([
         error instanceof Error
@@ -165,14 +178,13 @@ export default function DataWorkspace({
     }
   }
   function updateCell(row: number, column: number, value: string) {
-    setEditor({
-      ...editor,
-      rows: editor.rows.map((cells, i) =>
+    editRows(
+      editor.rows.map((cells, i) =>
         i === row
           ? cells.map((cell, j) => (j === column ? value : cell))
           : cells,
       ),
-    })
+    )
   }
   const pages = Math.max(1, Math.ceil(editor.rows.length / pageSize))
   const firstRow = Math.min(page, pages - 1) * pageSize
@@ -180,24 +192,10 @@ export default function DataWorkspace({
     staged.find((item) => item.kind === editor.kind) ??
     workspace.inputs[editor.kind]
   ).name
-  async function run() {
-    if (running || busy) return
-    setRunning(true)
-    setErrors([])
-    try {
-      await workspace.apply(staged)
-      setStaged([])
-      onRun(staged.length === 1 ? staged[0].kind : undefined)
-    } catch (error) {
-      setErrors([
-        error instanceof Error
-          ? error.message
-          : "The run failed. Existing data remain available.",
-      ])
-    } finally {
-      setRunning(false)
-    }
-  }
+  const pending = new Set([
+    ...staged.map((file) => file.kind),
+    ...(editorDirty ? [editor.kind] : []),
+  ])
   async function loadExamples() {
     setBusy(true)
     try {
@@ -212,6 +210,10 @@ export default function DataWorkspace({
       )
       setStaged(files)
       setErrors([])
+      loadIntoEditor(
+        editor.kind,
+        files.find((file) => file.kind === editor.kind),
+      )
     } finally {
       setBusy(false)
     }
@@ -220,7 +222,7 @@ export default function DataWorkspace({
     <>
       <PageTitle
         title="Data & runs"
-        description="Edit values, import files, or start from an example."
+        description="Upload files, check and edit them, then apply them to every page."
         action={
           // The top bar shows backend status; keep only the way to reconnect.
           workspace.backendStatus === "offline" && (
@@ -231,169 +233,8 @@ export default function DataWorkspace({
         }
       />
       <Panel
-        title="Edit data"
-        caption={`Copy of ${editorSource} · the original file is not changed`}
-      >
-        <div className="scenario-toolbar">
-          <label>
-            Data to edit
-            <select
-              value={editor.kind}
-              disabled={busy || running}
-              onChange={(event) =>
-                loadIntoEditor(event.target.value as DataKind)
-              }
-            >
-              {(Object.keys(kindNames) as DataKind[]).map((kind) => (
-                <option key={kind} value={kind}>
-                  {kindNames[kind]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="table-scroll scenario-table">
-          <table>
-            <thead>
-              <tr>
-                <th aria-label="Row number">#</th>
-                {editor.columns.map((key) => (
-                  <th key={key} title={key}>
-                    {columnLabel(key)}
-                  </th>
-                ))}
-                <th aria-label="Row actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {editor.rows
-                .slice(firstRow, firstRow + pageSize)
-                .map((cells, i) => {
-                  const row = firstRow + i
-                  return (
-                    <tr key={row}>
-                      <td className="numeric">{row + 1}</td>
-                      {cells.map((value, column) => (
-                        <td key={column}>
-                          <input
-                            value={value}
-                            disabled={running}
-                            aria-label={`Row ${row + 1} ${columnLabel(editor.columns[column])}`}
-                            onChange={(event) =>
-                              updateCell(row, column, event.target.value)
-                            }
-                          />
-                        </td>
-                      ))}
-                      <td>
-                        <button
-                          type="button"
-                          className="row-delete"
-                          title="Delete row"
-                          disabled={running}
-                          aria-label={`Delete row ${row + 1}`}
-                          onClick={() =>
-                            setEditor({
-                              ...editor,
-                              rows: editor.rows.filter((_, j) => j !== row),
-                            })
-                          }
-                        >
-                          ×
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-            </tbody>
-          </table>
-        </div>
-        <div className="scenario-pager">
-          <button
-            className="text-button"
-            disabled={running}
-            onClick={() => {
-              // A copy of the last row is the quickest start for a new sample.
-              setEditor({
-                ...editor,
-                rows: [
-                  ...editor.rows,
-                  editor.rows.at(-1)?.slice() ??
-                    editor.columns.map(() => ""),
-                ],
-              })
-              setPage(Math.floor(editor.rows.length / pageSize))
-            }}
-          >
-            + Add row
-          </button>
-          <span className="scenario-pages">
-            Rows {editor.rows.length ? firstRow + 1 : 0}–
-            {Math.min(firstRow + pageSize, editor.rows.length)} of{" "}
-            {editor.rows.length}
-            {pages > 1 && (
-              <>
-                <button
-                  type="button"
-                  className="pager-button"
-                  aria-label="Previous rows"
-                  disabled={firstRow === 0}
-                  onClick={() => setPage(firstRow / pageSize - 1)}
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="pager-button"
-                  aria-label="Next rows"
-                  disabled={firstRow + pageSize >= editor.rows.length}
-                  onClick={() => setPage(firstRow / pageSize + 1)}
-                >
-                  ›
-                </button>
-              </>
-            )}
-          </span>
-        </div>
-        <div aria-live="polite">
-          {editorErrors.map((message, i) => (
-            <p className="import-error" role="alert" key={i}>
-              {message}
-            </p>
-          ))}
-        </div>
-        <div className="run-actions">
-          <Button
-            primary
-            disabled={busy || running || !editor.rows.length}
-            onClick={() => void applyEditor()}
-          >
-            {running ? "Applying…" : "Apply changes"}
-          </Button>
-          <Button
-            disabled={busy || running}
-            onClick={() => loadIntoEditor(editor.kind)}
-          >
-            Undo all changes
-          </Button>
-          <Button
-            icon="download"
-            disabled={!editor.rows.length}
-            onClick={() =>
-              downloadFile(
-                `edited-${editor.kind}.csv`,
-                scenarioCsv(editor),
-                "text/csv;charset=utf-8",
-              )
-            }
-          >
-            Download CSV
-          </Button>
-        </div>
-      </Panel>
-      <Panel
-        title="Import data"
-        caption="CSV, TSV, or JSON · up to 2 MB and 10,000 rows per file"
+        title="1 · Upload files"
+        caption="CSV, TSV, or JSON · up to 2 MB and 10,000 rows per file · one file per data type"
       >
         <div
           className={`upload-zone${dragging ? " is-dragging" : ""}`}
@@ -459,71 +300,203 @@ export default function DataWorkspace({
             </p>
           ))}
         </div>
-        {staged.map((file) => (
-          <div className="input-preview" key={file.kind}>
-            <div className="section-heading">
-              <div>
-                <h3>{file.name}</h3>
-                <p>
-                  {kindNames[file.kind]} · {file.rows.length} rows · ready to
-                  run
-                </p>
-              </div>
-              <Button
-                disabled={running}
-                onClick={() =>
-                  setStaged(staged.filter((item) => item.kind !== file.kind))
-                }
-              >
-                Remove
-              </Button>
-            </div>
-            <Details title="Preview first 4 rows">
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      {Object.keys(file.rows[0]).map((key) => (
-                        <th key={key}>{key}</th>
+        {staged.length > 0 && (
+          <ul className="staged-files">
+            {staged.map((file) => (
+              <li key={file.kind}>
+                <Icon name="data" />
+                <button
+                  type="button"
+                  className="staged-file-name"
+                  title="Show in the table below"
+                  onClick={() => loadIntoEditor(file.kind, file)}
+                >
+                  <strong>{file.name}</strong>
+                  <span>
+                    {kindNames[file.kind]} · {file.rows.length.toLocaleString()}{" "}
+                    rows
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="row-delete"
+                  title="Remove"
+                  aria-label={`Remove ${file.name}`}
+                  disabled={running}
+                  onClick={() => {
+                    setStaged(staged.filter((item) => item.kind !== file.kind))
+                    if (editor.kind === file.kind)
+                      loadIntoEditor(file.kind, workspace.inputs[file.kind])
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+      <Panel
+        title="2 · Check and edit"
+        caption={`${editorSource}${editorDirty ? " · edited" : ""} · the original file is not changed`}
+      >
+        <div className="scenario-toolbar">
+          <label>
+            Data to edit
+            <select
+              value={editor.kind}
+              disabled={busy || running}
+              onChange={(event) =>
+                loadIntoEditor(event.target.value as DataKind)
+              }
+            >
+              {(Object.keys(kindNames) as DataKind[]).map((kind) => (
+                <option key={kind} value={kind}>
+                  {kindNames[kind]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="table-scroll scenario-table">
+          <table>
+            <thead>
+              <tr>
+                <th aria-label="Row number">#</th>
+                {editor.columns.map((key) => (
+                  <th key={key} title={key}>
+                    {columnLabel(key)}
+                  </th>
+                ))}
+                <th aria-label="Row actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {editor.rows
+                .slice(firstRow, firstRow + pageSize)
+                .map((cells, i) => {
+                  const row = firstRow + i
+                  return (
+                    <tr key={row}>
+                      <td className="numeric">{row + 1}</td>
+                      {cells.map((value, column) => (
+                        <td key={column}>
+                          <input
+                            value={value}
+                            disabled={running}
+                            aria-label={`Row ${row + 1} ${columnLabel(editor.columns[column])}`}
+                            onChange={(event) =>
+                              updateCell(row, column, event.target.value)
+                            }
+                          />
+                        </td>
                       ))}
+                      <td>
+                        <button
+                          type="button"
+                          className="row-delete"
+                          title="Delete row"
+                          disabled={running}
+                          aria-label={`Delete row ${row + 1}`}
+                          onClick={() =>
+                            editRows(editor.rows.filter((_, j) => j !== row))
+                          }
+                        >
+                          ×
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {file.rows.slice(0, 4).map((row, i) => (
-                      <tr key={i}>
-                        {Object.values(row).map((value, j) => (
-                          <td key={j}>
-                            {value === null
-                              ? "Missing"
-                              : typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Details>
-          </div>
-        ))}
-        <div className="run-actions">
-          <Button primary disabled={busy || running} onClick={() => void run()}>
-            {running
-              ? "Running analyses…"
-              : staged.length
-                ? "Apply staged data"
-                : "Run current workspace"}
-          </Button>
-          <span>
-            {staged.length > 0 && `${staged.length} files ready`}
-            {workspace.run?.planError && (
-              <span role="status">
-                Data applied. CulturePlan needs a new fit:{" "}
-                {workspace.run.planError}
-              </span>
+                  )
+                })}
+            </tbody>
+          </table>
+        </div>
+        <div className="scenario-pager">
+          <button
+            className="text-button"
+            disabled={running}
+            onClick={() => {
+              // A copy of the last row is the quickest start for a new sample.
+              editRows([
+                ...editor.rows,
+                editor.rows.at(-1)?.slice() ?? editor.columns.map(() => ""),
+              ])
+              setPage(Math.floor(editor.rows.length / pageSize))
+            }}
+          >
+            + Add row
+          </button>
+          <span className="scenario-pages">
+            Rows {editor.rows.length ? firstRow + 1 : 0}–
+            {Math.min(firstRow + pageSize, editor.rows.length)} of{" "}
+            {editor.rows.length}
+            {pages > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="pager-button"
+                  aria-label="Previous rows"
+                  disabled={firstRow === 0}
+                  onClick={() => setPage(firstRow / pageSize - 1)}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="pager-button"
+                  aria-label="Next rows"
+                  disabled={firstRow + pageSize >= editor.rows.length}
+                  onClick={() => setPage(firstRow / pageSize + 1)}
+                >
+                  ›
+                </button>
+              </>
             )}
+          </span>
+        </div>
+        <div aria-live="polite">
+          {editorErrors.map((message, i) => (
+            <p className="import-error" role="alert" key={i}>
+              {message}
+            </p>
+          ))}
+        </div>
+        <div className="run-actions">
+          <Button
+            primary
+            disabled={busy || running}
+            onClick={() => void applyAll()}
+          >
+            {running
+              ? "Applying…"
+              : pending.size
+                ? "Apply to all pages"
+                : "Re-run analyses"}
+          </Button>
+          <Button
+            disabled={busy || running || !editorDirty}
+            onClick={() => loadIntoEditor(editor.kind)}
+          >
+            Undo edits
+          </Button>
+          <Button
+            icon="download"
+            disabled={!editor.rows.length}
+            onClick={() =>
+              downloadFile(
+                `edited-${editor.kind}.csv`,
+                scenarioCsv(editor),
+                "text/csv;charset=utf-8",
+              )
+            }
+          >
+            Download CSV
+          </Button>
+          <span role="status">
+            {pending.size > 0 &&
+              `${pending.size} of 3 data types ready to apply`}
+            {workspace.run?.planError &&
+              ` Data applied. CulturePlan needs a new fit: ${workspace.run.planError}`}
           </span>
         </div>
       </Panel>

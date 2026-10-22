@@ -73,7 +73,9 @@ interface NavigationItem {
 // Ordered start to finish along the HemoForge process map.
 const navigation: NavigationItem[] = [
   { id: "data", name: "Data & runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
-  { id: "workflow", name: "Workflow & datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
+  // Workflow & datasets page is hidden but kept: re-add
+  // { id: "workflow", name: "Workflow & datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
+  // to show it again. Without a nav entry, #workflow falls back to Guard.
   // Legacy marker screen ("match") stays in code but is no longer navigable.
   { id: "evo2", name: "RareMatch", purpose: "Screen sequence variants", icon: "dna", group: "Workspace", role: "Select" },
   { id: "plan", name: "CulturePlan", purpose: "Plan experiments", icon: "plan", group: "Workspace", role: "Plan" },
