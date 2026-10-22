@@ -5,6 +5,8 @@ import {
   guardSeries,
   guardEventInfo,
   sampleSteps,
+  intervalRate,
+  doublingHours,
 } from "./guard-insights.ts"
 import { defaultMonitoringSettings } from "./research-settings.ts"
 
@@ -84,4 +86,14 @@ test("warning labels follow the configured rule and distinguish stale samples", 
     ).title,
     "1 consecutive decline",
   )
+})
+
+test("interval growth rate and doubling time follow log growth", () => {
+  const rate = intervalRate({ hour: 0, value: 1 }, { hour: 24, value: 2 })
+  assert.ok(Math.abs(rate! - Math.LN2 / 24) < 1e-12)
+  assert.ok(Math.abs(doublingHours(rate)! - 24) < 1e-9)
+  const decline = intervalRate({ hour: 0, value: 2 }, { hour: 12, value: 1 })
+  assert.ok(decline! < 0)
+  assert.equal(doublingHours(decline), null)
+  assert.equal(intervalRate({ hour: 5, value: 1 }, { hour: 5, value: 2 }), null)
 })

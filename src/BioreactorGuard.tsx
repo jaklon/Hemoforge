@@ -24,6 +24,8 @@ import {
   summarizeGuardBatch,
   guardSeries,
   guardEventInfo,
+  intervalRate,
+  doublingHours,
   formatGuardNumber as number,
   type GuardBatchSummary,
 } from "./guard-insights"
@@ -91,6 +93,10 @@ function GrowthChart({
   hour,
 
   endHour,
+
+  selectedEventId,
+
+  onSelectEvent,
 }: {
   batches: BatchView[]
 
@@ -99,14 +105,18 @@ function GrowthChart({
   hour: number
 
   endHour: number
+
+  selectedEventId?: string
+
+  onSelectEvent: (id: string) => void
 }) {
   const { guardView: view, setGuardView: setView } = useWorkspace()
 
-  const [inspectedHour, setInspectedHour] = useState<number | null>(null)
+  const { monitoring } = useCultureData()
 
-  const start = view.window ? Math.max(0, hour - view.window) : 0
+  const start = 0
 
-  const end = Math.max(start + 1, view.window ? hour : endHour)
+  const end = Math.max(start + 1, endHour)
 
   const displayed = batches.filter(
     (batch) =>
@@ -122,15 +132,63 @@ function GrowthChart({
 
   const allPoints = series.flatMap((batch) => batch.segments.flat())
 
-  const selectedPoints = series
+  const unit = view.scale === "count" ? " ×10⁶ cells" : "× fold change"
 
-    .find((batch) => batch.index === selected.index)!
+  const hoverPoints = series.flatMap((batch) =>
+    batch.segments.flatMap((segment) =>
+      segment.map((sample, index) => {
+        const previous = segment[index - 1]
 
-    .segments.flat()
+        const rate = previous ? intervalRate(previous, sample) : null
 
-  const point =
-    selectedPoints.find((point) => point.hour === inspectedHour) ??
-    selectedPoints.at(-1)
+        const doubling = doublingHours(rate)
+
+        const warnings = batch.summary.events.filter(
+          (item) => item.hour === sample.hour,
+        )
+
+        return {
+          x: sample.hour,
+
+          y: sample.value,
+
+          lines: [
+            `${batch.id} · ${number(sample.hour)}h`,
+
+            `${number(sample.value)}${unit}`,
+
+            ...(previous
+              ? [
+                  `${sample.value >= previous.value ? "+" : ""}${number(
+                    ((sample.value - previous.value) / previous.value) * 100,
+
+                    1,
+                  )}% vs ${number(previous.hour)}h`,
+                ]
+              : []),
+
+            ...(rate !== null
+              ? [
+                  `μ ${number(rate, 4)}/h · ${
+                    doubling === null
+                      ? "not doubling"
+                      : `doubles in ${number(doubling, 1)}h`
+                  }`,
+                ]
+              : []),
+
+            ...warnings.map(
+              (item) => `⚠ ${guardEventInfo(item, monitoring).title}`,
+            ),
+          ],
+        }
+      }),
+    ),
+  )
+
+  const markers = selected.summary.events.filter(
+    (item) => item.hour >= start && item.hour <= end,
+  )
 
   function comparison(id: string) {
     setView((old) => ({
@@ -144,55 +202,42 @@ function GrowthChart({
 
   return (
     <>
-      <div className="guard-chart-controls">
-        <a className="method-link" href="#methods/monitoring">
-          Growth &amp; warning formulas
-        </a>
-        <fieldset className="guard-segmented">
-          <legend className="sr-only">Growth chart scale</legend>
-          <button
-            type="button"
-            aria-pressed={view.scale === "count"}
-            onClick={() => setView({ ...view, scale: "count" })}
-          >
-            Cell count
-          </button>
-          <button
-            type="button"
-            aria-pressed={view.scale === "fold"}
-            onClick={() => setView({ ...view, scale: "fold" })}
-          >
-            Fold change
-          </button>
-        </fieldset>
-        <label>
-          Time window
-          <select
-            value={view.window}
-            onChange={(event) =>
-              setView({ ...view, window: Number(event.target.value) })
-            }
-          >
-            <option value="0">Full source window</option>
-            <option value="24">Last 24 hours</option>
-            <option value="72">Last 72 hours</option>
-          </select>
-        </label>
-        <label className="inline-check">
-          <input
-            type="checkbox"
-            checked={view.compare}
-            onChange={(event) =>
-              setView({ ...view, compare: event.target.checked })
-            }
-          />
-          Compare batches
-        </label>
-      </div>
       <InteractivePlot
+        controls={
+          <>
+            <fieldset className="guard-segmented">
+              <legend className="sr-only">Growth chart scale</legend>
+              <button
+                type="button"
+                aria-pressed={view.scale === "count"}
+                onClick={() => setView({ ...view, scale: "count" })}
+              >
+                Cell count
+              </button>
+              <button
+                type="button"
+                aria-pressed={view.scale === "fold"}
+                onClick={() => setView({ ...view, scale: "fold" })}
+              >
+                Fold change
+              </button>
+            </fieldset>
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={view.compare}
+                onChange={(event) =>
+                  setView({ ...view, compare: event.target.checked })
+                }
+              />
+              Compare batches
+            </label>
+          </>
+        }
         title={`Observed growth for ${selected.id}`}
         xExtent={[start, end]}
         values={allPoints.map((point) => point.value)}
+        points={hoverPoints}
         yLabel={
           view.scale === "count"
             ? "Cell count · ×10⁶ cells"
@@ -242,25 +287,43 @@ function GrowthChart({
                     cx={x(sample.hour)}
                     cy={y(sample.value)}
                     r={batch.index === selected.index ? 3.8 : 2.5}
-                  >
-                    <title>
-                      {batch.id} · {number(sample.hour)}h ·{" "}
-                      {number(sample.value)}
-                      {view.scale === "count" ? " million cells" : "×"}
-                    </title>
-                  </circle>
+                  />
                 ))}
               </g>
             ))}
-            {point && (
+            {markers.map((item) => (
+              <g
+                key={item.id}
+                className={`guard-warning-marker${
+                  item.id === selectedEventId ? " is-selected" : ""
+                }`}
+                data-plot-action
+                role="button"
+                tabIndex={0}
+                aria-label={`${guardEventInfo(item, monitoring).title} at ${number(item.hour)}h`}
+                onClick={() => onSelectEvent(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return
+
+                  event.preventDefault()
+
+                  event.stopPropagation()
+
+                  onSelectEvent(item.id)
+                }}
+              >
               <line
-                x1={x(point.hour)}
-                x2={x(point.hour)}
+                  x1={x(item.hour)}
+                  x2={x(item.hour)}
                 y1={top}
                 y2={bottom}
-                className="guard-inspection-line"
               />
-            )}
+                <path d={`M${x(item.hour)} ${top + 2} l-7 12 h14 z`} />
+                <text x={x(item.hour)} y={top + 12.5} textAnchor="middle">
+                  !
+                </text>
+              </g>
+            ))}
             <line
               x1={x(Math.min(hour, end))}
               x2={x(Math.min(hour, end))}
@@ -314,37 +377,6 @@ function GrowthChart({
             : "Advance to a valid source sample to establish a baseline."}
         </p>
       )}
-      <div className="guard-inspector">
-        <label>
-          Look up a sample
-          <select
-            disabled={!selectedPoints.length}
-            value={point?.hour ?? ""}
-            onChange={(event) => setInspectedHour(Number(event.target.value))}
-          >
-            {selectedPoints.length ? (
-              selectedPoints.map((sample) => (
-                <option key={sample.hour} value={sample.hour}>
-                  {selected.id} · {sample.hour}h
-                </option>
-              ))
-            ) : (
-              <option value="">No samples in this window</option>
-            )}
-          </select>
-        </label>
-        <div>
-          <span>
-            {view.scale === "count" ? "Measured count" : "Observed fold change"}
-          </span>
-          <strong>
-            {point ? number(point.value) : "—"}
-            <small>
-              {point ? (view.scale === "count" ? " ×10⁶ cells" : "×") : ""}
-            </small>
-          </strong>
-        </div>
-      </div>
     </>
   )
 }
@@ -426,7 +458,17 @@ export default function BioreactorGuard({
 
   const noData = batchViews.filter((batch) => !batch.summary.latest)
 
-  const shown = view.attentionOnly ? attention : batchViews
+  const pool = view.attentionOnly ? attention : batchViews
+
+  const slotted = view.slotIds.flatMap((id) =>
+    pool.filter((batch) => batch.id === id),
+  )
+
+  // ponytail: fixed 3 cards; the chart still compares every batch.
+  const shown = [
+    ...slotted,
+    ...pool.filter((batch) => !slotted.includes(batch)),
+  ].slice(0, 3)
 
   const urgent = [...attention].sort(
     (a, b) => b.summary.priority - a.summary.priority,
@@ -469,12 +511,38 @@ export default function BioreactorGuard({
 
     const focusTarget = target?.querySelector<HTMLElement>("summary, h2")
 
-    if (focusTarget && !focusTarget.matches("summary")) focusTarget.tabIndex = -1
+    if (focusTarget && !focusTarget.matches("summary"))
+      focusTarget.tabIndex = -1
 
     focusTarget?.focus({ preventScroll: true })
   }
 
-  function choose(index: number) {
+  function place(slot: number, id: string) {
+    const ids = shown.map((batch) => batch.id)
+
+    const existing = ids.indexOf(id)
+
+    if (existing >= 0) ids[existing] = ids[slot]
+
+    ids[slot] = id
+
+    setView((old) => ({ ...old, slotIds: ids }))
+
+    if (shown[slot]?.index === selected.index)
+      choose(batchViews.find((batch) => batch.id === id)!.index, false)
+  }
+
+  function choose(index: number, reveal = true) {
+    const batch = batchViews.find((item) => item.index === index)
+
+    // A batch picked elsewhere (e.g. Review) takes the last card if it is hidden.
+    if (reveal && batch && !shown.includes(batch))
+      setView((old) => ({
+        ...old,
+
+        slotIds: [...shown.slice(0, 2).map((item) => item.id), batch.id],
+      }))
+
     setReplicate(index)
 
     setSelectedEvent(null)
@@ -590,19 +658,6 @@ export default function BioreactorGuard({
         )}
       </div>
       {replayControls}
-      <div className="guard-source-line">
-        <span>
-          <Icon name="data" />
-          {source.name}
-        </span>
-        <button
-          type="button"
-          className="text-button"
-          onClick={() => navigate("data")}
-        >
-          Change data source
-        </button>
-      </div>
       <div className="section-heading guard-batch-heading" id="guard-batches">
         <div>
           <h2>Batch overview</h2>
@@ -620,7 +675,7 @@ export default function BioreactorGuard({
       </div>
       <fieldset className="guard-batches">
         <legend className="sr-only">Select culture batch</legend>
-        {shown.map((batch) => (
+        {shown.map((batch, slot) => (
           <label
             key={batch.id}
             className={`guard-batch-card${
@@ -634,7 +689,21 @@ export default function BioreactorGuard({
               onChange={() => choose(batch.index)}
             />
             <div className="guard-batch-title">
-              <strong>{batch.id}</strong>
+              {pool.length > 3 ? (
+                <select
+                  aria-label={`Batch shown in card ${slot + 1}`}
+                  value={batch.id}
+                  onChange={(event) => place(slot, event.target.value)}
+                >
+                  {pool.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.id}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <strong>{batch.id}</strong>
+              )}
               <Status status={batch.summary.status} />
             </div>
             <p>{batch.cellLine}</p>
@@ -695,7 +764,14 @@ export default function BioreactorGuard({
           title={`${selected.id} · growth`}
           caption={`${state.trend} · original sample times`}
           className="guard-growth-panel"
-          action={<Status status={state.status} />}
+          action={
+            <div className="header-actions">
+              <a className="method-link" href="#methods/monitoring">
+                Growth &amp; warning formulas
+              </a>
+              <Status status={state.status} />
+            </div>
+          }
         >
           <div className="guard-metrics">
             <div>
@@ -720,6 +796,32 @@ export default function BioreactorGuard({
               </strong>
             </div>
             <div>
+              <span>Growth rate μ (last interval)</span>
+              <strong
+                className={
+                  state.growthRate !== null && state.growthRate < 0
+                    ? "is-declining"
+                    : ""
+                }
+              >
+                {number(state.growthRate, 4)}
+                <small>{state.growthRate === null ? "" : " /h"}</small>
+              </strong>
+            </div>
+            <div>
+              <span>Doubling time</span>
+              <strong>
+                {number(doublingHours(state.growthRate), 1)}
+                <small>
+                  {doublingHours(state.growthRate) !== null
+                    ? " h"
+                    : state.growthRate !== null
+                      ? " not growing"
+                      : ""}
+                </small>
+              </strong>
+            </div>
+            <div>
               <span>Fold from first sample</span>
               <strong>
                 {number(state.foldChange)}
@@ -739,6 +841,16 @@ export default function BioreactorGuard({
             selected={selected}
             hour={hour}
             endHour={replayEndHour}
+            selectedEventId={event?.id}
+            onSelectEvent={(id) => {
+              setSelectedEvent(id)
+
+              document
+
+                .getElementById("guard-review-heading")
+
+                ?.focus({ preventScroll: true })
+            }}
           />
         </Panel>
         <div className="guard-side">
@@ -849,7 +961,10 @@ export default function BioreactorGuard({
                   id="guard-follow-up"
                   value={eventNotes[noteKey] ?? ""}
                   onChange={(e) =>
-                    setEventNotes({ ...eventNotes, [noteKey]: e.target.value })
+                      setEventNotes({
+                        ...eventNotes,
+                        [noteKey]: e.target.value,
+                      })
                   }
                   placeholder="Record your observation and next step…"
                 />
@@ -923,8 +1038,8 @@ export default function BioreactorGuard({
       <Details title={`Raw measurements · ${selected.id}`}>
         <div className="guard-table-actions">
           <p>
-            {state.visible.length} source rows through {number(hour)}h. Missing
-            or invalid values remain visible.
+              {state.visible.length} source rows through {number(hour)}h.
+              Missing or invalid values remain visible.
           </p>
           <Button
             icon="download"
@@ -1017,7 +1132,10 @@ export default function BioreactorGuard({
           </table>
         </div>
         <div className="pagination">
-          <Button disabled={!page} onClick={() => setMeasurementPage(page - 1)}>
+            <Button
+              disabled={!page}
+              onClick={() => setMeasurementPage(page - 1)}
+            >
             Previous samples
           </Button>
           <span>

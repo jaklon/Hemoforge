@@ -19,24 +19,36 @@ export interface PlotCoordinates {
   right: number
 }
 
+export interface PlotPoint {
+  x: number
+  y: number
+  lines: string[]
+}
+
 export default function InteractivePlot({
   title,
   xExtent,
   values,
   yLabel,
+  points = [],
+  controls,
   children,
 }: {
   title: string
   xExtent: Range
   values: number[]
   yLabel: string
+  // Hovering near one of these shows its lines in a tooltip.
+  points?: PlotPoint[]
+  // Page-specific controls placed before the shared ones in the toolbar.
+  controls?: ReactNode
   children: (coordinates: PlotCoordinates) => ReactNode
 }) {
   const svg = useRef<SVGSVGElement>(null)
   const id = useId().replace(/:/g, "")
   const [width, setWidth] = useState(700)
   const [logarithmic, setLogarithmic] = useState(false)
-  const [axes, setAxes] = useState("both")
+  const [hover, setHover] = useState<PlotPoint | null>(null)
   const [view, setView] = useState<{
     x: Range
     y: Range
@@ -81,7 +93,11 @@ export default function InteractivePlot({
     bottom -
     ((transform(value) - current.y[0]) / (current.y[1] - current.y[0])) *
       (bottom - top)
-  function zoom(factor: number, anchor = { x: 0.5, y: 0.5 }) {
+  function zoom(
+    factor: number,
+    anchor = { x: 0.5, y: 0.5 },
+    axes: "both" | "x" | "y" = "both",
+  ) {
     setView({
       x:
         axes === "y"
@@ -123,23 +139,37 @@ export default function InteractivePlot({
     const element = svg.current
     if (!element) return
     function wheel(event: WheelEvent) {
-      const factor = Math.exp(
-        Math.max(-0.7, Math.min(0.7, event.deltaY * 0.002)),
-      )
+      // Ctrl zooms time only, Shift zooms Y only. Shift+wheel arrives as deltaX on Windows.
+      const axes = event.ctrlKey ? "x" : event.shiftKey ? "y" : "both"
+      const delta = event.deltaY || event.deltaX
+      const factor = Math.exp(Math.max(-0.7, Math.min(0.7, delta * 0.002)))
       // Zooming out a fully fitted chart scrolls the page instead of trapping it.
       const fitted =
-        current.x[0] <= xExtent[0] &&
-        current.x[1] >= xExtent[1] &&
-        current.y[0] <= yExtent[0] &&
-        current.y[1] >= yExtent[1]
-      if (factor > 1 && fitted) return
+        (axes === "y" ||
+          (current.x[0] <= xExtent[0] && current.x[1] >= xExtent[1])) &&
+        (axes === "x" ||
+          (current.y[0] <= yExtent[0] && current.y[1] >= yExtent[1]))
+      if (factor > 1 && fitted && !event.ctrlKey) return
       event.preventDefault()
-      zoom(factor, position(event.clientX, event.clientY))
+      if (factor > 1 && fitted) return
+      zoom(factor, position(event.clientX, event.clientY), axes)
     }
     element.addEventListener("wheel", wheel, { passive: false })
     return () => element.removeEventListener("wheel", wheel)
   })
   const zoomed = (xExtent[1] - xExtent[0]) / (current.x[1] - current.x[0])
+  function inspect(clientX: number, clientY: number) {
+    const rect = svg.current!.getBoundingClientRect()
+    const px = ((clientX - rect.left) / rect.width) * width
+    const py = ((clientY - rect.top) / rect.height) * 302
+    let nearest: PlotPoint | null = null
+    let best = 24
+    for (const point of points) {
+      const distance = Math.hypot(x(point.x) - px, y(point.y) - py)
+      if (distance < best) [nearest, best] = [point, distance]
+    }
+    setHover(nearest)
+  }
   function endPointer(pointerId: number) {
     pointers.current.delete(pointerId)
     setDragging(pointers.current.size > 0)
@@ -147,6 +177,7 @@ export default function InteractivePlot({
   return (
     <div className="interactive-plot">
       <div className="plot-toolbar" aria-label={`${title} controls`}>
+        {controls}
         <label>
           Y axis
           <select
@@ -157,25 +188,10 @@ export default function InteractivePlot({
             <option value="log">Logarithmic (log₁₀)</option>
           </select>
         </label>
-        <label>
-          Zoom axes
-          <select
-            value={axes}
-            onChange={(event) => setAxes(event.target.value)}
-          >
-            <option value="both">Both axes</option>
-            <option value="x">Time only</option>
-            <option value="y">Y axis only</option>
-          </select>
-        </label>
-        <div className="plot-buttons" role="group" aria-label="Zoom controls">
-          <Button onClick={() => zoom(0.7)} aria-label="Zoom in">
-            +
+        <div className="plot-buttons">
+          <Button icon="home" onClick={() => setView(null)}>
+            Home
           </Button>
-          <Button onClick={() => zoom(1 / 0.7)} aria-label="Zoom out">
-            −
-          </Button>
-          <Button onClick={() => setView(null)}>Reset view</Button>
         </div>
       </div>
       <svg
@@ -187,7 +203,9 @@ export default function InteractivePlot({
         aria-label={title}
         aria-describedby={`${id}-help ${id}-range`}
         onDoubleClick={() => setView(null)}
+        onBlur={(event) => delete event.currentTarget.dataset.pointer}
         onKeyDown={(event) => {
+          delete event.currentTarget.dataset.pointer
           if (
             [
               "ArrowLeft",
@@ -211,7 +229,15 @@ export default function InteractivePlot({
           if (event.key === "Home" || event.key === "Escape") setView(null)
         }}
         onPointerDown={(event) => {
-          if (event.button !== 0) return
+          // Clickable marks inside the chart keep their own click.
+          if (
+            event.button !== 0 ||
+            (event.target as Element).closest("[data-plot-action]")
+          )
+            return
+          setHover(null)
+          // Mouse focus enables arrow-key panning; the ring returns on the next key press.
+          event.currentTarget.dataset.pointer = ""
           event.currentTarget.focus({ preventScroll: true })
           event.currentTarget.setPointerCapture(event.pointerId)
           pointers.current.set(
@@ -222,7 +248,7 @@ export default function InteractivePlot({
         }}
         onPointerMove={(event) => {
           const previous = pointers.current.get(event.pointerId)
-          if (!previous) return
+          if (!previous) return inspect(event.clientX, event.clientY)
           const next = position(event.clientX, event.clientY)
           const other = [...pointers.current.entries()].find(
             ([key]) => key !== event.pointerId,
@@ -241,11 +267,11 @@ export default function InteractivePlot({
           } else pan(previous.x - next.x, next.y - previous.y)
           pointers.current.set(event.pointerId, next)
         }}
+        onPointerLeave={() => setHover(null)}
         onPointerUp={(event) => endPointer(event.pointerId)}
         onPointerCancel={(event) => endPointer(event.pointerId)}
         onLostPointerCapture={(event) => endPointer(event.pointerId)}
       >
-        <title>{title}</title>
         <defs>
           <clipPath id={`${id}-clip`}>
             <rect x={left} y={top} width={right - left} height={bottom - top} />
@@ -286,10 +312,21 @@ export default function InteractivePlot({
         <text x={right} y="299" textAnchor="end" className="axis-title">
           Time (hours)
         </text>
+        {hover && hover.x >= current.x[0] && hover.x <= current.x[1] && (
+          <PlotTooltip
+            x={x(hover.x)}
+            y={y(hover.y)}
+            lines={hover.lines}
+            left={left}
+            right={right}
+            top={top}
+          />
+        )}
       </svg>
       <div className="plot-footer">
         <p id={`${id}-help`}>
-          Scroll to zoom · Drag to pan · Double-click to reset
+          Scroll to zoom · Ctrl+scroll: time only · Shift+scroll: Y only ·
+          Drag to pan · Hover a point for values
         </p>
         <span id={`${id}-range`} aria-live="polite">
           {plotNumber(current.x[0])}–{plotNumber(current.x[1])}h ·{" "}
@@ -297,5 +334,51 @@ export default function InteractivePlot({
         </span>
       </div>
     </div>
+  )
+}
+
+function PlotTooltip({
+  x,
+  y,
+  lines,
+  left,
+  right,
+  top,
+}: {
+  x: number
+  y: number
+  lines: string[]
+  left: number
+  right: number
+  top: number
+}) {
+  // ponytail: width estimated from character count, measure with getBBox if labels get long.
+  const boxWidth = Math.max(...lines.map((line) => line.length)) * 6.2 + 20
+  const boxHeight = lines.length * 15 + 10
+  const boxX = x + 12 + boxWidth > right ? x - 12 - boxWidth : x + 12
+  const boxY = Math.max(top, Math.min(y - boxHeight / 2, 262 - boxHeight))
+  return (
+    <g className="plot-tooltip" pointerEvents="none">
+      <circle cx={x} cy={y} r="6" />
+      <rect
+        x={Math.max(left, boxX)}
+        y={boxY}
+        width={boxWidth}
+        height={boxHeight}
+        rx="5"
+      />
+      <text x={Math.max(left, boxX) + 10} y={boxY + 18}>
+        {lines.map((line, index) => (
+          <tspan
+            key={index}
+            x={Math.max(left, boxX) + 10}
+            dy={index ? 15 : 0}
+            className={index ? undefined : "is-title"}
+          >
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
   )
 }

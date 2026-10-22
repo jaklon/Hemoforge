@@ -279,10 +279,10 @@ export const methods = [
     equations: [
       {
         id: "observed-growth",
-        name: "Fold change, last-interval rate, and percentage change",
-        latex: String.raw`\begin{aligned}F&=\frac{N_{\mathrm{last}}}{N_0},\quad g_{\mathrm{last}}=\frac{\ln(N_{\mathrm{last}}/N_{\mathrm{prev}})}{t_{\mathrm{last}}-t_{\mathrm{prev}}}\\ \Delta_\%&=100\frac{N_{\mathrm{last}}-N_{\mathrm{prev}}}{N_{\mathrm{prev}}}\end{aligned}`,
+        name: "Fold change, last-interval rate, doubling time, and percentage change",
+        latex: String.raw`\begin{aligned}F&=\frac{N_{\mathrm{last}}}{N_0},\quad g_{\mathrm{last}}=\frac{\ln(N_{\mathrm{last}}/N_{\mathrm{prev}})}{t_{\mathrm{last}}-t_{\mathrm{prev}}}\\ t_d&=\frac{\ln 2}{g_{\mathrm{last}}}\ (g_{\mathrm{last}}>0),\quad \Delta_\%=100\frac{N_{\mathrm{last}}-N_{\mathrm{prev}}}{N_{\mathrm{prev}}}\end{aligned}`,
         explanation:
-          "These describe measured change. They do not extrapolate a future trajectory. Invalid visible source rows withhold derived growth values until reviewed.",
+          "These describe measured change. They do not extrapolate a future trajectory. Doubling time is shown only while the last interval grew. The chart tooltip applies the same rate to each adjacent pair of valid samples. Invalid visible source rows withhold derived growth values until reviewed.",
       },
       {
         id: "monitoring-rules",

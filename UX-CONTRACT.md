@@ -25,7 +25,7 @@ a dedicated Methods & references page. Users can expand them without leaving the
 | Replay | ReplayControls and culture-monitoring.ts | Proposal section III | paused, playback, manual cursor | Core tests and browser |
 | Reports | reportsForSamples / ResearchReport | Proposal section IV | timeline, HTML, JSON, CSV | Core tests and browser exports |
 | Import | DataWorkspace / workspace-data.ts | Current user request | CSV, TSV, JSON; picker and drop | Parser tests and browser file chooser |
-| Scientific charts | InteractivePlot / plot-navigation.ts | Current user request | linear/logarithmic Y; buttons, pointer, keyboard, pinch | Navigation tests and desktop/mobile browser |
+| Scientific charts | InteractivePlot / plot-navigation.ts | Current user request | linear/logarithmic Y; Home reset, Ctrl/Shift wheel axis zoom, hover values, pointer, keyboard, pinch | Navigation tests and desktop/mobile browser |
 | Methods | MethodsPage / methods-content.ts | Implementation and cited primary sources | nested hash anchors, LaTeX source export | Equation rendering test and browser deep links |
 | Run | workspace-context.tsx | Current user request | independent typed inputs in one workspace | Custom-input browser workflow |
 

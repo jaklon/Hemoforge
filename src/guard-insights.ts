@@ -9,19 +9,20 @@ import {
 } from "./research-settings.ts"
 
 export interface GuardView {
-  window: number
   scale: "count" | "fold"
   compare: boolean
   hiddenBatchIds: string[]
   attentionOnly: boolean
+  // Batch ids pinned to the overview cards, in card order.
+  slotIds: string[]
 }
 
 export const defaultGuardView: GuardView = {
-  window: 0,
   scale: "count",
   compare: true,
   hiddenBatchIds: [],
   attentionOnly: false,
+  slotIds: [],
 }
 
 export function summarizeGuardBatch(
@@ -129,6 +130,21 @@ export function guardEventInfo(
     action:
       "Check the original counts and sampling notes. Re-measure if needed before drawing a conclusion about the culture.",
   }
+}
+
+// Specific growth rate per hour between two samples; ratio-based, so fold values work too.
+export function intervalRate(
+  previous: { hour: number; value: number },
+  next: { hour: number; value: number },
+) {
+  return next.hour > previous.hour && previous.value > 0 && next.value > 0
+    ? Math.log(next.value / previous.value) / (next.hour - previous.hour)
+    : null
+}
+
+// Doubling time only exists while the population is growing.
+export function doublingHours(rate: number | null) {
+  return rate !== null && rate > 0 ? Math.LN2 / rate : null
 }
 
 export function formatGuardNumber(value: number | null, digits = 2) {
