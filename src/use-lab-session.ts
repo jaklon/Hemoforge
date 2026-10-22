@@ -19,6 +19,7 @@ export default function useLabSession(
     speed?: number
     volume_ml?: number
     mixed?: boolean
+    intervention_id?: string
   } | null>(null)
   const nextSeq = useRef(1)
   const command = useCallback(
@@ -29,6 +30,7 @@ export default function useLabSession(
         speed?: number
         volume_ml?: number
         mixed?: boolean
+        intervention_id?: string
       } = {},
     ) => {
       if (
@@ -90,13 +92,15 @@ export default function useLabSession(
       if (
         message.type !== "snapshot" ||
         message.session_id !== id ||
-        message.schema_version !== 2
+        message.schema_version !== 3
       )
         return
       latest.current = message
       nextSeq.current = message.ack_seq + 1
-      if (pending.current !== null && message.ack_seq >= pending.current)
+      if (pending.current !== null && message.ack_seq >= pending.current) {
         pending.current = null
+        setError("")
+      }
       setSnapshot(message)
       setConnection("connected")
       if (pending.current === null && queued.current) {

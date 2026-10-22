@@ -8,6 +8,8 @@ interface Props {
   running: boolean
   progress: number
   volumeMl: number
+  interventionKind: "feed" | "medium_exchange" | null
+  interventionProgress: number
   onFrame: (seconds: number) => void
   onInteract: () => void
   onError: (message: string) => void
@@ -212,17 +214,77 @@ export default function LabScene(props: Props) {
       teal,
     )
     reactor.add(tubeMesh)
+    const volumeLabel = label("500 mL", 512, 180)
+    let displayedVolume = 500
     box(
       reactor,
       [0.32, 0.21, 0.08],
       [0.03, 0.85, 0.45],
-      label("500 mL", 512, 180),
+      volumeLabel,
     )
     box(
       scene,
       [0.72, 0.5, 0.1],
       [-3.05, 1.38, -1.25],
       label("BIOREACTOR", 512, 240),
+    )
+    // Free procedural medium-transfer props; idealized retention, not a physical device replica.
+    cylinder(scene, 0.16, 0.17, 0.55, [-2.9, 1.32, -1.9], material("#c2ddab"))
+    cylinder(scene, 0.08, 0.08, 0.12, [-2.9, 1.65, -1.9], teal)
+    box(
+      scene,
+      [0.46, 0.18, 0.04],
+      [-2.9, 1.32, -1.7],
+      label("MEDIUM", 512, 180),
+    )
+    cylinder(scene, 0.14, 0.17, 0.45, [-0.55, 1.28, -1.75], material("#bcb0c5"))
+    box(
+      scene,
+      [0.4, 0.16, 0.04],
+      [-0.55, 1.28, -1.56],
+      label("WASTE", 512, 180),
+    )
+    const feedPath = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-2.9, 1.7, -1.9),
+      new THREE.Vector3(-2.5, 2.45, -1.7),
+      new THREE.Vector3(-1.8, 2.25, -1.35),
+    ])
+    const wastePath = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-1.5, 2.22, -1.35),
+      new THREE.Vector3(-0.9, 2, -1.6),
+      new THREE.Vector3(-0.55, 1.55, -1.75),
+    ])
+    const transferParticles: THREE.Mesh[][] = []
+    for (const [index, path] of [feedPath, wastePath].entries()) {
+      scene.add(
+        new THREE.Mesh(
+          new THREE.TubeGeometry(path, 24, 0.018, 6, false),
+          material(index ? "#786381" : "#608d69"),
+        ),
+      )
+      const particles = Array.from({ length: 5 }, () => {
+        const particle = new THREE.Mesh(
+          new THREE.SphereGeometry(0.032, 8, 6),
+          material(index ? "#e8b6f3" : "#d5ed7e"),
+        )
+        scene.add(particle)
+        return particle
+      })
+      transferParticles.push(particles)
+    }
+    const pumpLamp = cylinder(
+      scene,
+      0.055,
+      0.055,
+      0.08,
+      [-1.3, 2.1, -1.35],
+      material("#d7b86e"),
+    )
+    const transferProgress = box(
+      scene,
+      [0.6, 0.04, 0.04],
+      [-1.8, 2.38, -1.2],
+      material("#72ad7b"),
     )
     const analyzer = new THREE.Group()
     analyzer.position.set(1.9, 1.02, -1.35)
@@ -436,6 +498,31 @@ export default function LabScene(props: Props) {
       fluid.rotation.y = elapsed * 0.12
       fluid.scale.y = state.volumeMl / 500
       fluid.position.y = 0.175 + 0.295 * fluid.scale.y
+      if (state.volumeMl !== displayedVolume) {
+        displayedVolume = state.volumeMl
+        const canvas = volumeLabel.map!.image as HTMLCanvasElement
+        const context = canvas.getContext("2d")!
+        context.fillStyle = "#173c40"
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.fillStyle = "#e2f2ee"
+        context.fillText(`${state.volumeMl.toFixed(1)} mL`, canvas.width / 2, canvas.height / 2, canvas.width * 0.92)
+        volumeLabel.map!.needsUpdate = true
+      }
+      for (const [pathIndex, particles] of transferParticles.entries()) {
+        for (const [index, particle] of particles.entries()) {
+          particle.visible =
+            !!state.interventionKind &&
+            (pathIndex === 0 || state.interventionKind === "medium_exchange")
+          particle.position.copy(
+            (pathIndex === 0 ? feedPath : wastePath).getPoint(
+              (elapsed * 0.45 + index / 5) % 1,
+            ),
+          )
+        }
+      }
+      pumpLamp.visible = !!state.interventionKind
+      transferProgress.visible = !!state.interventionKind
+      transferProgress.scale.x = Math.max(0.02, state.interventionProgress)
       hands.position.y = Math.sin(elapsed * 2) * 0.007
       hands.rotation.x =
         state.phase === "analyzing" ? Math.sin(elapsed * 3) * 0.035 : 0
@@ -448,7 +535,8 @@ export default function LabScene(props: Props) {
         2.5 + Math.sin(now / 350) * 0.05,
         -1.3,
       )
-      arrow.visible = state.phase !== "analyzing"
+      arrow.visible =
+        state.phase !== "analyzing" && state.phase !== "intervening"
       renderer.render(scene, camera)
       // Advancing occurs only after a frame was actually rendered.
       state.onFrame(delta)

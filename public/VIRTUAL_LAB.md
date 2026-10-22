@@ -1,4 +1,4 @@
-# HemoForge Virtual Lab — Stage C
+# HemoForge Virtual Lab — Stage D
 
 Open http://127.0.0.1:8443/#lab. Choose a scenario/seed under **Pengaturan sesi baru**,
 create a session, then click **Buka Guard di monitor 2**.
@@ -18,6 +18,31 @@ Move the opened tab into a separate browser window on the second monitor. Keep t
 9. To compare scenarios, change the new-session settings and click **Sesi baru**. The old Guard link remains tied
    to its old session; use the new session's monitor link. Scenario/seed changes never mutate a running culture.
 
+## Apply Guard decisions to the 3D reactor
+
+1. Start a fresh run (the previous completed 168 h run has no time left for interventions).
+   **Stres metabolit** is useful for observing the simulated dilution effect of medium exchange.
+2. Complete a valid FLEX2 assay. In the 3D window, click **Buat kode pairing Guard**.
+   Enter its 12-character code into **Kode dari layar 3D** on Guard and click **Hubungkan kontrol Guard**.
+   The code is single-use and expires after two minutes. A monitor link by itself remains read-only.
+3. Review the released measurement, select **Tindakan simulasi** and enter **Alasan keputusan**.
+   Choose **Pratinjau keputusan**, check the source/volume/assumptions, then **Konfirmasi & kirim ke bioreaktor**.
+4. Keep the 3D window visible. The reactor camera and pump animation execute the decision automatically.
+   Four accepted rendered seconds represent three culture minutes. Transfer is applied once at completion.
+5. Confirm the same **Sudah diterapkan** status and volume ledger in both windows. Old measurements do not change.
+6. Collect, load and analyze another FLEX2 sample to see the changed concentrations/density in Guard.
+   A new QC-passed measurement is required before another action; observations older than 24 culture hours are refused.
+7. Use **Batalkan tindakan yang belum selesai** in Guard to cancel before completion. Transfer is prevented;
+   culture time/biology already elapsed during the animation are retained. Applied actions cannot be cancelled.
+8. **Cabut izin kontrol Guard** on the 3D window revokes access and cancels unfinished actions.
+   New pairing rotates the prior operator capability. Use **Pasangkan ulang kontrol** when needed.
+
+Feed presets add 10/25 mL; exchange presets replace 25/50% at constant volume with **ideal 100% cell retention**.
+Fresh medium is assumed glucose 24, glutamine 4, lactate/ammonium 0 mmol/L and no cells. Feed conserves cell
+numbers while diluting density. These are teaching assumptions, not real operating instructions or validated
+pump/retention performance. Working volume is capped at 550 mL; intervention audit is included in JSON export.
+If hidden frames or a render stall pause execution, restore the 3D window and choose **Lanjutkan waktu**.
+
 This is an uncalibrated synthetic teaching scenario. No physical device, NVIDIA, LLM, or remote database is called.
 The eight-second presentation compresses a 4.5-minute culture interval, using Nova's nominal full-menu time
 as reference. The virtual stages are illustrative, not a reconstruction of Nova firmware or laboratory SOPs.
@@ -31,7 +56,7 @@ Analytical SD assumptions: density 2.5%, metabolite channels 2%, pH 0.01 and via
 These are synthetic variation settings, not Nova accuracy specifications or biological uncertainty bounds.
 Scenario, seed and matching sample times/volumes reproduce results. Scenarios are not calibrated for BEL-A.
 Temperature, DO, genetic data and other unavailable measurements remain absent. CulturePlan, RareMatch,
-ErythroPilot, real instrument integration, feeding/intervention control and biological validation remain later work.
+ErythroPilot, real instrument integration and biological validation remain later work. Virtual feed/exchange is available in Stage D.
 
 Sessions live only in one API process, expire after an hour without accepted commands, and disappear on restart.
 This prototype is limited to localhost; do not expose it as a public/multi-user service. The random session ID is
@@ -46,4 +71,4 @@ The bioreactor, analyzer, hands, room, and arrows are procedural temporary geome
 No paid assets were bought. Equipment and hand models can be replaced later while preserving the interaction anchors.
 
 See docs/VIRTUAL_LAB_STAGE_C.md in the repository for equations, units, assumptions, references and tests;
-docs/VIRTUAL_LAB_STAGE_AB.md preserves the original Stage A/B contract.
+docs/VIRTUAL_LAB_STAGE_D.md describes pairing, decisions and execution; docs/VIRTUAL_LAB_STAGE_AB.md preserves the original Stage A/B contract.

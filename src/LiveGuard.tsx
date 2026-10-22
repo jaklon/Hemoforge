@@ -3,6 +3,7 @@ import Guard from "./BioreactorGuard"
 import { DataProvider } from "./workspace-context"
 import { labSessionFromHash, liveCultureFile } from "./lab-session"
 import useLabSession from "./use-lab-session"
+import GuardDecisions from "./GuardDecisions"
 import "./virtual-lab.css"
 
 export default function LiveGuard() {
@@ -58,10 +59,11 @@ export default function LiveGuard() {
       </section>
       <main className="live-guard-main">
         <div className="vl-evidence-note">
-          Stage C · mechanistic teaching culture and virtual FLEX2 with
-          simulated analytical variation. No physical instrument is connected.
-          Only Guard is integrated in this prototype; other modules follow in
-          later stages.
+          Stage D · Guard decisions return to the 3D reactor through an
+          authorized, animation-driven workflow. Teaching culture and virtual
+          FLEX2 with simulated analytical variation. No physical instrument is
+          connected. Only Guard is integrated in this prototype; other modules
+          follow in later stages.
         </div>
         {snapshot && (
           <p className="vl-assay-context">
@@ -133,6 +135,13 @@ export default function LiveGuard() {
             </span>
           </div>
         )}
+        {snapshot && (
+          <GuardDecisions
+            key={snapshot.session_id}
+            snapshot={snapshot}
+            connected={connection === "connected"}
+          />
+        )}
         {culture && culture.rows.length ? (
           <DataProvider liveCulture={culture}>
             <Guard
@@ -142,7 +151,7 @@ export default function LiveGuard() {
               setReplicate={() => {}}
               navigate={() =>
                 setMessage(
-                  "Stage C connects FLEX2 to Guard. Open the regular workspace separately for other modules.",
+                  "Stage D connects Guard decisions to the virtual reactor. Open the regular workspace separately for other modules.",
                 )
               }
               eventNotes={notes}

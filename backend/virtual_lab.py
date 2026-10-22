@@ -1,4 +1,4 @@
-"""Stage C: bounded, local-only, in-memory culture/FLEX2 demonstration sessions.
+"""Stage D: local culture, FLEX2 and Guard intervention demonstration sessions.
 
 Only accepted animation ticks advance culture time. No database, instrument,
 external inference, or autonomous background culture timer is used here.
@@ -19,7 +19,10 @@ from pydantic import Field, ValidationError
 
 from backend.models import InputModel
 from backend.culture_simulation import (Culture, MODEL_VERSION, ASSAY_SECONDS, ASSAY_HOURS,
-                                       ANALYZED_ML, NOISE, assay_reading, assay_stage)
+                                       ANALYZED_ML, NOISE, assay_reading, assay_stage,
+                                       INTERVENTION_SECONDS, INTERVENTION_HOURS, MAX_VOLUME_ML)
+from backend.lab_interventions import (PairRequest, InterventionRequest, matches_token,
+    active_intervention, queue_intervention, cancel_intervention, DECISION_MAX_AGE_HOURS)
 
 router = APIRouter(prefix="/api/v1/lab", tags=["Virtual Lab - local synthetic prototype"])
 ORIGINS = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (8000, 8443)}
@@ -46,11 +49,12 @@ class RunConfig(InputModel):
 
 class Command(InputModel):
     seq: int = Field(strict=True, ge=1, le=1_000_000)
-    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed"]
+    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed", "execute"]
     seconds: float = Field(default=0, ge=0, le=0.5)
     speed: Literal[1, 6, 12] = 6
     volume_ml: float = Field(default=1, ge=0.1, le=5)
     mixed: bool = Field(default=True, strict=True)
+    intervention_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 @dataclass
@@ -77,6 +81,12 @@ class Session:
     analysis_seconds: float = 0.0
     results: list = field(default_factory=list)
     assays: list = field(default_factory=list)
+    interventions: list = field(default_factory=list)
+    intervention_seconds: float = 0.0
+    operator_token: str | None = None
+    pairing_code: str | None = None
+    pairing_expires: float = 0.0
+    pairing_attempts: int = 0
 
     def __post_init__(self):
         self.culture = Culture(self.scenario)
@@ -88,7 +98,7 @@ class Session:
 
     def snapshot(self):
         return {
-            "type": "snapshot", "schema_version": 2, "session_id": self.id,
+            "type": "snapshot", "schema_version": 3, "session_id": self.id,
             "batch_id": "VL-" + self.id[:8].upper(), "model_version": MODEL,
             "created_at": self.created_at, "revision": self.revision, "ack_seq": self.seq,
             "culture_hours": round(self.hour, 6), "end_hour": END_HOUR,
@@ -101,6 +111,12 @@ class Session:
             "scenario": self.scenario, "seed": self.seed, "uncertainty_model": NOISE,
             "working_volume_ml": round(self.culture.volume_ml, 6),
             "withdrawn_volume_ml": round(self.culture.withdrawn_ml, 6),
+            "added_volume_ml": self.culture.added_ml, "exchanged_volume_ml": self.culture.exchanged_ml,
+            "operator_paired": self.operator_token is not None,
+            "interventions": self.interventions, "active_intervention": active_intervention(self),
+            "intervention_protocol": {"animation_seconds": INTERVENTION_SECONDS,
+                "culture_minutes": INTERVENTION_HOURS * 60, "max_volume_ml": MAX_VOLUME_ML,
+                "decision_max_age_hours": DECISION_MAX_AGE_HOURS},
             "assays": self.assays,
             "sample": self.sample, "measurements": self.results,
             "measurements_sha256": hashlib.sha256(json.dumps(self.results, sort_keys=True).encode()).hexdigest(),
@@ -113,10 +129,13 @@ class Session:
         if command.seq != self.seq + 1:
             raise ValueError("Command gap. Reconnect before continuing.")
         action = command.action
+        active = active_intervention(self)
         if action == "play":
+            if active and active["status"] == "queued":
+                raise ValueError("Wait for the 3D controller to accept the queued intervention.")
             if self.phase in {"collected", "loaded"}:
                 raise ValueError("Finish the current sample workflow first.")
-            if self.hour >= END_HOUR and self.phase != "analyzing":
+            if self.hour >= END_HOUR and self.phase not in {"analyzing", "intervening"}:
                 raise ValueError("This run reached 168 h. Start a new session.")
             self.running = True
             self.reason = "Culture follows the visible 3D animation."
@@ -126,7 +145,19 @@ class Session:
             self.speed = command.speed
         elif action == "advance":
             if self.running:
-                if self.phase == "analyzing":
+                if self.phase == "intervening":
+                    seconds = min(command.seconds, INTERVENTION_SECONDS - self.intervention_seconds)
+                    self.intervention_seconds += seconds
+                    self.culture.advance(seconds * INTERVENTION_HOURS / INTERVENTION_SECONDS)
+                    self.hour += seconds * INTERVENTION_HOURS / INTERVENTION_SECONDS
+                    active["progress"] = min(1, self.intervention_seconds / INTERVENTION_SECONDS)
+                    if self.intervention_seconds >= INTERVENTION_SECONDS - 1e-8:
+                        outcome = self.culture.intervene(active["kind"], active["amount"])
+                        active.update(status="applied", progress=1.0, outcome=outcome,
+                                      completed_at_hour=round(self.hour, 6))
+                        self.phase = "complete"
+                        self.stop("Guard intervention applied to the reactor. Collect FLEX2 again to measure its effect.")
+                elif self.phase == "analyzing":
                     seconds = min(command.seconds, ANALYSIS_SECONDS - self.analysis_seconds)
                     self.analysis_seconds += seconds
                     hours = seconds * ANALYSIS_HOURS / ANALYSIS_SECONDS
@@ -157,7 +188,7 @@ class Session:
                     if self.hour >= END_HOUR:
                         self.stop("End of demonstration run. Sampling remains available.")
         elif action == "collect":
-            if self.phase not in {"idle", "complete"}:
+            if active or self.phase not in {"idle", "complete"}:
                 raise ValueError("A sample is already in progress.")
             if len(self.assays) >= MAX_RESULTS:
                 raise ValueError("This prototype supports at most 100 samples per run.")
@@ -186,6 +217,14 @@ class Session:
             self.phase = "analyzing"
             self.running = True
             self.reason = "Eight animated seconds represent 4.5 culture minutes; the reactor continues evolving."
+        elif action == "execute":
+            if not active or active["id"] != command.intervention_id or active["status"] != "queued":
+                raise ValueError("This intervention is no longer queued.")
+            self.intervention_seconds = 0.0
+            active.update(status="executing", started_at_hour=round(self.hour, 6))
+            self.phase = "intervening"
+            self.running = True
+            self.reason = "3D reactor is executing the confirmed Guard decision."
         self.seq = command.seq
         self.revision += 1
         self.touched = self.last_tick = time.monotonic()
@@ -215,6 +254,70 @@ async def create(request: Request, config: RunConfig | None = None):
     session = Session(scenario=config.scenario, seed=config.seed)
     sessions[session.id] = session
     return {"session_id": session.id, "controller_token": session.token}
+
+
+def authorized_session(request, id, role):
+    if not local_client(request) or request.headers.get("x-hemoforge-action") != "virtual-lab":
+        raise HTTPException(403, "Use the local Virtual Lab application.")
+    session = find_session(id)
+    expected = session.token if role == "controller" else session.operator_token
+    if not matches_token(request.headers.get(f"x-lab-{role}", ""), expected):
+        raise HTTPException(403, "Control authorization expired or is missing. Pair the Guard again.")
+    return session
+
+
+@router.post("/sessions/{id}/pairing")
+async def enable_pairing(request: Request, id: str):
+    session = authorized_session(request, id, "controller")
+    session.pairing_code = secrets.token_hex(6)
+    session.pairing_expires = time.monotonic() + 120
+    session.pairing_attempts = 0
+    return {"code": session.pairing_code, "expires_in_seconds": 120}
+
+
+@router.post("/sessions/{id}/pair")
+async def pair(request: Request, id: str, payload: PairRequest):
+    if not local_client(request) or request.headers.get("x-hemoforge-action") != "virtual-lab":
+        raise HTTPException(403, "Use the local Guard application.")
+    session = find_session(id)
+    session.pairing_attempts += 1
+    if (session.pairing_attempts > 10 or time.monotonic() >= session.pairing_expires
+            or not matches_token(payload.code.lower(), session.pairing_code)):
+        raise HTTPException(403, "Pairing code invalid or expired. Generate a new code in the 3D window.")
+    session.pairing_code = None
+    session.operator_token = secrets.token_urlsafe(32)
+    session.revision += 1
+    session.touched = time.monotonic()
+    return {"operator_token": session.operator_token}
+
+
+@router.post("/sessions/{id}/revoke-operator")
+async def revoke_operator(request: Request, id: str):
+    session = authorized_session(request, id, "controller")
+    session.operator_token = session.pairing_code = None
+    active = active_intervention(session)
+    if active:
+        cancel_intervention(session, active["id"], "Operator access revoked from the 3D controller.")
+    session.revision += 1
+    return {"operator_paired": False}
+
+
+@router.post("/sessions/{id}/interventions", status_code=201)
+async def decide(request: Request, id: str, payload: InterventionRequest):
+    session = authorized_session(request, id, "operator")
+    try:
+        return queue_intervention(session, payload, END_HOUR)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+
+
+@router.post("/sessions/{id}/interventions/{intervention_id}/cancel")
+async def cancel_decision(request: Request, id: str, intervention_id: str):
+    session = authorized_session(request, id, "operator")
+    try:
+        return cancel_intervention(session, intervention_id, "Cancelled by the Guard operator.")
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
 
 
 @router.websocket("/sessions/{id}/stream")

@@ -1,5 +1,8 @@
 # Virtual Lab Stage C — culture, sampling and virtual FLEX2
 
+Historical Stage C baseline. [Stage D](VIRTUAL_LAB_STAGE_D.md) adds the return decision path,
+model version 3 and stream schema 3; it supersedes the earlier no-intervention scope below.
+
 Implements a reproducible, uncalibrated batch-culture teaching model, replacing Stage B's fixed time curves.
 Model ID: `virtual-culture-flex2-v2`; stream schema: **2** (frontend/backend must be updated together).
 All computation is local Python; no database, GPU, NVIDIA, LLM, telemetry or paid asset service is used.

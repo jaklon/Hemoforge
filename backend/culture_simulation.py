@@ -9,10 +9,14 @@ import math
 import random
 from dataclasses import dataclass, field
 
-MODEL_VERSION = "virtual-culture-flex2-v2"
+MODEL_VERSION = "virtual-culture-flex2-v3"
 ASSAY_SECONDS = 8.0
 ASSAY_HOURS = 4.5 / 60
 ANALYZED_ML = 0.275
+INTERVENTION_SECONDS = 4.0
+INTERVENTION_HOURS = 3 / 60  # Teaching manipulation interval, not a real pump specification.
+FRESH_MEDIUM = (24.0, 4.0, 0.0, 0.0)  # G, Q, L, A in mmol/L; no cells.
+MAX_VOLUME_ML = 550.0
 SCENARIOS = {
     "balanced": (24.0, 4.0, 0.6, 0.1),
     "nutrient_limited": (4.0, 0.6, 0.6, 0.1),
@@ -28,6 +32,8 @@ class Culture:
     scenario: str = "balanced"
     volume_ml: float = 500.0
     withdrawn_ml: float = 0.0
+    added_ml: float = 0.0
+    exchanged_ml: float = 0.0
     state: list[float] = field(init=False)
 
     def __post_init__(self):
@@ -90,6 +96,32 @@ class Culture:
                 "viability_percent": 100 * x / max(1e-12, x + dead),
             },
         }
+
+    def intervene(self, kind, amount):
+        """Finite-volume mixing; exchange assumes ideal cell retention explicitly."""
+        before = self.volume_ml
+        if kind == "feed" and amount in (10, 25):
+            after = round(before + amount, 6)
+            if after > MAX_VOLUME_ML:
+                raise ValueError("Feed exceeds the 550 mL working-volume limit.")
+            self.state = [v * before / after if i < 2 else
+                          (v * before + FRESH_MEDIUM[i - 2] * amount) / after
+                          for i, v in enumerate(self.state)]
+            self.volume_ml = after
+            self.added_ml = round(self.added_ml + amount, 6)
+            exchanged = 0.0
+        elif kind == "medium_exchange" and amount in (25, 50):
+            fraction = amount / 100
+            # Cells stay in the vessel under an idealized retention assumption.
+            self.state[2:] = [(1 - fraction) * v + fraction * fresh
+                             for v, fresh in zip(self.state[2:], FRESH_MEDIUM)]
+            exchanged = round(before * fraction, 6)
+            self.exchanged_ml = round(self.exchanged_ml + exchanged, 6)
+        else:
+            raise ValueError("Unsupported teaching intervention preset.")
+        return {"volume_before_ml": before, "volume_after_ml": self.volume_ml,
+                "added_medium_ml": amount if kind == "feed" else 0,
+                "exchanged_medium_ml": exchanged}
 
 
 def assay_reading(frozen, seed, sample_id):

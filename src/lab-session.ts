@@ -48,9 +48,30 @@ export interface CompletedAssay extends SampleMetadata {
   quality: AssayQuality
 }
 
+export interface LabIntervention {
+  id: string
+  kind: "feed" | "medium_exchange"
+  amount: 10 | 25 | 50
+  source_sample_id: string
+  source_collected_at_hour: number
+  note: string
+  status: "queued" | "executing" | "applied" | "cancelled"
+  requested_at_hour: number
+  started_at_hour: number | null
+  completed_at_hour: number | null
+  progress: number
+  cancel_reason: string | null
+  outcome: {
+    volume_before_ml: number
+    volume_after_ml: number
+    added_medium_ml: number
+    exchanged_medium_ml: number
+  } | null
+}
+
 export interface LabSnapshot {
   type: "snapshot"
-  schema_version: 2
+  schema_version: 3
   session_id: string
   batch_id: string
   model_version: string
@@ -61,7 +82,7 @@ export interface LabSnapshot {
   end_hour: number
   speed: 1 | 6 | 12
   running: boolean
-  phase: "idle" | "collected" | "loaded" | "analyzing" | "complete"
+  phase: "idle" | "collected" | "loaded" | "analyzing" | "complete" | "intervening"
   controller_connected: boolean
   reason: string
   analysis_progress: number
@@ -75,6 +96,17 @@ export interface LabSnapshot {
   seed: number
   working_volume_ml: number
   withdrawn_volume_ml: number
+  added_volume_ml: number
+  exchanged_volume_ml: number
+  operator_paired: boolean
+  interventions: LabIntervention[]
+  active_intervention: LabIntervention | null
+  intervention_protocol: {
+    animation_seconds: number
+    culture_minutes: number
+    max_volume_ml: number
+    decision_max_age_hours: number
+  }
   uncertainty_model: MeasurementUncertainty
   sample: SampleMetadata | null
   assays: CompletedAssay[]
@@ -82,7 +114,7 @@ export interface LabSnapshot {
   measurements_sha256: string
 }
 
-export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed"
+export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed" | "execute"
 export const sessionPattern = /^[a-f0-9]{32}$/
 
 export function labSessionFromHash(hash: string) {
@@ -119,7 +151,7 @@ export function nextLabAction(phase: LabSnapshot["phase"]): LabAction | null {
     ? "load"
     : phase === "loaded"
       ? "analyze"
-      : phase === "analyzing"
+      : phase === "analyzing" || phase === "intervening"
         ? null
         : "collect"
 }

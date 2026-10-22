@@ -21,7 +21,7 @@ test("animation clock excludes stalls, hidden time, pauses, and invalid frame du
 test("Guard adapter consumes released observations at collection time and preserves units", () => {
   const source: LabSnapshot = {
     type: "snapshot",
-    schema_version: 2,
+    schema_version: 3,
     session_id: "a".repeat(32),
     model_version: "test-v1",
     revision: 1,
@@ -43,6 +43,17 @@ test("Guard adapter consumes released observations at collection time and preser
     seed: 42,
     working_volume_ml: 499,
     withdrawn_volume_ml: 1,
+    added_volume_ml: 0,
+    exchanged_volume_ml: 0,
+    operator_paired: false,
+    interventions: [],
+    active_intervention: null,
+    intervention_protocol: {
+      animation_seconds: 4,
+      culture_minutes: 3,
+      max_volume_ml: 550,
+      decision_max_age_hours: 24,
+    },
     uncertainty_model: {
       density_cv: 0.025,
       chemistry_cv: 0.02,
@@ -115,4 +126,5 @@ test("session routes and assay actions cannot skip a workflow stage", () => {
   assert.equal(nextLabAction("collected"), "load")
   assert.equal(nextLabAction("loaded"), "analyze")
   assert.equal(nextLabAction("analyzing"), null)
+  assert.equal(nextLabAction("intervening"), null)
 })

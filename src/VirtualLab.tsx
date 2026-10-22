@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import LabScene from "./LabScene"
+import LabControlPanel from "./LabControlPanel"
+import LabInterventionStatus from "./LabInterventionStatus"
 import {
   AnimationClock,
   labSessionFromHash,
@@ -35,19 +37,28 @@ export default function VirtualLab() {
   const { snapshot, latest, connection, error, command, reconnect } =
     useLabSession(id, token)
   const clock = useRef(new AnimationClock())
+  const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
   const next = snapshot ? nextLabAction(snapshot.phase) : null
   const validSeed = Number.isInteger(seed) && seed >= 0 && seed <= 2147483647
   const cannotCollect =
     !!snapshot &&
     next === "collect" &&
-    (snapshot.culture_hours > snapshot.end_hour ||
+    (!!snapshot.active_intervention ||
+      snapshot.culture_hours > snapshot.end_hour ||
       snapshot.assays.length >= 100 ||
       snapshot.working_volume_ml - withdrawal < 400)
 
   useEffect(() => {
     document.title = "Virtual Lab · HemoForge"
   }, [])
+  useEffect(() => {
+    attemptedIntervention.current = null
+  }, [connection, id])
+  useEffect(() => {
+    if (snapshot?.active_intervention?.status === "executing")
+      setStation("bioreactor")
+  }, [snapshot?.active_intervention?.id, snapshot?.active_intervention?.status])
   useEffect(() => {
     const sync = () => {
       const nextId = labSessionFromHash(location.hash)
@@ -99,6 +110,16 @@ export default function VirtualLab() {
 
   const onFrame = useCallback(
     (delta: number) => {
+      const intervention = latest.current?.active_intervention
+      if (
+        intervention?.status === "queued" &&
+        document.visibilityState === "visible" &&
+        attemptedIntervention.current !== intervention.id &&
+        command("execute", { intervention_id: intervention.id })
+      ) {
+        attemptedIntervention.current = intervention.id
+        clock.current.reset()
+      }
       const active =
         !!latest.current?.running && document.visibilityState === "visible"
       const seconds = clock.current.frame(delta, active)
@@ -137,7 +158,7 @@ export default function VirtualLab() {
     )
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = `${snapshot.batch_id}-stage-c.json`
+    anchor.download = `${snapshot.batch_id}-stage-d.json`
     anchor.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -149,7 +170,7 @@ export default function VirtualLab() {
           H<span>HemoForge</span>
         </a>
         <span className="vl-kicker">VIRTUAL LAB / MONITOR 01</span>
-        <span className="vl-stage-label">STAGE C · CULTURE ENGINE</span>
+        <span className="vl-stage-label">STAGE D · CLOSED LOOP</span>
       </header>
       <main className="vl-layout">
         <section
@@ -165,6 +186,12 @@ export default function VirtualLab() {
             running={snapshot?.running ?? false}
             progress={snapshot?.analysis_progress ?? 0}
             volumeMl={snapshot?.working_volume_ml ?? 500}
+            interventionKind={
+              snapshot?.active_intervention?.status === "executing"
+                ? snapshot.active_intervention.kind
+                : null
+            }
+            interventionProgress={snapshot?.active_intervention?.progress ?? 0}
           />
           <div className="vl-scene-top">
             <span className="vl-room-label">HEMOFORGE / CULTURE LAB 01</span>
@@ -178,7 +205,7 @@ export default function VirtualLab() {
               <br />
               to insight.
             </h1>
-            <p>Bioreaktor → sampel → FLEX2 → Guard</p>
+            <p>Bioreaktor → FLEX2 → Guard → keputusan → bioreaktor</p>
           </div>
           <div className="vl-station-nav" aria-label="Posisi kamera">
             {(["overview", "bioreactor", "flex2"] as const).map(
@@ -296,10 +323,12 @@ export default function VirtualLab() {
                     !!graphicsError ||
                     snapshot?.phase === "collected" ||
                     snapshot?.phase === "loaded" ||
+                    snapshot?.active_intervention?.status === "queued" ||
                     (!snapshot?.running &&
                       snapshot &&
                       snapshot.culture_hours >= snapshot.end_hour &&
-                      snapshot?.phase !== "analyzing")
+                      snapshot?.phase !== "analyzing" &&
+                      snapshot?.phase !== "intervening")
                   }
                   onClick={() => command(snapshot?.running ? "pause" : "play")}
                 >
@@ -310,7 +339,11 @@ export default function VirtualLab() {
                   <select
                     aria-label="Kecepatan kultur"
                     value={snapshot?.speed ?? 6}
-                    disabled={!ready || snapshot?.phase === "analyzing"}
+                    disabled={
+                      !ready ||
+                      snapshot?.phase === "analyzing" ||
+                      !!snapshot?.active_intervention
+                    }
                     onChange={(event) =>
                       command("speed", { speed: Number(event.target.value) })
                     }
@@ -322,6 +355,21 @@ export default function VirtualLab() {
                 </label>
               </div>
             </>
+          )}
+          {id && token && snapshot && (
+            <LabControlPanel
+              key={id}
+              id={id}
+              token={token}
+              ready={ready}
+              paired={snapshot.operator_paired}
+            />
+          )}
+          {snapshot && (
+            <LabInterventionStatus
+              items={snapshot.interventions}
+              testId="lab-intervention-status"
+            />
           )}
           {snapshot && (
             <div className="vl-volume-card" data-testid="lab-volume">
@@ -336,6 +384,10 @@ export default function VirtualLab() {
                 seed {snapshot.seed}
               </p>
               <p>
+                {snapshot.added_volume_ml.toFixed(1)} mL ditambahkan ·{" "}
+                {snapshot.exchanged_volume_ml.toFixed(1)} mL ditukar
+              </p>
+              <p>
                 Sel dan zat terlarut ikut terambil. Count di Guard = densitas
                 terukur × volume reaktor setelah sampling.
               </p>
@@ -347,7 +399,8 @@ export default function VirtualLab() {
               !ready ||
               snapshot?.phase === "analyzing" ||
               snapshot?.phase === "collected" ||
-              snapshot?.phase === "loaded"
+              snapshot?.phase === "loaded" ||
+              !!snapshot?.active_intervention
             }
           >
             <legend>Persiapan sampel berikutnya</legend>
@@ -419,11 +472,15 @@ export default function VirtualLab() {
           >
             {snapshot?.phase === "analyzing"
               ? "FLEX2 sedang menganalisis…"
-              : cannotCollect
-                ? "Batas sesi tercapai · buat sesi baru"
-                : next && next in actionLabels
-                  ? actionLabels[(next as keyof typeof actionLabels)]
-                  : "Buat sesi untuk mulai"}
+              : snapshot?.phase === "intervening"
+                ? "Menjalankan keputusan Guard…"
+                : cannotCollect
+                  ? snapshot?.active_intervention
+                    ? "Tunggu tindakan Guard selesai"
+                    : "Batas sesi tercapai · buat sesi baru"
+                  : next && next in actionLabels
+                    ? actionLabels[(next as keyof typeof actionLabels)]
+                    : "Buat sesi untuk mulai"}
           </button>
           {snapshot?.phase === "analyzing" && (
             <div className="vl-assay-progress" role="status">
