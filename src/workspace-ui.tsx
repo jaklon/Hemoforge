@@ -90,6 +90,8 @@ export function Icon({ name }: { name: string }) {
 
     report: <path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h6" />,
 
+    dashboard: <path d="M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z" />,
+
     arrow: <path d="m9 5 7 7-7 7" />,
 
     pin: <path d="M8 3h8v6l3 4v2H5v-2l3-4zM12 15v6" />,
