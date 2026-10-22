@@ -104,6 +104,8 @@ export function Icon({ name }: { name: string }) {
 
     home: <path d="m3 11 9-8 9 8M5 9.5V21h5v-6h4v6h5V9.5" />,
 
+    logout: <path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" />,
+
     team: (
       <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 9c0-3 3-5 6-5s6 2 6 5m1-9a3 3 0 1 0 0-6m2 15c0-2-1-4-3-5" />
     ),

@@ -1,7 +1,5 @@
 import { sourceReferences as sources } from "./source-references"
 
-import { filterMarkers, type MarkerRow } from "./workspace-data"
-
 import {
   Icon,
   Button,
@@ -12,7 +10,7 @@ import {
   Status,
 } from "./workspace-ui"
 
-import { downloadFile, csv, escapeHtml } from "./workspace-utils"
+import { downloadFile, escapeHtml } from "./workspace-utils"
 
 import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
@@ -22,10 +20,11 @@ import Evo2Preparation from "./Evo2Preparation"
 
 import HemoBot, { useHemoBot } from "./HemoBot"
 
-import { botStatus, type BotAnalysis, type BotModule, type BotStatus } from "./hemobot-api"
-
+import { botStatus, type BotStatus } from "./hemobot-api"
 
 import Guard from "./BioreactorGuard"
+
+import Dashboard from "./Dashboard"
 
 import { sampleSteps } from "./guard-insights"
 
@@ -35,7 +34,14 @@ import {
   MarkerScreen,
 } from "./AnalysisPanels"
 
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
 import AboutPage from "./AboutPage"
@@ -51,7 +57,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "about"
+type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "about"
 
 interface NavigationItem {
   id: View
@@ -65,19 +71,86 @@ interface NavigationItem {
 
 // Ordered start to finish along the HemoForge process map.
 const navigation: NavigationItem[] = [
-  { id: "data", name: "Data & Runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
+  {
+    id: "data",
+    name: "Data & Runs",
+    purpose: "Import, validate & run",
+    icon: "data",
+    group: "Data",
+    role: "Import",
+  },
   // Workflow & Datasets page is hidden but kept: re-add
   // { id: "workflow", name: "Workflow & Datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
   // to show it again. Without a nav entry, #workflow falls back to Guard.
   // Legacy marker screen ("match") stays in code but is no longer navigable.
-  { id: "evo2", name: "RareMatch", purpose: "Screen sequence variants", icon: "dna", group: "Workspace", role: "Select" },
-  { id: "plan", name: "CulturePlan", purpose: "Plan experiments", icon: "plan", group: "Workspace", role: "Plan" },
-  { id: "guard", name: "Bioreactor Guard", purpose: "Observe culture", icon: "guard", group: "Workspace", role: "Observe" },
-  { id: "pilot", name: "ErythroPilot", purpose: "Interpret & summarize", icon: "pilot", group: "Workspace", role: "Interpret" },
-  { id: "report", name: "Research Report", purpose: "Review & export", icon: "report", group: "Output", role: "Report" },
-  { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot", group: "Assist & Reference" },
-  { id: "methods", name: "Methods & References", purpose: "Equations & sources", icon: "report", group: "Assist & Reference" },
-  { id: "about", name: "About Us", purpose: "Project & team", icon: "team", group: "About" },
+  {
+    id: "evo2",
+    name: "RareMatch",
+    purpose: "Screen sequence variants",
+    icon: "dna",
+    group: "Workspace",
+    role: "Select",
+  },
+  {
+    id: "plan",
+    name: "CulturePlan",
+    purpose: "Plan experiments",
+    icon: "plan",
+    group: "Workspace",
+    role: "Plan",
+  },
+  {
+    id: "dashboard",
+    name: "Dashboard",
+    purpose: "Process variables & control",
+    icon: "dashboard",
+    group: "Workspace",
+  },
+  {
+    id: "guard",
+    name: "Bioreactor Guard",
+    purpose: "Observe culture",
+    icon: "guard",
+    group: "Workspace",
+    role: "Observe",
+  },
+  {
+    id: "pilot",
+    name: "ErythroPilot",
+    purpose: "Interpret & summarize",
+    icon: "pilot",
+    group: "Workspace",
+    role: "Interpret",
+  },
+  {
+    id: "report",
+    name: "Research Report",
+    purpose: "Review & export",
+    icon: "report",
+    group: "Output",
+    role: "Report",
+  },
+  {
+    id: "bot",
+    name: "HemoBot",
+    purpose: "Analyze research evidence",
+    icon: "pilot",
+    group: "Assist & Reference",
+  },
+  {
+    id: "methods",
+    name: "Methods & References",
+    purpose: "Equations & sources",
+    icon: "report",
+    group: "Assist & Reference",
+  },
+  {
+    id: "about",
+    name: "About Us",
+    purpose: "Project & team",
+    icon: "team",
+    group: "About",
+  },
 ]
 
 const processStages = navigation.filter((item) => item.role)
@@ -201,11 +274,7 @@ function ReplayControls({
           onChange={(event) => {
             const value = Number(event.target.value)
 
-            if (
-              Number.isFinite(value) &&
-              value >= 0 &&
-              value <= replayEndHour
-            )
+            if (Number.isFinite(value) && value >= 0 && value <= replayEndHour)
               move(value)
           }}
         />
@@ -336,7 +405,9 @@ function Pilot({
         }
       />
       <div
-        className={`workspace-overview${state.events.length ? " has-attention" : ""}`}
+        className={`workspace-overview${
+          state.events.length ? " has-attention" : ""
+        }`}
       >
         <div className="workspace-overview-message">
           <Icon name={state.events.length ? "alert" : "pilot"} />
@@ -380,10 +451,7 @@ function Pilot({
         </dl>
       </div>
       {replayControls}
-      <section
-        className="pilot-section"
-        aria-label="Growth simulation"
-      >
+      <section className="pilot-section" aria-label="Growth simulation">
         <SimulationPanel replicate={replicate} hour={hour} />
       </section>
       <div className="pilot-grid">
@@ -585,7 +653,9 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
                 {file.rows.length} rows ·{" "}
                 <Badge
                   tone={
-                    file.evidence === "software_test_only" ? "warning" : "neutral"
+                    file.evidence === "software_test_only"
+                      ? "warning"
+                      : "neutral"
                   }
                 >
                   {file.evidence.replace(/_/g, " ")}
@@ -672,332 +742,75 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
 }
 
 function ResearchReport({
-  botAnalysis,
-
   hour,
-
   replicate,
-
-  notes,
-
-  setNotes,
-
-  eventNotes,
-
-  checks,
 }: {
-  botAnalysis: BotAnalysis | null
-
   hour: number
-
   replicate: number
-
-  notes: string
-
-  setNotes: (v: string) => void
-
-  eventNotes: Record<string, string>
-
-  checks: boolean[]
 }) {
-  const workspaceData = useWorkspace()
+  const { batchId, checkpointReports, reportInterval } = useCultureData()
 
-  const {
-    batches,
+  const reports = [...checkpointReports(replicate, hour)].reverse()
 
-    batchIndexes,
+  // ponytail: no real batch start clock, so the run is anchored to now minus replay hours.
+  const startedAt = Date.now() - hour * 3_600_000
 
-    batchId,
+  const madeAt = (h: number) => new Date(startedAt + h * 3_600_000)
 
-    batchMeasurements,
+  const download = (report: typeof reports[number]) => {
+    const made = madeAt(report.checkpoint_hour)
 
-    checkpointReports,
+    const html = `<!doctype html><html lang="en"><meta charset="utf-8"><title>HemoForge report ${report.checkpoint_hour}h</title><style>body{font:16px/1.6 system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;padding:20px}h1{color:#9d232c}</style><h1>HemoForge report · ${report.checkpoint_hour}h</h1><p>Batch ${escapeHtml(report.batch_id)} · made ${made.toLocaleString()}</p><p>${escapeHtml(report.summary)}</p><p>${escapeHtml(report.recommendation)}</p><pre>${escapeHtml(JSON.stringify({ ...report, generated_at: made.toISOString() }, null, 2))}</pre></html>`
 
-    replayEndHour,
-
-    demoSource,
-
-    source,
-
-    analyze: analyzeMeasurements,
-
-    monitoring,
-
-    reportInterval,
-  } = useCultureData()
-
-  const [format, setFormat] = useState("HTML")
-
-  const [feedback, setFeedback] = useState("")
-
-  const reports = checkpointReports(replicate, hour)
-
-  const state = analyzeMeasurements(batchMeasurements(replicate), hour)
-
-  const rows = filterMarkers(
-    workspaceData.inputs.markers.rows as MarkerRow[],
-
-    workspaceData.markerSettings,
-  )
-
-  const bundle = {
-    hemobot_analysis: botAnalysis,
-
-    product: "HemoForge",
-
-    generated_at: new Date().toISOString(),
-
-    execution_status: workspaceData.run?.planError
-      ? "partial_success"
-      : "succeeded",
-
-    evidence_status: "source_labeled",
-
-    run: workspaceData.run,
-
-    input_files: workspaceData.inputs,
-
-    simulation:
-      workspaceData.simulation?.batchId === batchId(replicate) &&
-      workspaceData.simulation.sourceHash === source.sha256 &&
-      workspaceData.simulation.result.fromHour === hour &&
-      JSON.stringify(workspaceData.simulation.settings) ===
-        JSON.stringify(workspaceData.growthSettings)
-        ? workspaceData.simulation
-        : null,
-
-    ...demoSource,
-
-    replay_hour: hour,
-
-    batch_id: `${batchId(replicate)}`,
-
-    measurements: state.visible,
-
-    warnings: state.events,
-
-    warning_follow_up: eventNotes,
-
-    reports,
-
-    researcher_notes: notes,
-
-    guard_view: workspaceData.guardView,
-
-    target_signature: workspaceData.markerSettings,
-
-    researcher_settings: {
-      growth: workspaceData.growthSettings,
-
-      planning: workspaceData.planSettings,
-
-      monitoring: workspaceData.monitoring,
-
-      report_interval_hours: workspaceData.reportInterval,
-
-      roadmap_days: workspaceData.roadmapDays,
-    },
-
-    screening: rows,
-
-    cultureplan: {
-      gp_status: workspaceData.run?.plan
-        ? JSON.stringify(workspaceData.run.settings) ===
-          JSON.stringify(workspaceData.planSettings)
-          ? "fitted"
-          : "settings_changed_refit_required"
-        : "not_fitted",
-
-      settings_used: workspaceData.run?.settings ?? null,
-
-      model: workspaceData.run?.plan ?? null,
-    },
-
-    laboratory: {
-      status: "pending_lab_verification",
-
-      review_plan: checks,
-
-      actual_results: null,
-    },
-
-    studies: sources.map((source) => ({
-      id: source.id,
-
-      url: source.url,
-
-      type: "proposal_reference",
-    })),
+    downloadFile(
+      `hemoforge-report-${report.batch_id}-${report.checkpoint_hour}h.html`,
+      html,
+      "text/html;charset=utf-8",
+    )
   }
-
-  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><title>HemoForge research report</title><style>body{font:16px/1.6 system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;padding:20px}h1{color:#9d232c}</style><h1>HemoForge research report</h1><p>Research input files are labeled by source. Uploaded files have not been independently verified as biological evidence. Harvest / QC: pending_lab_verification.</p><p>Export generated at ${bundle.generated_at} UTC.</p><h2>Researcher notes</h2><p>${escapeHtml(notes) || "No notes recorded."}</p><h2>Auditable snapshot</h2><pre>${escapeHtml(JSON.stringify(bundle, null, 2))}</pre></html>`
-
-  const reportCsv = csv([
-    [
-      "checkpoint_hour",
-
-      "batch_id",
-
-      "last_measurement_hour",
-
-      "last_count",
-
-      "new_measurements",
-
-      "open_warnings",
-
-      "summary",
-
-      "evidence_status",
-
-      "researcher_notes",
-
-      "warning_follow_up",
-
-      "lab_status",
-
-      "researcher_settings",
-
-      "target_signature",
-    ],
-
-    ...reports.map((r) => [
-      r.checkpoint_hour,
-
-      r.batch_id,
-
-      r.last_measurement_hour,
-
-      r.last_count,
-
-      r.new_measurements,
-
-      r.open_warnings.length,
-
-      r.summary,
-
-      r.quality_flag,
-
-      notes,
-
-      JSON.stringify(eventNotes),
-
-      "pending_lab_verification",
-
-      JSON.stringify(bundle.researcher_settings),
-
-      JSON.stringify(bundle.target_signature),
-    ]),
-  ])
-
-  const content =
-    format === "HTML"
-      ? html
-      : format === "JSON"
-        ? JSON.stringify(bundle, null, 2)
-        : reportCsv
 
   return (
     <>
       <PageTitle
         title="Research Report"
-        description="Add notes and export your results."
-        action={<Badge tone="warning">Pending laboratory verification</Badge>}
+        description={`Reports the AI made every ${reportInterval}h for ${batchId(replicate)}.`}
+        action={<Badge>{reports.length} reports</Badge>}
       />
-      <div className="report-summary">
-        <div>
-          <span>Selected batch</span>
-          <strong>{batchId(replicate)}</strong>
+      <Panel title="Past reports" caption="Newest first · click to download">
+        <div className="report-timeline">
+          {reports.length ? (
+            reports.map((report) => (
+              <button
+                key={report.checkpoint_hour}
+                onClick={() => download(report)}
+                aria-label={`Download ${report.checkpoint_hour}h report`}
+              >
+                <span className="checkpoint-time">
+                  {report.checkpoint_hour}h
+                </span>
+                <span>
+                  <strong>
+                    {madeAt(report.checkpoint_hour).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </strong>
+                  <small>{report.summary}</small>
+                </span>
+                <Icon name="download" />
+              </button>
+            ))
+          ) : (
+            <div className="empty-state">
+              <strong>No reports yet</strong>
+              <p>
+                Advance replay to {reportInterval}h to generate the first
+                report.
+              </p>
+            </div>
+          )}
         </div>
-        <div>
-          <span>Replay position</span>
-          <strong>{hour}h</strong>
-        </div>
-        <div>
-          <span>Checkpoint reports · {reportInterval}h</span>
-          <strong>{reports.length}</strong>
-        </div>
-        <div>
-          <span>Source integrity</span>
-          <strong>
-            {source.sha256 ? "Fingerprint recorded" : "Unverified fixture"}
-          </strong>
-        </div>
-      </div>
-      <div className="report-grid">
-        <Panel title="Researcher review">
-          <div className="report-form">
-            <label htmlFor="research-notes">Interpretation & follow-up</label>
-            <textarea
-              className="resize-none"
-              id="research-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Document observations, limitations, and the next checks to run…"
-            />
-            <small>{notes.length} characters · included in exports</small>
-            <label htmlFor="export-format">Export format</label>
-            <select
-              id="export-format"
-              value={format}
-              onChange={(e) => {
-                setFormat(e.target.value)
-
-                setFeedback("")
-              }}
-            >
-              <option>HTML</option>
-              <option>JSON</option>
-              <option>CSV</option>
-            </select>
-            {format === "CSV" && (
-              <p>Checkpoints and notes. Full workspace: JSON or HTML.</p>
-            )}
-            <Button
-              primary
-              icon="download"
-              onClick={() => {
-                downloadFile(
-                  `hemogpt-research-${hour}h.${format.toLowerCase()}`,
-
-                  content,
-
-                  format === "JSON"
-                    ? "application/json"
-                    : format === "CSV"
-                      ? "text/csv;charset=utf-8"
-                      : "text/html;charset=utf-8",
-                )
-
-                setFeedback(`${format} download requested.`)
-              }}
-            >
-              Export {format} report
-            </Button>
-            <p className="export-status" role="status">
-              {feedback}
-            </p>
-          </div>
-        </Panel>
-        <Details title={`Preview ${format} export`}>
-          <pre className="export-preview">
-            {content.slice(0, 5000)}
-            {content.length > 5000
-              ? "\n… Preview shortened; the download includes the full report."
-              : ""}
-          </pre>
-        </Details>
-      </div>
-      <Details title="Evidence boundaries">
-        <p>
-          Inputs, file fingerprints, computed GP results, and growth simulations
-          are included when available. A successful local calculation does not
-          establish scientific validity. Source labels remain separate for each
-          data type. No trained erythroid-stage classifier, real sensor
-          connection, or post-harvest laboratory result is implied. Clinical
-          release remains pending.
-        </p>
-      </Details>
+      </Panel>
     </>
   )
 }
@@ -1010,8 +823,14 @@ const serviceLabels = {
 } as const
 
 /** Top-bar health: the Python API and the model server it talks to. */
-function ServiceStatus({ backend }: { backend: "checking" | "online" | "offline" }) {
-  const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">("checking")
+function ServiceStatus({
+  backend,
+}: {
+  backend: "checking" | "online" | "offline"
+}) {
+  const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">(
+    "checking",
+  )
   useEffect(() => {
     if (backend !== "online") return
     let controller: AbortController | undefined
@@ -1109,9 +928,6 @@ function ResearchWorkspaceContent() {
 
   const [eventNotes, setEventNotes] = useState<Record<string, string>>({})
 
-  const [notes, setNotes] = useState("")
-
-
   const [checks, setChecks] = useState([false, false, false])
 
   const botContext = {
@@ -1184,8 +1000,6 @@ function ResearchWorkspaceContent() {
     setPlaying(false)
 
     setEventNotes({})
-
-    setNotes("")
   }, [source])
 
   useEffect(() => {
@@ -1210,7 +1024,9 @@ function ResearchWorkspaceContent() {
 
   return (
     <div
-      className={`app-shell${sidebarPinned ? " sidebar-pinned" : ""}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
+      className={`app-shell${sidebarPinned ? " sidebar-pinned" : ""}${
+        sidebarCollapsed ? " sidebar-collapsed" : ""
+      }`}
     >
       <a
         className="skip-link"
@@ -1235,7 +1051,8 @@ function ResearchWorkspaceContent() {
           if (e.target.matches(":focus-visible")) setSidebarFocused(true)
         }}
         onBlurCapture={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setSidebarFocused(false)
+          if (!e.currentTarget.contains(e.relatedTarget))
+            setSidebarFocused(false)
         }}
       >
         <a
@@ -1248,14 +1065,27 @@ function ResearchWorkspaceContent() {
             navigate("about")
           }}
         >
-          <img className="brand-mark" src="/favicon.svg" width="40" height="40" alt="" />
+          <img
+            className="brand-mark"
+            src="/favicon.svg"
+            width="40"
+            height="40"
+            alt=""
+          />
           <span>
-            <strong>Hemo<span>Forge</span></strong>
+            <strong>
+              Hemo<span>Forge</span>
+            </strong>
           </span>
         </a>
         <nav aria-label="Research modules">
           {navigationGroups.map((group, i) => (
-            <div className="nav-group" key={group} role="group" aria-label={group}>
+            <div
+              className="nav-group"
+              key={group}
+              role="group"
+              aria-label={group}
+            >
               <div className="nav-group-label">
                 <span aria-hidden="true">{group}</span>
                 {i === 0 && (
@@ -1291,7 +1121,10 @@ function ResearchWorkspaceContent() {
                     <Icon name={item.icon} />
                     <strong>{item.name}</strong>
                     {workspaceData.updates.includes(item.id) && (
-                      <span className="nav-count nav-update" title="New results">
+                      <span
+                        className="nav-count nav-update"
+                        title="New results"
+                      >
                         !<span className="sr-only"> New results</span>
                       </span>
                     )}
@@ -1299,6 +1132,20 @@ function ResearchWorkspaceContent() {
                 ))}
             </div>
           ))}
+        </nav>
+        {/* No accounts yet: signing out just returns to the landing page. */}
+        <nav className="nav-signout" aria-label="Account">
+          <a
+            href="#"
+            title={sidebarCollapsed ? "Sign out" : undefined}
+            onClick={(e) => {
+              e.preventDefault()
+              location.hash = ""
+            }}
+          >
+            <Icon name="logout" />
+            <strong>Sign out</strong>
+          </a>
         </nav>
       </aside>
       <header className="topbar">
@@ -1316,22 +1163,19 @@ function ResearchWorkspaceContent() {
             navigate("about")
           }}
         >
-          <img className="brand-mark" src="/favicon.svg" width="40" height="40" alt="" />
-          <strong>Hemo<span>Forge</span></strong>
+          <img
+            className="brand-mark"
+            src="/favicon.svg"
+            width="40"
+            height="40"
+            alt=""
+          />
+          <strong>
+            Hemo<span>Forge</span>
+          </strong>
         </a>
         <div className="header-actions">
           <ServiceStatus backend={workspaceData.backendStatus} />
-          {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (
-            <Button
-              icon="pilot"
-              onClick={() => {
-                bot.prepare(view as BotModule)
-                navigate("bot")
-              }}
-            >
-              Ask HemoBot
-            </Button>
-          )}
           <button
             type="button"
             className="button menu-toggle"
@@ -1381,6 +1225,23 @@ function ResearchWorkspaceContent() {
               )
             }
           />
+        ) : view === "dashboard" ? (
+          <Dashboard
+            hour={hour}
+            replicate={replicate}
+            replayControls={
+              <ReplayControls
+                hour={hour}
+                setHour={setHour}
+                playing={playing}
+                setPlaying={setPlaying}
+                speed={speed}
+                setSpeed={setSpeed}
+                replicate={replicate}
+                sticky
+              />
+            }
+          />
         ) : view === "guard" ? (
           <Guard
             replayControls={
@@ -1424,9 +1285,7 @@ function ResearchWorkspaceContent() {
             />
           </>
         ) : view === "plan" ? (
-          <ExperimentPlanner
-            onEditData={() => navigate("data")}
-          />
+          <ExperimentPlanner onEditData={() => navigate("data")} />
         ) : view === "match" ? (
           <MarkerScreen
             checks={checks}
@@ -1456,22 +1315,15 @@ function ResearchWorkspaceContent() {
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />
         ) : (
-          <ResearchReport
-            botAnalysis={bot.result}
-            hour={hour}
-            replicate={replicate}
-            notes={notes}
-            setNotes={setNotes}
-            eventNotes={eventNotes}
-            checks={checks}
-          />
+          <ResearchReport hour={hour} replicate={replicate} />
         )}
       </main>
       <div className="toast-region" role="status" aria-live="polite">
-        {notice && (
-          // The key restarts the entry animation and countdown per notice.
+        {notice && ( // The key restarts the entry animation and countdown per notice.
           <div
-            className={`toast is-${notice.tone}${noticeLeaving ? " is-leaving" : ""}`}
+            className={`toast is-${notice.tone}${
+              noticeLeaving ? " is-leaving" : ""
+            }`}
             key={notice.id}
             onAnimationEnd={(event) => {
               if (event.animationName === "toast-out") notify(null)

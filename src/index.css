@@ -873,6 +873,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .plot-toolbar { align-items: center; padding-block: 10px; }
 .plot-toolbar label { display: flex; align-items: center; gap: 6px; }
 @media (max-width: 520px) { .topbar .header-actions > .button:not(.menu-toggle) { display: none; } }
+.sidebar .nav-signout { margin-top: auto; padding-top: 18px; }
 .forecast-inspector { grid-template-columns: minmax(160px, 1fr) auto auto; }
 @media (max-width: 520px) { .forecast-inspector { grid-template-columns: 1fr; } }
 .plot-toolbar select { min-height: 32px; padding-block: 5px; font-size: var(--text-xs); }
