@@ -261,7 +261,7 @@ function Counter({ to, decimals = 0, suffix = "" }: { to: number; decimals?: num
 }
 
 // Replays the illustrative samples; points appear only once the cursor reaches them.
-function GuardMock({ compact = false }: { compact?: boolean }) {
+function GuardMock() {
   const [ref, inView] = useInView<HTMLDivElement>(0.25)
   const [hour, setHour] = useState(171)
   useEffect(() => {
@@ -280,7 +280,7 @@ function GuardMock({ compact = false }: { compact?: boolean }) {
   const lastIndex = sampleHours.filter((h) => h <= hour).length - 1
 
   return (
-    <div ref={ref} className={`lp-mock${compact ? " compact" : ""}`}>
+    <div ref={ref} className="lp-mock">
       <div className="lp-mock-bar">
         <span className="lp-dots"><i /><i /><i /></span>
         <span className="lp-mock-title">Bioreactor Guard</span>
@@ -342,7 +342,6 @@ function GuardMock({ compact = false }: { compact?: boolean }) {
           <span className="lp-status needs_review">needs_review</span>
         </div>
       </div>
-      {!compact && <p className="lp-mock-note">Product preview with illustrative values.</p>}
     </div>
   )
 }
@@ -384,7 +383,7 @@ function ModulePreview({ id }: { id: string }) {
         <div className="lp-preview-foot">4 observed conditions · retrospective validation only</div>
       </div>
     )
-  if (id === "guard") return <GuardMock compact />
+  if (id === "guard") return <GuardMock />
   return (
     <div className="lp-preview">
       <div className="lp-preview-head"><span>Checkpoint 41 / 168</span><span className="lp-mono">Day 6 · 03:00</span></div>
@@ -638,11 +637,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="lp-scroll-cue" aria-hidden="true"><i /></div>
       </section>
 
-      <div className="lp-wrap lp-shot-wrap">
-        <div className="lp-shot">
-          <GuardMock />
-        </div>
-      </div>
 
       <section className="lp-sources" aria-label="Data sources and frameworks">
         <p>Built on open, citable science and recognised quality frameworks</p>
@@ -763,7 +757,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
           <div className="lp-guard-side">
-            <div data-reveal><GuardMock compact /></div>
+            <div data-reveal><GuardMock /></div>
             <div className="lp-rules" data-reveal>
               <h3>Warning rules, each with a reason you can inspect</h3>
               <ol>
