@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from backend.api import app
-from backend.virtual_lab import Command, Session, sessions
+from backend.virtual_lab import ANALYSIS_SECONDS, Command, Session, sessions
 
 ORIGIN = {"origin": "http://127.0.0.1:8443"}
 
@@ -46,14 +46,15 @@ class EngineTests(unittest.TestCase):
         self.act("pause")
         self.assertEqual(self.session.results, [])
         self.act("play")
-        for _ in range(9):
+        for _ in range(int(ANALYSIS_SECONDS / 0.5) - 1):
             self.act("advance", seconds=0.5)
         self.assertFalse(self.session.running)
         result = self.session.results[0]
         self.assertEqual(result["collected_at_hour"], 0)
         self.assertAlmostEqual(result["available_at_hour"], 0.075)
-        self.assertEqual(result["count"], result["viable_cell_density_million_ml"] * result["volume_ml"])
-        self.assertEqual(result["channels"]["ph"], 7.3)
+        self.assertAlmostEqual(result["count"], result["viable_cell_density_million_ml"] * result["volume_ml"], places=6)
+        self.assertEqual(result["volume_ml"], 499)
+        self.assertAlmostEqual(result["channels"]["ph"], 7.3, delta=0.05)
         self.assertNotIn("do_percent", result["channels"])
         self.assertNotIn("temperature_c", result["channels"])
 
@@ -97,6 +98,25 @@ class TransportTests(unittest.TestCase):
                 ws.receive_json()
         self.assertFalse(sessions[session["session_id"]].controller)
 
+    def test_configuration_is_bounded_and_malformed_hello_is_rejected(self):
+        headers = {**ORIGIN, "x-hemoforge-action": "virtual-lab"}
+        for config in ({"scenario": "unknown"}, {"seed": -1}, {"seed": True}, {"seed": 0.5},
+                       {"seed": 2147483648}, {"provider_url": "https://untrusted.example"}):
+            self.assertEqual(self.client.post("/api/v1/lab/sessions", headers=headers, json=config).status_code, 422)
+        self.assertEqual(sessions, {})
+        response = self.client.post("/api/v1/lab/sessions", headers=headers,
+                                    json={"scenario": "nutrient_limited", "seed": 17})
+        self.assertEqual(response.status_code, 201)
+        session = sessions[response.json()["session_id"]]
+        self.assertEqual(session.snapshot()["scenario"], "nutrient_limited")
+        self.assertEqual(session.snapshot()["seed"], 17)
+        with self.assertRaises(WebSocketDisconnect):
+            with self.client.websocket_connect(f"/api/v1/lab/sessions/{session.id}/stream", headers=ORIGIN) as ws:
+                ws.send_json({"role": []})
+                ws.receive_json()
+        self.assertEqual(session.viewers, 0)
+        self.assertFalse(session.controller)
+
     def test_two_windows_receive_same_result_reconnect_and_disconnect_pause(self):
         created = self.create()
         path = f"/api/v1/lab/sessions/{created['session_id']}/stream"
@@ -106,18 +126,19 @@ class TransportTests(unittest.TestCase):
             with self.client.websocket_connect(path, headers=ORIGIN) as controller:
                 controller.send_json({"role": "controller", "token": created["controller_token"]})
                 controller.receive_json()
-                for seq, action in enumerate(["collect", "load", "analyze"] + ["advance"] * 10, 1):
+                final_seq = 3 + int(ANALYSIS_SECONDS / 0.5)
+                for seq, action in enumerate(["collect", "load", "analyze"] + ["advance"] * (final_seq - 3), 1):
                     controller.send_json({"seq": seq, "action": action, "seconds": 0.5})
                     current = controller.receive_json()
                     self.assertEqual(current["ack_seq"], seq)
                 self.assertEqual(len(current["measurements"]), 1)
                 while True:
                     received = viewer.receive_json()
-                    if received["ack_seq"] == 13:
+                    if received["ack_seq"] == final_seq:
                         break
                 self.assertEqual(received["measurements_sha256"], current["measurements_sha256"])
                 self.assertNotIn("controller_token", str(received))
-                controller.send_json({"seq": 14, "action": "play"})
+                controller.send_json({"seq": final_seq + 1, "action": "play"})
                 self.assertTrue(controller.receive_json()["running"])
             while True:
                 received = viewer.receive_json()

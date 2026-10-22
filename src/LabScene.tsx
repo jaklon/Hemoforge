@@ -7,6 +7,7 @@ interface Props {
   phase: string
   running: boolean
   progress: number
+  volumeMl: number
   onFrame: (seconds: number) => void
   onInteract: () => void
   onError: (message: string) => void
@@ -433,6 +434,8 @@ export default function LabScene(props: Props) {
         elapsed += Math.min(delta, 0.25)
       impeller.rotation.y = elapsed * 3
       fluid.rotation.y = elapsed * 0.12
+      fluid.scale.y = state.volumeMl / 500
+      fluid.position.y = 0.175 + 0.295 * fluid.scale.y
       hands.position.y = Math.sin(elapsed * 2) * 0.007
       hands.rotation.x =
         state.phase === "analyzing" ? Math.sin(elapsed * 3) * 0.035 : 0

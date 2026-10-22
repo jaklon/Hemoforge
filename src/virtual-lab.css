@@ -67,6 +67,19 @@
 .vl-small-button { border: 1px solid #aabfad; padding: 5px 11px; background: transparent; border-radius: 4px; cursor: pointer; font-size: 10px; margin-left: auto; }
 .live-guard-main { max-width: 1440px; margin: auto; padding: 24px 30px 50px; }
 .vl-evidence-note { font-size: 11px; line-height: 1.6; padding: 12px 16px; border: 1px solid #d4d8c9; border-radius: 5px; background: #f4f1e2; color: #6c7359; margin-bottom: 18px; }
+.vl-model-config { display: grid; gap: 12px; margin: 18px 0; padding: 15px; border: 1px solid #ccd7ca; border-radius: 6px; }
+.vl-config-disclosure { margin: 14px 0; font-size: 12px; color: #45675b; }
+.vl-config-disclosure summary { cursor: pointer; padding: 8px 0; }
+.vl-model-config legend { font-size: 11px; color: #43695f; padding: 0 6px; }
+.vl-model-config label { display: grid; gap: 6px; font-size: 11px; color: #496559; }
+.vl-model-config select, .vl-model-config input[type=number] { width: 100%; min-width: 0; padding: 9px; background: #fffef7; color: #214f44; border: 1px solid #b8cdbb; border-radius: 4px; font: inherit; }
+.vl-model-config label.vl-check-label { display: flex; align-items: center; gap: 9px; }
+.vl-model-config input[type=checkbox] { accent-color: #245c4c; }
+.vl-model-config small, .vl-volume-card p, .vl-assay-context { color: #667c6d; font-size: 11px; line-height: 1.7; }
+.vl-volume-card { margin: 18px 0; padding: 15px; background: #e7eddf; border-radius: 5px; }
+.vl-volume-card strong { display: block; font-size: 19px; margin: 7px 0; color: #34594d; }
+.vl-assay-progress { display: grid; gap: 8px; font-size: 12px; color: #315b4d; margin: 14px 0; }
+.vl-qc-rejection { padding: 16px; margin: 10px 0 20px; border: 1px solid #d3a07e; background: #fff1e3; color: #844b2c; font-size: 12px; border-radius: 5px; }
 .vl-sample-state { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 0; }
 .vl-sample-state strong { font-size: 12px; font-weight: 550; line-height: 1.6; }
 .vl-result-receipt { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 16px; background: #dcebdd; border: 1px solid #c1d9c2; border-radius: 5px; font-size: 12px; margin: 5px 0 22px; }

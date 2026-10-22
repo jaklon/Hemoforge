@@ -21,7 +21,7 @@ test("animation clock excludes stalls, hidden time, pauses, and invalid frame du
 test("Guard adapter consumes released observations at collection time and preserves units", () => {
   const source: LabSnapshot = {
     type: "snapshot",
-    schema_version: 1,
+    schema_version: 2,
     session_id: "a".repeat(32),
     model_version: "test-v1",
     revision: 1,
@@ -33,6 +33,23 @@ test("Guard adapter consumes released observations at collection time and preser
     controller_connected: true,
     reason: "test",
     analysis_progress: 1,
+    assay_stage: "complete",
+    protocol: {
+      animation_seconds: 8,
+      culture_minutes: 4.5,
+      analyzed_volume_ml: 0.275,
+    },
+    scenario: "balanced",
+    seed: 42,
+    working_volume_ml: 499,
+    withdrawn_volume_ml: 1,
+    uncertainty_model: {
+      density_cv: 0.025,
+      chemistry_cv: 0.02,
+      ph_sd: 0.01,
+      viability_sd_percentage_points: 0.5,
+    },
+    assays: [],
     sample: null,
     batch_id: "VL-A",
     created_at: "2026-10-23T00:00:00Z",
@@ -43,13 +60,25 @@ test("Guard adapter consumes released observations at collection time and preser
         sample_id: "FLEX2-001",
         collected_at_hour: 24,
         available_at_hour: 24.075,
-        count: 1000,
+        count: 998,
         unit: "million cells",
         channels: { ph: 7.2, lactate_mmol_l: 3.48 },
-        volume_ml: 500,
+        volume_ml: 499,
         viable_cell_density_million_ml: 2,
         model_version: "test-v1",
         evidence: "software_test_only",
+        withdrawal_ml: 1,
+        analyzed_volume_ml: 0.275,
+        reactor_volume_before_ml: 500,
+        reactor_volume_after_ml: 499,
+        mixed: true,
+        quality: { status: "passed", flags: [] },
+        uncertainty: {
+          density_cv: 0.025,
+          chemistry_cv: 0.02,
+          ph_sd: 0.01,
+          viability_sd_percentage_points: 0.5,
+        },
       },
     ],
   }
@@ -57,9 +86,24 @@ test("Guard adapter consumes released observations at collection time and preser
   assert.equal(file.evidence, "software_test_only")
   assert.equal(file.rows[0].hour, 24)
   assert.equal(file.rows[0].unit, "million cells")
-  assert.equal(file.rows[0].count, 1000)
+  assert.equal(file.rows[0].count, 998)
   assert.equal(file.sha256, source.measurements_sha256)
   assert.equal(liveCultureFile({ ...source, measurements: [] }).rows.length, 0)
+  assert.equal(
+    liveCultureFile({
+      ...source,
+      measurements: [
+        {
+          ...source.measurements[0],
+          quality: {
+            status: "rejected",
+            flags: ["insufficient_sample_volume"],
+          },
+        },
+      ],
+    }).rows.length,
+    0,
+  )
 })
 
 test("session routes and assay actions cannot skip a workflow stage", () => {

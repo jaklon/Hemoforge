@@ -1,5 +1,8 @@
 # Virtual Lab: Stage A specification and Stage B proof
 
+Historical Stage A/B baseline. [Stage C](VIRTUAL_LAB_STAGE_C.md) supersedes the fixed culture formulas,
+constant volume, noiseless assay, schema 1 and five-second timing below. Asset and transport boundaries remain.
+
 ## Scope and storyboard
 
 Monitor 1: first-person laboratory, camera station arrows, temporary gloved hands, bioreactor, sampling,

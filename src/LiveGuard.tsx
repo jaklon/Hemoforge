@@ -15,6 +15,7 @@ export default function LiveGuard() {
     [snapshot?.measurements_sha256],
   )
   const latest = snapshot?.measurements.at(-1)
+  const report = snapshot?.assays.at(-1)
   useEffect(() => {
     document.title = "Live Bioreactor Guard · HemoForge"
   }, [])
@@ -57,10 +58,24 @@ export default function LiveGuard() {
       </section>
       <main className="live-guard-main">
         <div className="vl-evidence-note">
-          Stage B · live synthetic measurements from the virtual FLEX2. No
-          physical instrument is connected. Only Guard is integrated in this
-          prototype; other modules follow in later stages.
+          Stage C · mechanistic teaching culture and virtual FLEX2 with
+          simulated analytical variation. No physical instrument is connected.
+          Only Guard is integrated in this prototype; other modules follow in
+          later stages.
         </div>
+        {snapshot && (
+          <p className="vl-assay-context">
+            Scenario: {snapshot.scenario} · seed {snapshot.seed} · reactor{" "}
+            {snapshot.working_volume_ml.toFixed(1)} mL · withdrawn{" "}
+            {snapshot.withdrawn_volume_ml.toFixed(1)} mL. Assumed analytical SD:
+            density {snapshot.uncertainty_model.density_cv * 100}%, chemistry{" "}
+            {snapshot.uncertainty_model.chemistry_cv * 100}%, pH{" "}
+            {snapshot.uncertainty_model.ph_sd}, viability{" "}
+            {snapshot.uncertainty_model.viability_sd_percentage_points}{" "}
+            percentage points. These are simulation assumptions, not Nova
+            accuracy specifications.
+          </p>
+        )}
         {error && (
           <p role="alert" className="vl-error">
             {error}
@@ -72,7 +87,7 @@ export default function LiveGuard() {
               <span className="vl-eyebrow">ANALYZER</span>
               <strong>
                 {snapshot.phase === "analyzing"
-                  ? "Analyzing sample…"
+                  ? `Analyzing sample · ${snapshot.assay_stage.replace(/_/g, " ")} · ${Math.round(snapshot.analysis_progress * 100)}%`
                   : snapshot.reason}
               </strong>
             </div>
@@ -86,15 +101,36 @@ export default function LiveGuard() {
             </div>
           </div>
         )}
+        {report?.quality.status === "rejected" && (
+          <div
+            className="vl-qc-rejection"
+            role="status"
+            data-testid="live-qc-rejection"
+          >
+            <b>{report.sample_id} · QC rejected</b>
+            <p>
+              {report.quality.flags.join(", ")}. No new observation was sent to
+              Guard. Previously released results are retained.
+            </p>
+          </div>
+        )}
         {latest && (
           <div className="vl-result-receipt" data-testid="measurement-receipt">
             <b>{latest.sample_id}</b>
             <span>{latest.count.toFixed(2)} million viable cells</span>
             <span>
               {latest.viable_cell_density_million_ml.toFixed(3)} ×10⁶ viable
-              cells/mL × {latest.volume_ml} mL
+              cells/mL × {latest.volume_ml.toFixed(1)} mL after withdrawal
             </span>
             <span>Lactate {latest.channels.lactate_mmol_l} mmol/L</span>
+            <span>
+              QC: {latest.quality.status} · withdrawn {latest.withdrawal_ml} mL
+              · analyzed {latest.analyzed_volume_ml} mL
+            </span>
+            <span>
+              Count reconstructed from the measured density; not a direct
+              total-cell instrument measurement.
+            </span>
           </div>
         )}
         {culture && culture.rows.length ? (
@@ -106,7 +142,7 @@ export default function LiveGuard() {
               setReplicate={() => {}}
               navigate={() =>
                 setMessage(
-                  "Stage B connects FLEX2 to Guard. Open the regular workspace separately for other modules.",
+                  "Stage C connects FLEX2 to Guard. Open the regular workspace separately for other modules.",
                 )
               }
               eventNotes={notes}

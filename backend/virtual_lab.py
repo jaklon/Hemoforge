@@ -1,4 +1,4 @@
-"""Stage B: bounded, local-only, in-memory FLEX2 demonstration sessions.
+"""Stage C: bounded, local-only, in-memory culture/FLEX2 demonstration sessions.
 
 Only accepted animation ticks advance culture time. No database, instrument,
 external inference, or autonomous background culture timer is used here.
@@ -7,7 +7,6 @@ external inference, or autonomous background culture timer is used here.
 import asyncio
 import hashlib
 import json
-import math
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -19,15 +18,17 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from pydantic import Field, ValidationError
 
 from backend.models import InputModel
+from backend.culture_simulation import (Culture, MODEL_VERSION, ASSAY_SECONDS, ASSAY_HOURS,
+                                       ANALYZED_ML, NOISE, assay_reading, assay_stage)
 
-router = APIRouter(prefix="/api/v1/lab", tags=["Virtual Lab Â· local synthetic prototype"])
+router = APIRouter(prefix="/api/v1/lab", tags=["Virtual Lab - local synthetic prototype"])
 ORIGINS = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (8000, 8443)}
 MAX_SESSIONS = 16
 MAX_RESULTS = 100
 END_HOUR = 168.0
-ANALYSIS_SECONDS = 5.0  # Presentation duration; not an instrument timing specification.
-ANALYSIS_HOURS = 4.5 / 60  # Illustrative compressed assay interval, in culture hours.
-MODEL = "virtual-flex2-synthetic-v1"
+ANALYSIS_SECONDS = ASSAY_SECONDS
+ANALYSIS_HOURS = ASSAY_HOURS
+MODEL = MODEL_VERSION
 
 
 def local_client(connection):
@@ -38,23 +39,9 @@ def local_client(connection):
             and connection.headers.get("origin") in ORIGINS)
 
 
-def synthetic_reading(hour):
-    """Uncalibrated teaching scenario, not a biological or device simulator."""
-    viable_density = math.exp(0.025 * min(hour, 72) - 0.012 * max(0, hour - 72))
-    volume_ml = 500.0
-    return {
-        "volume_ml": volume_ml,
-        "viable_cell_density_million_ml": round(viable_density, 6),
-        "count": round(viable_density * volume_ml, 6),
-        "unit": "million cells",
-        "channels": {
-            "ph": round(7.3 - 0.0035 * hour, 3),
-            "glucose_mmol_l": round(max(0.2, 24 - 0.10 * hour), 3),
-            "glutamine_mmol_l": round(max(0.1, 4 - 0.018 * hour), 3),
-            "lactate_mmol_l": round(0.6 + 0.12 * hour, 3),
-            "viability_percent": round(max(55, 98 - 0.12 * max(0, hour - 72)), 2),
-        },
-    }
+class RunConfig(InputModel):
+    scenario: Literal["balanced", "nutrient_limited", "metabolite_stress"] = "balanced"
+    seed: int = Field(default=42, strict=True, ge=0, le=2_147_483_647)
 
 
 class Command(InputModel):
@@ -62,10 +49,15 @@ class Command(InputModel):
     action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed"]
     seconds: float = Field(default=0, ge=0, le=0.5)
     speed: Literal[1, 6, 12] = 6
+    volume_ml: float = Field(default=1, ge=0.1, le=5)
+    mixed: bool = Field(default=True, strict=True)
 
 
 @dataclass
 class Session:
+    scenario: str = "balanced"
+    seed: int = 42
+    culture: Culture = field(init=False)
     id: str = field(default_factory=lambda: secrets.token_hex(16))
     token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -84,6 +76,10 @@ class Session:
     frozen: dict | None = None
     analysis_seconds: float = 0.0
     results: list = field(default_factory=list)
+    assays: list = field(default_factory=list)
+
+    def __post_init__(self):
+        self.culture = Culture(self.scenario)
 
     def stop(self, reason):
         self.running = False
@@ -92,13 +88,20 @@ class Session:
 
     def snapshot(self):
         return {
-            "type": "snapshot", "schema_version": 1, "session_id": self.id,
+            "type": "snapshot", "schema_version": 2, "session_id": self.id,
             "batch_id": "VL-" + self.id[:8].upper(), "model_version": MODEL,
             "created_at": self.created_at, "revision": self.revision, "ack_seq": self.seq,
             "culture_hours": round(self.hour, 6), "end_hour": END_HOUR,
             "speed": self.speed, "running": self.running, "phase": self.phase,
             "controller_connected": self.controller, "reason": self.reason,
             "analysis_progress": min(1, self.analysis_seconds / ANALYSIS_SECONDS),
+            "assay_stage": assay_stage(self.analysis_seconds / ANALYSIS_SECONDS) if self.sample else "idle",
+            "protocol": {"animation_seconds": ANALYSIS_SECONDS, "culture_minutes": ANALYSIS_HOURS * 60,
+                         "analyzed_volume_ml": ANALYZED_ML},
+            "scenario": self.scenario, "seed": self.seed, "uncertainty_model": NOISE,
+            "working_volume_ml": round(self.culture.volume_ml, 6),
+            "withdrawn_volume_ml": round(self.culture.withdrawn_ml, 6),
+            "assays": self.assays,
             "sample": self.sample, "measurements": self.results,
             "measurements_sha256": hashlib.sha256(json.dumps(self.results, sort_keys=True).encode()).hexdigest(),
         }
@@ -113,7 +116,7 @@ class Session:
         if action == "play":
             if self.phase in {"collected", "loaded"}:
                 raise ValueError("Finish the current sample workflow first.")
-            if self.hour >= END_HOUR:
+            if self.hour >= END_HOUR and self.phase != "analyzing":
                 raise ValueError("This run reached 168 h. Start a new session.")
             self.running = True
             self.reason = "Culture follows the visible 3D animation."
@@ -126,27 +129,49 @@ class Session:
                 if self.phase == "analyzing":
                     seconds = min(command.seconds, ANALYSIS_SECONDS - self.analysis_seconds)
                     self.analysis_seconds += seconds
-                    self.hour = min(END_HOUR, self.hour + seconds * ANALYSIS_HOURS / ANALYSIS_SECONDS)
+                    hours = seconds * ANALYSIS_HOURS / ANALYSIS_SECONDS
+                    self.culture.advance(hours)
+                    # Pending assays finish even when collected at the 168 h boundary.
+                    self.hour += hours
                     if self.analysis_seconds >= ANALYSIS_SECONDS - 1e-8:
-                        self.results.append({**self.sample, **self.frozen,
-                            "available_at_hour": round(self.hour, 6), "model_version": MODEL,
-                            "evidence": "software_test_only"})
+                        flags = []
+                        if self.sample["withdrawal_ml"] < ANALYZED_ML:
+                            flags.append("insufficient_sample_volume")
+                        if not self.sample["mixed"]:
+                            flags.append("sample_not_mixed")
+                        quality = {"status": "rejected" if flags else "passed", "flags": flags}
+                        report = {**self.sample, "quality": quality,
+                                  "available_at_hour": round(self.hour, 6)}
+                        self.assays.append(report)
+                        if not flags:
+                            self.results.append({**report, **assay_reading(self.frozen, self.seed, self.sample["sample_id"]),
+                                "analyzed_volume_ml": ANALYZED_ML, "model_version": MODEL,
+                                "evidence": "software_test_only"})
                         self.phase = "complete"
-                        self.stop("FLEX2 result published to Guard. Resume culture for the next sample.")
+                        self.stop("Sample rejected by teaching QC; no Guard observation published. Collect a new sample."
+                                  if flags else "FLEX2 result published to Guard. Resume culture for the next sample.")
                 else:
-                    self.hour = min(END_HOUR, self.hour + command.seconds * self.speed)
+                    hours = min(END_HOUR - self.hour, command.seconds * self.speed)
+                    self.culture.advance(hours)
+                    self.hour += hours
                     if self.hour >= END_HOUR:
                         self.stop("End of demonstration run. Sampling remains available.")
         elif action == "collect":
             if self.phase not in {"idle", "complete"}:
                 raise ValueError("A sample is already in progress.")
-            if len(self.results) >= MAX_RESULTS:
+            if len(self.assays) >= MAX_RESULTS:
                 raise ValueError("This prototype supports at most 100 samples per run.")
-            if self.results and self.hour <= self.results[-1]["collected_at_hour"]:
+            if self.assays and self.hour <= self.assays[-1]["collected_at_hour"]:
                 raise ValueError("Advance culture before collecting another sample.")
-            self.sample = {"sample_id": f"FLEX2-{len(self.results) + 1:03d}",
-                           "collected_at_hour": round(self.hour, 6)}
-            self.frozen = synthetic_reading(self.hour)
+            if self.hour > END_HOUR:
+                raise ValueError("This run is complete. Start a new session.")
+            self.culture.withdraw(command.volume_ml)
+            self.sample = {"sample_id": f"FLEX2-{len(self.assays) + 1:03d}",
+                           "collected_at_hour": round(self.hour, 6),
+                           "withdrawal_ml": command.volume_ml, "mixed": command.mixed,
+                           "reactor_volume_before_ml": round(self.culture.volume_ml + command.volume_ml, 6),
+                           "reactor_volume_after_ml": round(self.culture.volume_ml, 6)}
+            self.frozen = self.culture.reading()
             self.analysis_seconds = 0
             self.phase = "collected"
             self.stop("Sample collected. Guided handling pauses culture until analysis starts.")
@@ -160,7 +185,7 @@ class Session:
                 raise ValueError("Load the collected sample before starting analysis.")
             self.phase = "analyzing"
             self.running = True
-            self.reason = "Five animated seconds represent an illustrative 4.5-minute assay interval."
+            self.reason = "Eight animated seconds represent 4.5 culture minutes; the reactor continues evolving."
         self.seq = command.seq
         self.revision += 1
         self.touched = self.last_tick = time.monotonic()
@@ -178,7 +203,7 @@ def find_session(id):
 
 
 @router.post("/sessions", status_code=201)
-async def create(request: Request):
+async def create(request: Request, config: RunConfig | None = None):
     if not local_client(request) or request.headers.get("x-hemoforge-action") != "virtual-lab":
         raise HTTPException(403, "Open Virtual Lab on localhost to create a session.")
     for id in list(sessions):
@@ -186,7 +211,8 @@ async def create(request: Request):
             del sessions[id]
     if len(sessions) >= MAX_SESSIONS:
         raise HTTPException(429, "Local session limit reached. Restart the prototype API or wait for expiry.")
-    session = Session()
+    config = config or RunConfig()
+    session = Session(scenario=config.scenario, seed=config.seed)
     sessions[session.id] = session
     return {"session_id": session.id, "controller_token": session.token}
 
@@ -210,7 +236,8 @@ async def stream(socket: WebSocket, id: str):
             await socket.close(code=1009)
             return
         hello = json.loads(raw)
-        if not isinstance(hello, dict) or hello.get("role") not in {"controller", "viewer"}:
+        if (not isinstance(hello, dict) or not isinstance(hello.get("role"), str)
+                or hello["role"] not in {"controller", "viewer"}):
             await socket.close(code=1008)
             return
         controller = hello["role"] == "controller"

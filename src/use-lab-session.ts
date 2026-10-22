@@ -17,13 +17,20 @@ export default function useLabSession(
     action: LabAction
     seconds?: number
     speed?: number
+    volume_ml?: number
+    mixed?: boolean
   } | null>(null)
   const nextSeq = useRef(1)
   const command = useCallback(
-    (action: LabAction, values: {
-      seconds?: number
-      speed?: number
-    } = {}) => {
+    (
+      action: LabAction,
+      values: {
+        seconds?: number
+        speed?: number
+        volume_ml?: number
+        mixed?: boolean
+      } = {},
+    ) => {
       if (
         !controllerToken ||
         socket.current?.readyState !== WebSocket.OPEN ||
@@ -50,13 +57,13 @@ export default function useLabSession(
     latest.current = null
     pending.current = null
     queued.current = null
+    setError("")
     if (!id || !sessionPattern.test(id)) {
       setConnection("disconnected")
       return
     }
     let disposed = false
     setConnection("connecting")
-    setError("")
     const ws = new WebSocket(
       `${
         location.protocol === "https:" ? "wss:" : "ws:"
@@ -83,7 +90,7 @@ export default function useLabSession(
       if (
         message.type !== "snapshot" ||
         message.session_id !== id ||
-        message.schema_version !== 1
+        message.schema_version !== 2
       )
         return
       latest.current = message
