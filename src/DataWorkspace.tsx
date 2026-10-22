@@ -233,7 +233,7 @@ export default function DataWorkspace({
   return (
     <>
       <PageTitle
-        title="Data & runs"
+        title="Data & Runs"
         description="Upload files, check and edit them, then apply them to every page."
         action={
           // The top bar shows backend status; keep only the way to reconnect.

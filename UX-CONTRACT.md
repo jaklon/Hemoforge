@@ -12,7 +12,7 @@ The compact presentation keeps upload, example loading, Run, simulation controls
 results, errors, and warning status visible. Supporting explanations, raw previews,
 source details and previews start collapsed in native disclosures. Full methods,
 LaTeX equations, mathematical references, and proposal-source records also have
-a dedicated Methods & references page. Users can expand them without leaving the current workflow.
+a dedicated Methods & References page. Users can expand them without leaving the current workflow.
 
 ## Canonical UI Map
 
@@ -21,7 +21,7 @@ a dedicated Methods & references page. Users can expand them without leaving the
 | Select/Listbox | Native selects in ResearchWorkspace / BioreactorGuard / AnalysisPanels | DESIGN.md | native; OS popup geometry accepted | Browser keyboard and open popup |
 | Scrollbar | src/index.css | DESIGN.md | global baseline; table geometry only | Browser overflow and computed style |
 | Form | NumberField / labeled native inputs and textarea | DESIGN.md | session notes, marker filters | Browser label activation and retained navigation state |
-| Navigation | ResearchWorkspace navigation / hash | Proposal section VII | desktop sidebar, inline mobile menu | All modules and back/forward |
+| Navigation | ResearchWorkspace navigation / hash | Proposal section VII and user navigation request | desktop sidebar, inline mobile menu; both brand links open About Us | All modules and back/forward |
 | Replay | ReplayControls and culture-monitoring.ts | Proposal section III | paused, playback, manual cursor | Core tests and browser |
 | Reports | reportsForSamples / ResearchReport | Proposal section IV | timeline, HTML, JSON, CSV | Core tests and browser exports |
 | Import | DataWorkspace / workspace-data.ts | Current user request | CSV, TSV, JSON; picker and drop | Parser tests and browser file chooser |
@@ -31,7 +31,7 @@ a dedicated Methods & references page. Users can expand them without leaving the
 
 ## Workflow and state
 
-Guard is the default; Data & runs stages and applies inputs. One input per type
+Guard is the default; Data & Runs stages and applies inputs. One input per type
 (culture, experiments, markers) is active. Applying an input replaces only that
 type; the connection list discloses retained sources and synthetic fallbacks.
 Files are held in the browser; prediction records are sent to loopback Python

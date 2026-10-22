@@ -65,19 +65,19 @@ interface NavigationItem {
 
 // Ordered start to finish along the HemoForge process map.
 const navigation: NavigationItem[] = [
-  { id: "data", name: "Data & runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
-  // Workflow & datasets page is hidden but kept: re-add
-  // { id: "workflow", name: "Workflow & datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
+  { id: "data", name: "Data & Runs", purpose: "Import, validate & run", icon: "data", group: "Data", role: "Import" },
+  // Workflow & Datasets page is hidden but kept: re-add
+  // { id: "workflow", name: "Workflow & Datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
   // to show it again. Without a nav entry, #workflow falls back to Guard.
   // Legacy marker screen ("match") stays in code but is no longer navigable.
   { id: "evo2", name: "RareMatch", purpose: "Screen sequence variants", icon: "dna", group: "Workspace", role: "Select" },
   { id: "plan", name: "CulturePlan", purpose: "Plan experiments", icon: "plan", group: "Workspace", role: "Plan" },
   { id: "guard", name: "Bioreactor Guard", purpose: "Observe culture", icon: "guard", group: "Workspace", role: "Observe" },
   { id: "pilot", name: "ErythroPilot", purpose: "Interpret & summarize", icon: "pilot", group: "Workspace", role: "Interpret" },
-  { id: "report", name: "Research report", purpose: "Review & export", icon: "report", group: "Output", role: "Report" },
-  { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot", group: "Assist & reference" },
-  { id: "methods", name: "Methods & references", purpose: "Equations & sources", icon: "report", group: "Assist & reference" },
-  { id: "about", name: "About us", purpose: "Project & team", icon: "team", group: "About" },
+  { id: "report", name: "Research Report", purpose: "Review & export", icon: "report", group: "Output", role: "Report" },
+  { id: "bot", name: "HemoBot", purpose: "Analyze research evidence", icon: "pilot", group: "Assist & Reference" },
+  { id: "methods", name: "Methods & References", purpose: "Equations & sources", icon: "report", group: "Assist & Reference" },
+  { id: "about", name: "About Us", purpose: "Project & team", icon: "team", group: "About" },
 ]
 
 const processStages = navigation.filter((item) => item.role)
@@ -503,11 +503,11 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
   return (
     <>
       <PageTitle
-        title="Workflow & datasets"
+        title="Workflow & Datasets"
         description="See how inputs connect to each analysis."
         action={
           <a className="button" href="#methods">
-            Methods & references
+            Methods & References
           </a>
         }
       />
@@ -869,7 +869,7 @@ function ResearchReport({
   return (
     <>
       <PageTitle
-        title="Research report"
+        title="Research Report"
         description="Add notes and export your results."
         action={<Badge tone="warning">Pending laboratory verification</Badge>}
       />
@@ -1209,11 +1209,12 @@ function ResearchWorkspaceContent() {
       >
         <a
           className="brand"
-          href="#guard"
+          href="#about"
+          aria-label="HemoForge · About Us"
           onClick={(e) => {
             e.preventDefault()
 
-            navigate("guard")
+            navigate("about")
           }}
         >
           <span className="brand-mark">
@@ -1274,11 +1275,21 @@ function ResearchWorkspaceContent() {
       </aside>
       <header className="topbar">
         <div className="breadcrumb">
-          <span>Research workspace</span>
+          <span>Research Workspace</span>
           <Icon name="arrow" />
           <strong>{current.name}</strong>
         </div>
-        <strong className="mobile-brand">HemoForge</strong>
+        <a
+          className="mobile-brand"
+          href="#about"
+          aria-label="HemoForge · About Us"
+          onClick={(event) => {
+            event.preventDefault()
+            navigate("about")
+          }}
+        >
+          HemoForge
+        </a>
         <div className="header-actions">
           <ServiceStatus backend={workspaceData.backendStatus} />
           {(["guard", "pilot", "plan", "match"] as View[]).includes(view) && (

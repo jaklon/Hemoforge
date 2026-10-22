@@ -168,7 +168,7 @@ export default function MethodsPage({ section }: { section: string }) {
   return (
     <div className="methods-page">
       <PageTitle
-        title="Methods & references"
+        title="Methods & References"
         description="The equations behind each result, their sources, and the limits of their interpretation."
         action={<Button onClick={downloadLatex}>Download LaTeX source</Button>}
       />

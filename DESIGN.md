@@ -79,6 +79,17 @@ their panel without causing page overflow. Forms retain normal document scrollin
 A 21-day roadmap uses 7 columns on narrower screens; it never invents observations
 past the active input's final source time. Native selects own OS popup geometry.
 
+Page names use title case in navigation, page headings, cross-links, and browser
+titles; preserve product spellings such as RareMatch and ErythroPilot. Both desktop
+and mobile HemoForge logos open About Us through the shared navigation handler.
+About Us is the informational exception to the workspace's compact presentation:
+a flat navy introduction pairs project context with the existing blood-supply
+figures. The four module columns fill the content width, then switch to two and
+one columns at 900px and 560px of available content width. Lab QC has its own
+full-width handoff below the modules. Section jumps retain the About Us route and
+focus their destination. Once-only scroll reveals use transform and opacity;
+content stays visible without IntersectionObserver and with reduced motion.
+
 Guard's attention strip summarizes recorded flags without claiming live sensor
 health. Batch cards show last-interval percentage, sample age, and a sparkline
 from revealed source rows. Selected chart series are always red; comparison
@@ -152,7 +163,7 @@ Native `details`/`summary` supports secondary evidence and starts collapsed.
 Keep primary actions, results, units, validation errors, and actionable warnings
 visible. Put file previews, import guides, and roadmaps behind labeled disclosures.
 Full equations, references, and provenance also live on the dedicated Methods
-& references page, with visible section links beside analysis controls. Use one short purpose sentence per page;
+& References page, with visible section links beside analysis controls. Use one short purpose sentence per page;
 avoid repeating explanations in banners and cards. Example loading stays beside
 the file picker, with template downloads available in a disclosure.
 Reports show 8 checkpoints per page with explicit Earlier/Newer controls.
@@ -163,14 +174,14 @@ version, request fingerprint, engine, and execution time. Inputs, computed resul
 the current session. JSON/HTML exports include inputs, source hashes, model
 results, simulation settings, and pending QC. Prediction-only calls process inputs
 in memory; explicit HemoBot analyses persist local SQLite snapshots and audit records.
-Data & runs shows a compact connection badge and Retry when disconnected.
+Data & Runs shows a compact connection badge and Retry when disconnected.
 All prediction controls and results stay in the website. Preserve
 staged files on failure and never silently fall back to browser predictions.
 
 The global scrollbar baseline is in `src/index.css`; all overflow inherits its
 thumb, track, hover, active, and forced-colors behavior. Reduced motion disables
 transitions. Replay begins paused and playback controls only the demonstration.
-Data & runs is the import entry point. A dashed drop area and a visible file
+Data & Runs is the import entry point. A dashed drop area and a visible file
 picker share validation. A preview is staged before Run replaces the corresponding
 input type. Errors stay inline and valid files survive a sibling failure. Local
 read/run states and cancellation are explicit. The connection list names each
