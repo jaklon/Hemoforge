@@ -93,11 +93,11 @@ code { overflow-wrap: anywhere; }
 .sidebar nav strong { font-size: var(--text-md); font-weight: 550; }
 .sidebar nav small { color: #b0bdd1; font-size: var(--text-xs); margin-top: 3px; }
 .nav-group-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
-.sidebar-pin { display: grid; place-items: center; flex: none; width: 26px; height: 26px; margin: -5px -4px -5px 0; padding: 0; border: 1px solid #39465c; border-radius: 6px; background: transparent; color: #c6cfde; cursor: pointer; }
-.sidebar-pin:hover { background: #1b263a; color: #fff; }
+.sidebar-pin { display: grid; place-items: center; flex: none; width: 24px; height: 24px; margin: -4px -4px -4px 0; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
+.sidebar-pin:hover { background: #1b263a; color: #e2e8f0; }
 .sidebar-pin:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .sidebar-pin .icon { width: 14px; height: 14px; transform: rotate(45deg); }
-.sidebar-pin[aria-pressed="true"] { background: #a9222c; border-color: #a9222c; color: #fff; }
+.sidebar-pin[aria-pressed="true"] { background: #1b263a; color: #e2e8f0; }
 .sidebar-pin[aria-pressed="true"] .icon { transform: none; }
 /* Collapsible sidebar: unpinned, the page keeps only a narrow rail; hovering widens the sidebar
    over the page (no reflow), pinning widens the page margin too. Labels fold away on the rail. */
