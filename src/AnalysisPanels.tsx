@@ -16,6 +16,19 @@ import {
 import { conditionSummary, type ExperimentPlan } from "./experiment-model"
 
 import {
+  bloodGroups,
+  bloodTargetError,
+  cellsPerUnit,
+  defaultBloodTarget,
+  literatureGrowth,
+  metaboliteLimits,
+  metaboliteStatus,
+  planBloodTarget,
+  type BloodTargetPlan,
+  type BloodTargetSettings,
+} from "./blood-target"
+
+import {
   Button,
   Panel,
   Badge,
@@ -302,17 +315,239 @@ export function SimulationPanel({
   )
 }
 
+const wholeCells = new Intl.NumberFormat("en-US", {
+  maximumSignificantDigits: 3,
+})
+
+function ProductionTarget({
+  condition,
+}: {
+  condition: { lactate: number; ammonia: number } | null
+}) {
+  const { batchIndexes, batchId, batchMeasurements } = useCultureData()
+
+  const [batch, setBatch] = useState(1)
+
+  const [settings, setSettings] = useState<BloodTargetSettings>({
+    ...defaultBloodTarget,
+  })
+
+  const settingError = bloodTargetError(settings)
+
+  let plan: BloodTargetPlan | null = null
+
+  let planError = ""
+
+  try {
+    if (!settingError) plan = planBloodTarget(settings, batchMeasurements(batch))
+  } catch (failure) {
+    planError = failure instanceof Error ? failure.message : "Planning failed."
+  }
+
+  const metabolites = condition
+    ? metaboliteStatus(condition.lactate, condition.ammonia)
+    : null
+
+  return (
+    <Panel
+      title="Production target"
+      caption="State how much blood you want and the planner works back to culture time, stages and safe metabolite limits."
+      action={
+        <a className="method-link" href="#methods/target">
+          Target equations &amp; references
+        </a>
+      }
+    >
+      <div className="settings-grid target-form">
+        <NumberField
+          label="Target (adult units)"
+          value={settings.units}
+          min={0.01}
+          max={1000}
+          hint={`1 unit = ${wholeCells.format(cellsPerUnit)} red cells (Bayley et al. 2018).`}
+          onChange={(value) => setSettings({ ...settings, units: value! })}
+        />
+        <label>
+          Blood group (label only)
+          <select
+            value={settings.group}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+
+                group: event.target.value as BloodTargetSettings["group"],
+              })
+            }
+          >
+            {bloodGroups.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+          </select>
+          <small>Tags the plan only; screen donor profiles in RareMatch.</small>
+        </label>
+        <label>
+          Growth rate
+          <select
+            value={settings.rate}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+
+                rate: event.target.value as BloodTargetSettings["rate"],
+              })
+            }
+          >
+            <option value="fitted">Fitted from this batch</option>
+            <option value="static">
+              Published static flask · {literatureGrowth.static.perHour}/h
+            </option>
+            <option value="stirred">
+              Published stirred tank · {literatureGrowth.stirred.perHour}/h
+            </option>
+          </select>
+        </label>
+        <label>
+          Starting batch
+          <select
+            value={batch}
+            onChange={(event) => setBatch(Number(event.target.value))}
+          >
+            {batchIndexes.map((index) => (
+              <option key={index} value={index}>
+                {batchId(index)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {(settingError || planError) && (
+        <p role="alert" className="import-error">
+          {settingError || planError}
+        </p>
+      )}
+      {plan && (
+        <>
+          <div className="guard-metrics target-metrics">
+            <div>
+              <span>Cells needed</span>
+              <strong>{wholeCells.format(plan.targetCells)}</strong>
+              <small>
+                from {wholeCells.format(plan.startCells)} at {plan.startHour}h
+              </small>
+            </div>
+            <div>
+              <span>Fold expansion</span>
+              <strong>{wholeCells.format(plan.fold)}×</strong>
+              <small>{plan.doublings.toFixed(1)} population doublings</small>
+            </div>
+            <div>
+              <span>Doubling time</span>
+              <strong>{plan.doublingHours.toFixed(1)} h</strong>
+              <small>
+                {plan.rate.perHour.toPrecision(3)}/h ·{" "}
+                {plan.rate.source === "fitted"
+                  ? "fitted from this batch"
+                  : plan.rate.source === "stirred"
+                    ? literatureGrowth.stirred.label
+                    : literatureGrowth.static.label}
+              </small>
+            </div>
+            <div>
+              <span>Time to target</span>
+              <strong>{plan.days.toFixed(1)} days</strong>
+              <small>
+                {plan.hours.toFixed(0)} h in about {plan.stages} stage
+                {plan.stages === 1 ? "" : "s"}
+              </small>
+            </div>
+          </div>
+          <div className="candidate-review target-plan">
+            <h3>
+              Plan for {plan.units} unit{plan.units === 1 ? "" : "s"} ·{" "}
+              {plan.group}
+            </h3>
+            <ol>
+              <li>
+                Start from {batchId(batch)} at {plan.startHour}h with{" "}
+                {wholeCells.format(plan.startCells)} cells.
+              </li>
+              <li>
+                Expand {plan.doublings.toFixed(1)} doublings at{" "}
+                {plan.doublingHours.toFixed(1)} h each:{" "}
+                {plan.hours.toFixed(0)} h of growth, about{" "}
+                {plan.days.toFixed(1)} days.
+              </li>
+              <li>
+                Split and exchange medium every {plan.stageWindowHours} h, so
+                about {plan.stages} stage{plan.stages === 1 ? "" : "s"}; static
+                BEL-A counts decline past that window.
+              </li>
+              <li>
+                {metabolites && condition ? (
+                  <>
+                    Hold lactate under{" "}
+                    {metaboliteLimits.lactate.inhibitory.toFixed(0)} mg/L and
+                    ammonia under{" "}
+                    {metaboliteLimits.ammonia.inhibitory.toFixed(0)} mg/L. The
+                    top-ranked condition ({condition.lactate} / {condition.ammonia}{" "}
+                    mg/L) is{" "}
+                    <Badge
+                      tone={
+                        metabolites.worst === "below"
+                          ? "success"
+                          : metabolites.worst === "inhibitory"
+                            ? "warning"
+                            : "warning"
+                      }
+                    >
+                      {metabolites.worst === "below"
+                        ? "below both inhibition onsets"
+                        : metabolites.worst === "inhibitory"
+                          ? "above an inhibition onset"
+                          : "in the range reported to mediate cell death"}
+                    </Badge>
+                  </>
+                ) : (
+                  <>
+                    Fit the GP below to get a ranked condition, then check it
+                    against the {metaboliteLimits.lactate.inhibitory.toFixed(0)}{" "}
+                    mg/L lactate and{" "}
+                    {metaboliteLimits.ammonia.inhibitory.toFixed(0)} mg/L
+                    ammonia inhibition onsets.
+                  </>
+                )}
+              </li>
+              <li>
+                Tag the run and the donor line {plan.group}; confirm the group
+                and any rare antigens in RareMatch before any lab work.
+              </li>
+            </ol>
+          </div>
+          {plan.warnings.map((warning) => (
+            <p key={warning} className="panel-note">
+              {warning}
+            </p>
+          ))}
+          <p className="panel-note">
+            Exponential-growth arithmetic over unverified demo data: it omits
+            differentiation, enucleation, viability loss, feeding and medium
+            volume, so it is a planning estimate to test, not a production or
+            clinical protocol.{" "}
+            <a className="method-link" href="#methods/target">
+              Equations and sources
+            </a>
+          </p>
+        </>
+      )}
+    </Panel>
+  )
+}
+
 export function ExperimentPlanner({
-  candidate,
-
-  setCandidate,
-
   onEditData,
 }: {
-  candidate: number | null
-
-  setCandidate: (value: number) => void
-
   onEditData: () => void
 }) {
   const {
@@ -353,8 +588,6 @@ export function ExperimentPlanner({
 
     setError(run?.planError ?? "")
   }, [run?.id, source, settings])
-
-  const selected = candidate === null ? null : summary[candidate]
 
   return (
     <>
@@ -418,55 +651,16 @@ export function ExperimentPlanner({
           {fitting ? "Running analysis…" : "Fit GP & rank conditions"}
         </Button>
       </div>
-      <Details title="Model settings">
-        <div className="settings-grid">
-          <NumberField
-            label="Normalized length scale"
-            value={settings.lengthScale}
-            min={0.001}
-            max={100}
-            disabled={fitting}
-            onChange={(value) =>
-              setSettings({ ...settings, lengthScale: value! })
-            }
-          />
-          <NumberField
-            label="Noise SD override (normalized)"
-            value={settings.noise}
-            optional
-            min={0.0001}
-            max={10}
-            disabled={fitting}
-            hint="Blank estimates noise from the pooled replicate SD."
-            onChange={(value) => setSettings({ ...settings, noise: value })}
-          />
-          <NumberField
-            label="Exploration margin (response units)"
-            value={settings.exploration}
-            min={0}
-            max={1000000}
-            disabled={fitting}
-            onChange={(value) =>
-              setSettings({ ...settings, exploration: value! })
-            }
-          />
-        </div>
-        <p>
-          Changing any parameter requires a new fit. Edit factor levels,
-          responses, and replicates in{" "}
-          <a
-            href="#data"
-            onClick={(event) => {
-              event.preventDefault()
-
-              onEditData()
-            }}
-          >
-            scenario data
-          </a>
-          .
-        </p>
-      </Details>
+      <ProductionTarget
+        condition={
+          model?.candidates[0]
+            ? {
+                lactate: model.candidates[0].lactate,
+                ammonia: model.candidates[0].ammonia,
+              }
+            : null
+        }
+      />
       {settingError && (
         <p role="alert" className="import-error">
           {settingError}
@@ -478,97 +672,105 @@ export function ExperimentPlanner({
           {error}
         </p>
       )}
-      <div className="plan-grid">
-        <Panel
-          title="Observed experimental results"
-          caption={`One row per condition · response unit: ${summary[0]?.unit ?? "not supplied"}`}
-        >
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Condition</th>
-                  <th className="numeric">Lactate mg/L</th>
-                  <th className="numeric">Ammonia mg/L</th>
-                  <th className="numeric">Runs</th>
-                  <th className="numeric">Mean ± SD</th>
-                  <th>Review</th>
+      <Panel
+        title="Tested conditions"
+        caption={`From the dataset: lactate and ammonia added to the medium, and the measured response (${summary[0]?.unit ?? "unit not supplied"}).`}
+      >
+        <div className="table-scroll compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th className="numeric">Lactate mg/L</th>
+                <th className="numeric">Ammonia mg/L</th>
+                <th className="numeric">Response</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map((row) => (
+                <tr key={row.id}>
+                  <td className="numeric">{row.lactate}</td>
+                  <td className="numeric">{row.ammonia}</td>
+                  <td className="numeric">
+                    {row.mean.toFixed(2)}
+                    {row.sd !== null && ` ± ${row.sd.toFixed(2)}`}
+                    {row.n > 1 && ` (${row.n} runs)`}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {summary.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className={candidate === index ? "selected-row" : ""}
-                  >
-                    <td>{row.id}</td>
-                    <td className="numeric">{row.lactate}</td>
-                    <td className="numeric">{row.ammonia}</td>
-                    <td className="numeric">{row.n}</td>
-                    <td className="numeric">
-                      {row.mean.toFixed(3)} ± {row.sd?.toFixed(3) ?? "N/A"}
-                    </td>
-                    <td>
-                      <button
-                        className="text-button"
-                        aria-pressed={candidate === index}
-                        onClick={() => setCandidate(index)}
-                      >
-                        {candidate === index ? "Selected" : "Review"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+      <Panel
+        title="Ranked conditions"
+        caption={
+          model
+            ? `Best ${Math.min(8, model.candidates.length)} of a ${model.candidates.length}-point grid inside the tested range, already-tested conditions included · ${
+                model.noise.source === "replicates"
+                  ? `noise from pooled replicate SD ${model.noise.sd.toPrecision(3)} (${model.noise.dof} df)`
+                  : model.noise.source === "setting"
+                    ? "noise from your override"
+                    : "no replicates: noise assumed"
+              }`
+            : "Fit the GP to rank new lactate and ammonia combinations by expected improvement."
+        }
+        action={
+          <a className="method-link" href="#methods/improvement">
+            Expected improvement equation
+          </a>
+        }
+      >
+        <Details title="Model settings">
+          <div className="settings-grid">
+            <NumberField
+              label="Normalized length scale"
+              value={settings.lengthScale}
+              min={0.001}
+              max={100}
+              disabled={fitting}
+              onChange={(value) =>
+                setSettings({ ...settings, lengthScale: value! })
+              }
+            />
+            <NumberField
+              label="Noise SD override (normalized)"
+              value={settings.noise}
+              optional
+              min={0.0001}
+              max={10}
+              disabled={fitting}
+              hint="Blank estimates noise from the pooled replicate SD."
+              onChange={(value) => setSettings({ ...settings, noise: value })}
+            />
+            <NumberField
+              label="Exploration margin (response units)"
+              value={settings.exploration}
+              min={0}
+              max={1000000}
+              disabled={fitting}
+              onChange={(value) =>
+                setSettings({ ...settings, exploration: value! })
+              }
+            />
           </div>
-        </Panel>
-        <Panel title="Candidate review">
-          <div className="candidate-review">
-            {selected ? (
-              <>
-                <h3>{selected.id}</h3>
-                <p>
-                  Lactate {selected.lactate} mg/L · Ammonia {selected.ammonia}{" "}
-                  mg/L.
-                </p>
-                <p>
-                  Observed mean {selected.mean.toFixed(3)} {selected.unit} from{" "}
-                  {selected.n} run(s).
-                </p>
-              </>
-            ) : (
-              <p>Select a condition in the table to inspect it.</p>
-            )}
-            <Details title="How to read these results">
-              <p>
-                A condition is a combination of lab settings. The response is
-                what the experiment produced. The fitted model estimates
-                response and uncertainty; expected improvement ranks new
-                lactate/ammonia combinations on a grid inside the tested range,
-                alongside the tested conditions.
-              </p>
-            </Details>
-          </div>
-        </Panel>
-      </div>
-      {model && (
-        <>
-          <Panel
-            title="Suggested next conditions"
-            caption={`${model.candidates.length}-point grid inside the tested range · ${
-              model.noise.source === "replicates"
-                ? `noise from pooled replicate SD ${model.noise.sd.toPrecision(3)} (${model.noise.dof} df)`
-                : model.noise.source === "setting"
-                  ? "noise from your override"
-                  : "no replicates: noise assumed"
-            }`}
-            action={
-              <a className="method-link" href="#methods/improvement">
-                Expected improvement equation
-              </a>
-            }
-          >
+          <p>
+            Changing any parameter requires a new fit. Edit factor levels,
+            responses, and replicates in{" "}
+            <a
+              href="#data"
+              onClick={(event) => {
+                event.preventDefault()
+
+                onEditData()
+              }}
+            >
+              scenario data
+            </a>
+            .
+          </p>
+        </Details>
+        {model ? (
+          <>
             <div className="table-scroll">
               <table>
                 <thead>
@@ -606,31 +808,15 @@ export function ExperimentPlanner({
                 Repeat at least one condition to estimate it.
               </p>
             )}
-          </Panel>
-          <Panel title="GP estimates at tested conditions">
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Condition</th>
-                    <th className="numeric">GP mean</th>
-                    <th className="numeric">Uncertainty SD</th>
-                    <th className="numeric">Expected improvement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {model.ranked.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td className="numeric">{row.prediction.toFixed(4)}</td>
-                      <td className="numeric">{row.uncertainty.toFixed(4)}</td>
-                      <td className="numeric">{row.ei.toPrecision(4)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
+          </>
+        ) : (
+          <p className="panel-note">
+            No ranking yet. Choose a goal and run the fit above.
+          </p>
+        )}
+      </Panel>
+      {model && (
+        <>
           <Panel
             title="Held-out condition check"
             action={

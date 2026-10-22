@@ -1,12 +1,6 @@
 import { sourceReferences as sources } from "./source-references"
 
-import {
-  filterMarkers,
-  type MarkerRow,
-  type ExperimentRow,
-} from "./workspace-data"
-
-import { conditionSummary } from "./experiment-model"
+import { filterMarkers, type MarkerRow } from "./workspace-data"
 
 import {
   Icon,
@@ -710,8 +704,6 @@ function ResearchReport({
 
   eventNotes,
 
-  candidate,
-
   checks,
 }: {
   botAnalysis: BotAnalysis | null
@@ -725,8 +717,6 @@ function ResearchReport({
   setNotes: (v: string) => void
 
   eventNotes: Record<string, string>
-
-  candidate: number | null
 
   checks: boolean[]
 }) {
@@ -831,13 +821,6 @@ function ResearchReport({
     screening: rows,
 
     cultureplan: {
-      selected_demo_condition:
-        candidate === null
-          ? null
-          : (conditionSummary(
-              workspaceData.inputs.experiments.rows as ExperimentRow[],
-            )[candidate]?.id ?? null),
-
       gp_status: workspaceData.run?.plan
         ? JSON.stringify(workspaceData.run.settings) ===
           JSON.stringify(workspaceData.planSettings)
@@ -1148,7 +1131,6 @@ function ResearchWorkspaceContent() {
 
   const [notes, setNotes] = useState("")
 
-  const [candidate, setCandidate] = useState<number | null>(null)
 
   const [checks, setChecks] = useState([false, false, false])
 
@@ -1225,10 +1207,6 @@ function ResearchWorkspaceContent() {
 
     setNotes("")
   }, [source])
-
-  useEffect(() => {
-    setCandidate(null)
-  }, [workspaceData.inputs.experiments])
 
   useEffect(() => {
     setChecks([false, false, false])
@@ -1444,8 +1422,6 @@ function ResearchWorkspaceContent() {
         ) : view === "plan" ? (
           <ExperimentPlanner
             onEditData={() => navigate("data")}
-            candidate={candidate}
-            setCandidate={setCandidate}
           />
         ) : view === "match" ? (
           <MarkerScreen
@@ -1483,7 +1459,6 @@ function ResearchWorkspaceContent() {
             notes={notes}
             setNotes={setNotes}
             eventNotes={eventNotes}
-            candidate={candidate}
             checks={checks}
           />
         )}

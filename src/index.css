@@ -242,6 +242,13 @@ textarea { display: block; width: 100%; min-height: 110px; resize: none; padding
 .notice p { font-size: var(--text-caption); margin-top: 6px; }
 .warning-notice { background: #fff5e5; color: #80541b; font-size: var(--text-caption); }
 .plan-grid, .report-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px; margin-bottom: 20px; align-items: start; }
+.target-form { padding: 18px 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.target-form select { display: block; width: 100%; }
+.target-metrics { grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.target-plan ol { margin: 0; padding-left: 18px; }
+.target-plan li + li { margin-top: 7px; }
+.compact-table table { min-width: 0; width: auto; }
+.compact-table th, .compact-table td { padding: 7px 20px; }
 .table-scroll { overflow-x: auto; max-width: 100%; scrollbar-gutter: stable; }
 table { border-collapse: collapse; text-align: left; width: 100%; font-size: var(--text-caption); min-width: 560px; }
 th { color: #59677a; font-weight: 500; padding: 12px 16px; vertical-align: bottom; background: #fff; }
@@ -262,6 +269,7 @@ td strong { font-weight: 550; }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px; align-items: start; }
 .settings-grid label, .number-field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: var(--text-caption); min-width: 0; }
 .settings-grid input, .marker-card input, .speed-select input, .replay-precise input { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 5px; background: var(--surface); color: var(--navy); }
+.settings-grid select { width: 100%; }
 .settings-grid small, .number-field small { font-size: var(--text-xs); font-weight: 400; }
 input[aria-invalid="true"] { border-color: var(--red); }
 .marker-controls { padding: 18px; margin: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }

@@ -67,6 +67,34 @@ export function simulateCultureForecast(
   )
 }
 
+// Log-space growth fit shared by the growth simulation and the production
+// target planner. Intervals keep their actual duration; see methods "growth".
+export function fitLogGrowth(observations: { hour: number; count: number }[]) {
+  const intervals = observations.slice(1).map((sample, i) => ({
+    duration: sample.hour - observations[i].hour,
+
+    logChange: Math.log(sample.count) - Math.log(observations[i].count),
+  }))
+
+  const logDrift =
+    intervals.reduce((sum, interval) => sum + interval.logChange, 0) /
+    intervals.reduce((sum, interval) => sum + interval.duration, 0)
+
+  const volatility = Math.sqrt(
+    intervals.reduce(
+      (sum, interval) =>
+        sum +
+        (interval.logChange - logDrift * interval.duration) ** 2 /
+          interval.duration,
+
+      0,
+    ) /
+      (intervals.length - 1),
+  )
+
+  return { logDrift, volatility, intervals: intervals.length }
+}
+
 export function simulateMeasurementsForecast(
   samples: Measurement[],
 
@@ -114,26 +142,8 @@ export function simulateMeasurementsForecast(
 
   const counts = observations.map((sample) => sample.count!)
 
-  const intervals = observations.slice(1).map((sample, i) => ({
-    duration: sample.hour - observations[i].hour,
-
-    logChange: Math.log(counts[i + 1]) - Math.log(counts[i]),
-  }))
-
-  const logDrift =
-    intervals.reduce((sum, interval) => sum + interval.logChange, 0) /
-    intervals.reduce((sum, interval) => sum + interval.duration, 0)
-
-  const volatility = Math.sqrt(
-    intervals.reduce(
-      (sum, interval) =>
-        sum +
-        (interval.logChange - logDrift * interval.duration) ** 2 /
-          interval.duration,
-
-      0,
-    ) /
-      (intervals.length - 1),
+  const { logDrift, volatility } = fitLogGrowth(
+    observations.map((sample, i) => ({ hour: sample.hour, count: counts[i] })),
   )
 
   const last = observations[observations.length - 1]

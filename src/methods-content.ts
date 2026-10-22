@@ -230,6 +230,43 @@ export const methods = [
     refs: ["gpml", "bayley"],
   },
   {
+    id: "target",
+    title: "Production target planning",
+    module: "CulturePlan",
+    route: "plan",
+    engine: "Browser · deterministic arithmetic",
+    intro:
+      "A requested number of adult transfusion units is converted into the cell count, fold expansion, population doublings and culture time implied by exponential growth, then split into stages that respect the reported static-culture window and metabolite inhibition onsets.",
+    notation:
+      "U is the requested number of adult units and c = 2 × 10¹² red cells per unit. N₀ is the latest positive count in the selected batch. g is log-growth per hour, either fitted from the batch or taken from a published rate. W is the static-culture stage window in hours.",
+    equations: [
+      {
+        id: "target-expansion",
+        name: "Cells needed, fold expansion and population doublings",
+        latex: String.raw`N_{\mathrm{target}}=Uc,\qquad F=\frac{N_{\mathrm{target}}}{N_0},\qquad \mathrm{PD}=\log_2 F=3.33\log_{10}F`,
+        explanation:
+          "Population doublings are the base-2 logarithm of the count ratio; the 3.33 log₁₀ form is the same quantity as written by Bayley et al. The starting count is read from the batch at the latest positive measurement, not from a nominal seeding density.",
+      },
+      {
+        id: "target-time",
+        name: "Doubling time, culture time and stage count",
+        latex: String.raw`t_d=\frac{\ln 2}{g},\qquad T=\mathrm{PD}\cdot t_d,\qquad S=\left\lceil\frac{T}{W}\right\rceil`,
+        explanation:
+          "The fitted rate uses the same log-space fit as the growth simulation. Published alternatives are 0.029/h static (24.25 h doubling) and 0.051/h stirred (13.93 h). A non-positive fitted rate falls back to the static rate and is flagged. W is 70 h, beyond which BEL-A counts were reported to decline in static batch culture, so each stage implies a split and medium exchange.",
+      },
+      {
+        id: "target-metabolites",
+        name: "Metabolite ceilings for the planned condition",
+        latex: String.raw`\begin{aligned}\text{lactate}&<15\,\mathrm{mM}\times 90.08\,\mathrm{g/mol}=1351\ \mathrm{mg/L}\\ \text{ammonia}&<4\,\mathrm{mM}\times 17.03\,\mathrm{g/mol}=68\ \mathrm{mg/L}\end{aligned}`,
+        explanation:
+          "Inhibition onsets reported in millimolar are converted with the molar masses of lactate and ammonia to match the mg/L units of the DOE fixture. The condition ranked first by expected improvement is checked against these onsets and against the 2640 mg/L lactate with 129 mg/L ammonia combination reported to mediate cell death.",
+      },
+    ],
+    limits:
+      "This is arithmetic on a constant-exponential-growth assumption over unverified demo counts. It omits differentiation, enucleation, viability and yield losses, medium volume, feeding schedules, and any release testing, and the blood group is a label that enters no equation because no bundled dataset links a group to culture behaviour. The result is a planning estimate for a researcher to test, not a manufacturing or clinical protocol.",
+    refs: ["bayley", "phillips", "timmins", "isbt"],
+  },
+  {
     id: "monitoring",
     title: "Observed growth & monitoring rules",
     module: "Bioreactor Guard",

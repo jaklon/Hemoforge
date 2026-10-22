@@ -23,5 +23,5 @@ test("every published equation renders as accessible math and has a unique deep-
     for (const id of method.refs)
       assert.ok(methodReferences.some((reference) => reference.id === id))
   }
-  assert.equal(methods.length, 7)
+  assert.equal(methods.length, 8)
 })
