@@ -1116,6 +1116,11 @@ function ResearchWorkspaceContent() {
       : "guard",
   )
 
+  // Opening a page counts as seeing its new results.
+  useEffect(() => {
+    if (workspaceData.updates.includes(view)) workspaceData.unflag(view)
+  }, [view, workspaceData.updates])
+
   const [methodSection, setMethodSection] = useState(
     () => location.hash.slice(1).split("/")[1] ?? "",
   )
@@ -1329,8 +1334,10 @@ function ResearchWorkspaceContent() {
                   >
                     <Icon name={item.icon} />
                     <strong>{item.name}</strong>
-                    {item.id === "guard" && (
-                      <span className="nav-count">{batches.length}</span>
+                    {workspaceData.updates.includes(item.id) && (
+                      <span className="nav-count nav-update" title="New results">
+                        !<span className="sr-only"> New results</span>
+                      </span>
                     )}
                   </a>
                 ))}

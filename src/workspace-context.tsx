@@ -82,6 +82,10 @@ interface WorkspaceContextValue {
   apply: (files: InputFile[]) => Promise<void>
   notice: Notice | null
   notify: (message: string | null, tone?: Notice["tone"]) => void
+  // Sidebar pages with results the user has not opened yet.
+  updates: string[]
+  flag: (...views: string[]) => void
+  unflag: (view: string) => void
   simulate: (
     batchIndex: number,
     hour: number,
@@ -119,6 +123,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   function notify(message: string | null, tone: Notice["tone"] = "info") {
     setNotice(message ? { id: Date.now(), message, tone } : null)
+  }
+  const [updates, setUpdates] = useState<string[]>([])
+  function flag(...views: string[]) {
+    setUpdates((old) => [...new Set([...old, ...views])])
+  }
+  function unflag(view: string) {
+    setUpdates((old) => old.filter((item) => item !== view))
   }
   const lastStatus = useRef(backendStatus)
   useEffect(() => {
@@ -205,6 +216,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       notify(null)
       throw new Error("Inputs changed during analysis. Run again.")
     }
+    // Each data type feeds the pages listed under "Active inputs & connections".
+    if (files.some((file) => file.kind === "culture")) flag("guard", "pilot")
+    if (files.some((file) => file.kind === "markers")) flag("evo2")
+    if (refit && !planError) flag("plan")
+    flag("report")
     if (planError)
       notify(`Data applied, but CulturePlan refit failed: ${planError}`, "error")
     else
@@ -266,6 +282,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     )
       return
     notify(`Growth simulation finished for ${batch.id}`, "success")
+    flag("pilot")
     setSimulation({
       batchId: batch.id,
       sourceHash: inputs.culture.sha256,
@@ -296,6 +313,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (activeInputs.current !== inputs || sequence !== planSequence.current)
       return
     notify("CulturePlan fit finished · conditions re-ranked", "success")
+    flag("plan", "report")
     const { result: plan, ...prediction } = response
     const id = await checksum(
       new TextEncoder().encode(
@@ -343,6 +361,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         apply,
         notice,
         notify,
+        updates,
+        flag,
+        unflag,
         simulate,
         refitPlan,
         backendStatus,

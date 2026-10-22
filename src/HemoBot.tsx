@@ -6,7 +6,7 @@ import { analyzeWithBot, botExportUrl, botPayload, botQuestions, botStatus,
   type BotAnalysis, type BotContext, type BotModule, type BotStatus } from "./hemobot-api"
 
 export function useHemoBot(context: BotContext) {
-  const { inputs, notify } = useWorkspace()
+  const { inputs, notify, flag } = useWorkspace()
   const [query, setQuery] = useState(botQuestions.all)
   const [module, setModule] = useState<BotModule>("all")
   const [mode, setMode] = useState<"auto" | "template">("auto")
@@ -45,6 +45,7 @@ export function useHemoBot(context: BotContext) {
       if (sequence === generation.current) {
         setResult(response)
         notify("HemoBot analysis finished", "success")
+        flag("bot", "report")
       }
     } catch (failure) {
       if (sequence === generation.current) notify("HemoBot analysis failed", "error")

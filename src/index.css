@@ -856,3 +856,4 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .toast-close:hover { background: #334155; color: #fff; }
 .toast-close:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .toast-bar { display: none; } }
+.nav-update { min-width: 18px; text-align: center; font-weight: 700; color: #fff; background: #dc2626; }
