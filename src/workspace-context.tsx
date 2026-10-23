@@ -217,10 +217,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       throw new Error("Inputs changed during analysis. Run again.")
     }
     // Each data type feeds the pages listed under "Active inputs & connections".
-    if (files.some((file) => file.kind === "culture")) flag("guard", "pilot")
+    // Research Report lists checkpoint reports, which only culture data changes.
+    if (files.some((file) => file.kind === "culture")) flag("guard", "pilot", "report")
     if (files.some((file) => file.kind === "markers")) flag("evo2")
     if (refit && !planError) flag("plan")
-    flag("report")
     if (planError)
       notify(`Data applied, but CulturePlan refit failed: ${planError}`, "error")
     else
@@ -312,7 +312,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (activeInputs.current !== inputs || sequence !== planSequence.current)
       return
     notify("CulturePlan fit finished · conditions re-ranked", "success")
-    flag("plan", "report")
+    flag("plan")
     const { result: plan, ...prediction } = response
     const id = await checksum(
       new TextEncoder().encode(

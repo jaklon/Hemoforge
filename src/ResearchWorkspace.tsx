@@ -516,7 +516,12 @@ function Pilot({
                 <strong>Analyst follow-up</strong>
                 <p>{selected.recommendation}</p>
               </div>
-              <Button onClick={() => navigate("guard")}>Review in Guard</Button>
+              <div className="pilot-report-actions">
+                <Button onClick={() => navigate("guard")}>Review in Guard</Button>
+                <Button icon="report" onClick={() => navigate("report")}>
+                  Review report
+                </Button>
+              </div>
             </div>
           ) : (
             <p className="panel-note">Reports appear as replay advances.</p>
@@ -1074,31 +1079,49 @@ function ResearchWorkspaceContent() {
             setSidebarFocused(false)
         }}
       >
-        <a
-          className="brand"
-          href="#dashboard"
-          aria-label="HemoForge · Dashboard"
-          onClick={(e) => {
-            e.preventDefault()
+        <div className="sidebar-head">
+          <a
+            className="brand"
+            href="#dashboard"
+            aria-label="HemoForge · Dashboard"
+            onClick={(e) => {
+              e.preventDefault()
 
-            navigate("dashboard")
-          }}
-        >
-          <img
-            className="brand-mark"
-            src="/favicon.svg"
-            width="40"
-            height="40"
-            alt=""
-          />
-          <span>
-            <strong>
-              Hemo<span>Forge</span>
-            </strong>
-          </span>
-        </a>
+              navigate("dashboard")
+            }}
+          >
+            <img
+              className="brand-mark"
+              src="/favicon.svg"
+              width="40"
+              height="40"
+              alt=""
+            />
+            <span>
+              <strong>
+                Hemo<span>Forge</span>
+              </strong>
+            </span>
+          </a>
+          <button
+            type="button"
+            className="sidebar-pin"
+            tabIndex={sidebarCollapsed ? -1 : undefined}
+            aria-label={sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"}
+            title={sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"}
+            aria-pressed={sidebarPinned}
+            aria-controls="research-navigation"
+            onClick={() => setSidebarPinned(!sidebarPinned)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+              <path d="M9 4.5v15" />
+              <path d={sidebarPinned ? "m15.5 10-2 2 2 2" : "m13.5 10 2 2-2 2"} />
+            </svg>
+          </button>
+        </div>
         <nav aria-label="Research modules">
-          {navigationGroups.map((group, i) => (
+          {navigationGroups.map((group) => (
             <div
               className="nav-group"
               key={group}
@@ -1107,20 +1130,6 @@ function ResearchWorkspaceContent() {
             >
               <div className="nav-group-label">
                 <span aria-hidden="true">{group}</span>
-                {i === 0 && (
-                  <button
-                    type="button"
-                    className="sidebar-pin"
-                    tabIndex={sidebarCollapsed ? -1 : undefined}
-                    aria-label={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
-                    title={sidebarPinned ? "Unpin sidebar" : "Pin sidebar"}
-                    aria-pressed={sidebarPinned}
-                    aria-controls="research-navigation"
-                    onClick={() => setSidebarPinned(!sidebarPinned)}
-                  >
-                    <Icon name="pin" />
-                  </button>
-                )}
               </div>
               {navigation
                 .filter((item) => item.group === group)
@@ -1156,7 +1165,7 @@ function ResearchWorkspaceContent() {
         <nav className="nav-signout" aria-label="Account">
           <a
             href="#account"
-            title={sidebarCollapsed ? `Logged in as ${profile.name} · ${profile.company}` : "Account settings"}
+            title={sidebarCollapsed ? `${profile.name} · ${profile.company}` : "Account settings"}
             aria-current={view === "account" ? "page" : undefined}
             className={`nav-user${view === "account" ? " active" : ""}`}
             onClick={(e) => {
@@ -1168,7 +1177,6 @@ function ResearchWorkspaceContent() {
               {initials(profile)}
             </span>
             <strong>
-              <small>Logged in as</small>
               {profile.name || profile.username}
               <small>{profile.company}</small>
             </strong>
