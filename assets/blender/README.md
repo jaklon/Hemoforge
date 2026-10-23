@@ -94,7 +94,7 @@ receipt is published. LED motion also freezes while paused.
 The BIOSTAT model keeps its former ViaMass placeholder in the separately named
 `HF_ViaMass_Legacy` group. It is hidden after the dedicated ViaMass loads, so
 geometry does not overlap; the placeholder remains if that asset fails to load.
-Each of the three models reports load/fallback status in Monitor 01.
+Each equipment model reports load/fallback status in Monitor 01.
 
 Device references, used only for visual interpretation:
 
@@ -135,7 +135,38 @@ pixel ratio. Renderer resources are disposed on unmount, including late loads.
 Choose **Ruangan** and **Perluas 3D** to inspect the room across Monitor 01.
 **Kembali ke kontrol** or Escape restores the control panel. The canvas stays
 mounted during this layout change, preserving process animation and session
-state. Four asset statuses report laboratory/equipment loading independently.
+state. Five asset statuses report laboratory/equipment/operator loading independently.
+
+## Articulated operator gloves
+
+`hemoforge-operator-hands.blend` and `build_hands.py` contain original CC0 blue
+nitrile gloves, tapered palms, individual fingers/thumbs, rolled cuffs and lab
+coat sleeves. Two armatures skin the geometry with blended weights around the
+finger joints. The source contains editable `HF_L_Inspection_pose_study` and
+`HF_R_Inspection_pose_study` actions over frames 1–144. Rebuild in Blender's
+Console using the same workflow above with `p` pointing to `build_hands.py`.
+
+`public/virtual-lab/hands/operator-hands.glb` is about **185KB**, with two skins,
+two meshes, four material primitives and **6,752 triangles**. It contains all
+30 named finger joints; the source-only pose study is not exported as an
+independent timeline. Materials are original local constants, with no downloads,
+motion capture, textures, add-ons or paid services. The prior simple hands remain
+a labeled fallback. Skeleton textures and loaded geometry are disposed on exit.
+
+In Monitor 01 choose BIOSTAT, Trace or ViaMass, run the culture until that device
+has fresh passed sensor data, then choose **Periksa layar** (or click its readout).
+The camera approaches the selected readout; the right index extends while other
+fingers curl, touches an inspection point in front of the display, then retracts.
+The camera distance adapts to viewport width. This is visual inspection only:
+the gesture cannot send actuator commands, confirm Guard decisions, fabricate
+measurements or advance culture time. Existing Monitor 02 decisions remain the
+process control path. An active process intervention blocks inspection.
+
+Motion advances in valid rendered seconds only and freezes for pause, hidden
+tabs, stalls, disconnection or unavailable/faulted device data. It resumes at the
+same gesture time when valid again. Changing camera station cancels the gesture.
+**Kurangi gerakan** disables idle sway and inspection motion (and defaults to the
+browser's reduced-motion preference); it does not stop the simulated culture.
 
 ## License
 

@@ -6,8 +6,9 @@ import type { LabSnapshot } from "./lab-session"
 import { lastSensor, sensorUsable } from "./biostat-data"
 import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
 import { instrumentPresentation } from "./biopat-instrument"
+import { canInspect, InspectionClock } from "./operator-hands"
 
-export type LabAsset = "biostat" | "trace" | "viamass" | "laboratory"
+export type LabAsset = "biostat" | "trace" | "viamass" | "laboratory" | "hands"
 export type LabAssetState = "loading" | "blender" | "fallback"
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
   connected: boolean
   onAssetState: (asset: LabAsset, state: LabAssetState) => void
   onPerformance: (fps: number, quality: "high" | "balanced") => void
+  inspectionRequest: number
+  reducedMotion: boolean
+  onHandState: (state: string) => void
   onFrame: (delta: number) => void
   onInteract: () => void
   onError: (message: string) => void
@@ -315,7 +319,7 @@ export default function BiostatScene(props: Props) {
     box(tower, [0.55, 1.65, 0.6], [0, 1, 0], white)
     box(tower, [0.69, 0.65, 0.1], [0, 1.91, 0.3], dark)
     const controllerScreen = surface()
-    box(tower, [0.63, 0.54, 0.025], [0, 1.92, 0.36], controllerScreen.material)
+    const controllerDisplay = box(tower, [0.63, 0.54, 0.025], [0, 1.92, 0.36], controllerScreen.material)
     plaque(tower, "DCU / VIRTUAL AUTO", [0, 1.52, 0.33], 0.57, 0.12)
     const rotorGroups: THREE.Group[] = []
     for (let i = 0; i < 3; i++) {
@@ -471,6 +475,8 @@ export default function BiostatScene(props: Props) {
     )
     const hands = new THREE.Group()
     camera.add(hands)
+    const handFallback = new THREE.Group()
+    hands.add(handFallback)
     const glove = mat("#a4c9dd", 0, 0.78)
     for (const side of [-1, 1]) {
       const hand = new THREE.Group()
@@ -491,7 +497,7 @@ export default function BiostatScene(props: Props) {
       }
       const thumb = cyl(hand, 0.019, 0.09, [side * 0.075, 0.02, 0.015], glove)
       thumb.rotation.z = side * -0.7
-      hands.add(hand)
+      handFallback.add(hand)
     }
     const arrowFace = surface(128, 128)
     arrowFace.ctx.fillStyle = "#ecd299"
@@ -518,6 +524,7 @@ export default function BiostatScene(props: Props) {
           object instanceof THREE.Sprite ||
           object instanceof THREE.LineSegments
         ) {
+          if (object instanceof THREE.SkinnedMesh) object.skeleton.dispose()
           if ("geometry" in object) object.geometry?.dispose()
           for (const m of Array.isArray(object.material)
             ? object.material
@@ -535,6 +542,9 @@ export default function BiostatScene(props: Props) {
     const tracePumps: THREE.Object3D[] = []
     let traceStatus: THREE.Object3D | undefined
     let viaStatus: THREE.Object3D | undefined
+    let traceDisplay: THREE.Object3D | undefined, viaDisplay: THREE.Object3D | undefined
+    const gloveRoots: THREE.Object3D[] = []
+    const fingerBones: { bone: THREE.Object3D; rest: THREE.Quaternion; side: string; finger: string; joint: number }[] = []
     const viaFallbackObjects = [viaProbe, fallbackViaPlaque, fallbackViaBox, fallbackViaDisplay, fallbackViaLabel, fallbackViaWire]
     const prepareModel = (model: THREE.Object3D) => model.traverse(object => {
       if (object instanceof THREE.Mesh) {
@@ -550,7 +560,27 @@ export default function BiostatScene(props: Props) {
       for (const material of Array.isArray(node.material) ? node.material : [node.material]) material.dispose()
       node.material = face.material
     }
-    for (const asset of ["biostat", "trace", "viamass", "laboratory"] as const) current.current.onAssetState(asset, "loading")
+    for (const asset of ["biostat", "trace", "viamass", "laboratory", "hands"] as const) current.current.onAssetState(asset, "loading")
+    loader.load("/virtual-lab/hands/operator-hands.glb", ({ scene: model }) => {
+      if (disposed) { disposeObject(model); return }
+      const roots = ["L", "R"].map(side => model.getObjectByName(`HF_Hand_${side}`))
+      const joints = ["L", "R"].flatMap(side => ["Index", "Middle", "Ring", "Little", "Thumb"].flatMap(finger => [1,2,3].map(joint => ({ side, finger, joint, bone: model.getObjectByName(`HF_${side}_${finger}${joint}`) }))))
+      let skins = 0
+      model.traverse(object => { if (object instanceof THREE.SkinnedMesh) skins++ })
+      if (roots.some(root => !root) || joints.some(item => !(item.bone instanceof THREE.Bone)) || skins < 2) {
+        disposeObject(model)
+        current.current.onAssetState("hands", "fallback")
+        return
+      }
+      prepareModel(model)
+      // First-person gloves never cast large foreground shadows on instruments.
+      model.traverse(object => { if (object instanceof THREE.Mesh) { object.castShadow = false; object.frustumCulled = false } })
+      hands.add(model)
+      handFallback.visible = false
+      gloveRoots.push(...roots as THREE.Object3D[])
+      fingerBones.push(...joints.map(item => ({ ...item, bone: item.bone!, rest: item.bone!.quaternion.clone() })))
+      current.current.onAssetState("hands", "blender")
+    }, undefined, () => { if (!disposed) current.current.onAssetState("hands", "fallback") })
     loader.load("/virtual-lab/laboratory/laboratory.glb", ({ scene: model }) => {
       if (disposed) { disposeObject(model); return }
       if (!model.getObjectByName("HF_Laboratory") || !model.getObjectByName("HF_Lab_Static")) {
@@ -608,6 +638,7 @@ export default function BiostatScene(props: Props) {
       traceFallback.visible = false
       tracePumps.push(pumpA, pumpB)
       traceStatus = status
+      traceDisplay = display
       current.current.onAssetState("trace", "blender")
     }, undefined, () => { if (!disposed) current.current.onAssetState("trace", "fallback") })
     loader.load("/virtual-lab/biopat/biopat-viamass.glb", ({ scene: model }) => {
@@ -625,6 +656,7 @@ export default function BiostatScene(props: Props) {
       reactor.add(model)
       viaLoaded = true
       viaStatus = status
+      viaDisplay = display
       viaFallbackObjects.forEach(object => { object.visible = false })
       if (legacyHeroVia) legacyHeroVia.visible = false
       current.current.onAssetState("viamass", "blender")
@@ -645,6 +677,13 @@ moved: boolean } | null = null,
       pitch = 0
     const ray = new THREE.Raycaster(),
       pointer = new THREE.Vector2()
+    const inspection = new InspectionClock()
+    let lastInspectionRequest = props.inspectionRequest, lastHandState = ""
+    const inspectionTarget = () => current.current.station === "trace" ? traceDisplay : current.current.station === "viamass" ? viaDisplay : controllerDisplay
+    const startInspection = () => {
+      const p = current.current
+      if (gloveRoots.length === 2 && !p.reducedMotion && canInspect(p.snapshot, p.connected, p.station) && inspectionTarget()) inspection.start()
+    }
     function down(e: PointerEvent) {
       drag = { x: e.clientX, y: e.clientY, moved: false }
       renderer.domElement.setPointerCapture(e.pointerId)
@@ -668,6 +707,10 @@ moved: boolean } | null = null,
         )
         ray.setFromCamera(pointer, camera)
         if (ray.intersectObject(arrow).length) current.current.onInteract()
+        else {
+          const target = inspectionTarget()
+          if (target && ray.intersectObject(target).length) startInspection()
+        }
       }
       drag = null
     }
@@ -690,11 +733,14 @@ moved: boolean } | null = null,
       elapsed = 0,
       lastPaint = 0,
       previousStation = props.station
-    let angle = 0, traceElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
+    let angle = 0, traceElapsed = 0, handElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
     let instrumentSnapshot: LabSnapshot | null | undefined, instrumentConnected: boolean | undefined
     let traceView = instrumentPresentation(null, "trace", false)
     let viaView = instrumentPresentation(null, "viamass", false)
     let tracePulse = 0, viaPulse = 0
+    const screenWorld = new THREE.Vector3(), contactLocal = new THREE.Vector3(), tipLocal = new THREE.Vector3()
+    const poseRotation = new THREE.Quaternion(), curlAxis = new THREE.Vector3(1,0,0)
+    const rightIndexTip = () => fingerBones.find(item => item.side === "R" && item.finger === "Index" && item.joint === 3)?.bone
     const paintStatus = (root: THREE.Object3D | undefined, color: string, pulse: number) => root?.traverse(object => {
       if (object instanceof THREE.Mesh) {
         for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
@@ -741,7 +787,19 @@ moved: boolean } | null = null,
       if (station !== previousStation) {
         yaw = pitch = 0
         previousStation = station
+        inspection.reset()
       }
+      const running = !!s?.running && connected && document.visibilityState === "visible" && !contextLost
+      const motionSeconds = renderedSeconds(delta, running)
+      if (current.current.reducedMotion) inspection.reset()
+      if (lastInspectionRequest !== current.current.inspectionRequest) {
+        lastInspectionRequest = current.current.inspectionRequest
+        startInspection()
+      }
+      const inspectionAvailable = running && canInspect(s, connected, station)
+      const handPose = inspection.advance(delta, inspectionAvailable)
+      const handState = inspection.active && !inspectionAvailable ? "Interaksi dijeda · periksa simulasi dan sensor" : handPose.phase
+      if (lastHandState !== handState) { lastHandState = handState; current.current.onHandState(handState) }
       if (station === "overview") {
         goal.set(0.1, 2.7, Math.max(9, 8 / Math.max(0.55, camera.aspect) - 1.5))
         goalLook.set(0, 1.6, -1.8)
@@ -755,14 +813,45 @@ moved: boolean } | null = null,
         goal.set(-1.3, 1.8, Math.max(2.8, 1.5 / camera.aspect))
         goalLook.set(-1.55, 1.25, -0.9)
       }
-      const ease = Math.min(1, delta * 3.5)
+      const targetDisplay = inspectionTarget()
+      if (targetDisplay && handPose.lean > 0) {
+        targetDisplay.updateWorldMatrix(true, false)
+        targetDisplay.getWorldPosition(screenWorld)
+        goal.lerp(screenWorld.clone().add(new THREE.Vector3(.02,.04,Math.max(.78,.82/Math.max(.5,camera.aspect)))), handPose.lean)
+        goalLook.lerp(screenWorld, handPose.lean)
+      }
+      const ease = inspection.active && (!inspectionAvailable || motionSeconds === 0) ? 0 : Math.min(1, delta * 3.5)
       camera.position.lerp(goal, ease)
       look.lerp(goalLook, ease)
       camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
-      const running =
-        !!s?.running && connected && document.visibilityState === "visible" && !contextLost
-      const motionSeconds = renderedSeconds(delta, running)
       elapsed += motionSeconds
+      if (!inspection.active || inspectionAvailable) handElapsed += motionSeconds
+      const idle = current.current.reducedMotion ? 0 : Math.sin(handElapsed * 1.25) * .003
+      gloveRoots.forEach((root, index) => {
+        const side = index === 0 ? -1 : 1
+        root.position.set(side * Math.min(.21, camera.aspect*.2), -.32 + idle, -.5)
+        root.rotation.set(-.95, side * -.12, side * -.1)
+        if (index === 1) root.rotation.x -= handPose.reach*.16
+      })
+      fingerBones.forEach(({ bone, rest, side, finger, joint }) => {
+        const restCurl = (finger === "Thumb" ? .18 : .22) + (joint === 2 ? .12 : 0)
+        const inspectingCurl = finger === "Index" ? .015 : finger === "Thumb" ? .38 : .7 + (joint === 2 ? .22 : 0)
+        const curl = restCurl + (inspectingCurl-restCurl) * handPose.reach * (side === "R" ? 1 : .16)
+        bone.quaternion.copy(rest).multiply(poseRotation.setFromAxisAngle(curlAxis, -curl))
+      })
+      // Align the actual skinned index fingertip with a point in front of the
+      // readout. The hand stays outside the screen and never touches fluid paths.
+      const tip = rightIndexTip()
+      if (targetDisplay && tip && handPose.reach > 0) {
+        camera.updateWorldMatrix(true, true)
+        targetDisplay.getWorldPosition(contactLocal)
+        contactLocal.add(new THREE.Vector3(.09,-.075,.045-handPose.tap*.012))
+        camera.worldToLocal(contactLocal)
+        tipLocal.set(0,.021,0)
+        tip.localToWorld(tipLocal)
+        camera.worldToLocal(tipLocal)
+        gloveRoots[1].position.addScaledVector(contactLocal.sub(tipLocal), handPose.reach)
+      }
       if (traceView.flowing) traceElapsed += motionSeconds
       tracePumps.forEach((pump, index) => { pump.rotation.z = traceElapsed * (index === 0 ? 3 : -3) })
       tracePulse = traceView.state === "live" ? Math.max(0, tracePulse - motionSeconds * 2) : 0
@@ -821,8 +910,7 @@ moved: boolean } | null = null,
       )
       traceLampMat.color.set(traceView.color)
       traceLampMat.emissive.copy(traceLampMat.color)
-      hands.position.y = Math.sin(elapsed * 1.7) * 0.006
-      hands.rotation.x = transferring ? Math.sin(elapsed * 2) * 0.025 : 0
+      handFallback.position.y = idle
       arrow.visible =
         !!s && !s.active_intervention && s.culture_hours < s.end_hour
       arrow.position.y = 2.6 + Math.sin(now / 400) * 0.035

@@ -143,3 +143,21 @@ adapts to aspect ratio; close-up instrument camera targets remain unchanged.
 An asset contract test checks GLB scene isolation, actual primitive/triangle
 budgets, embedded resources, named room groups and the absence of animations,
 cameras and punctual lights.
+
+## Operator animation
+
+Two original Blender-authored skinned gloves replace the simple first-person
+hands, with 30 named finger joints and four material primitives (6,752 triangles,
+185KB). The editable blend contains a pose study; the exported GLB has no baked
+animation. `operator-hands.ts` gates inspection on a running connected session,
+fresh passed finite device channels and no active intervention. Inspection is a
+read-only visual action; it cannot enqueue a command or synthesize a sensor value.
+
+An explicit button or readout click starts the bounded approach/reach/tap/read/
+retract sequence. Joint curl and fingertip alignment use the same valid rendered
+seconds as process animation. Pauses, device QC holds, disconnects, hidden tabs
+and long frame gaps do not advance the gesture. Device recovery resumes its
+existing time. Camera station changes cancel it. Reduced motion cancels the
+gesture and removes idle sway; it does not pause the process or its measurements.
+The hand asset validates required joints and skins independently, preserving
+the old hands as a labeled fallback. GPU skeleton textures are disposed on exit.

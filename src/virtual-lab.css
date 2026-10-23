@@ -8,6 +8,11 @@
 .vl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; height: calc(100vh - 76px); min-height: 680px; }
 .vl-expand-scene { padding: 7px 11px; border: 1px solid #92b4ad; border-radius: 4px; background: #21484b; color: #f1ead7; cursor: pointer; font-size: 11px; white-space: nowrap; }
 .vl-expand-scene:focus-visible { outline: 2px solid #f0d394; outline-offset: 3px; }
+.vl-hand-controls { position: absolute; right: 15px; top: 185px; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; max-width: 210px; padding: 10px; border: 1px solid #cadbd6; border-radius: 5px; background: #f0f4e9ed; color: #26494b; font-size: 10px; }
+.vl-hand-controls button { padding: 8px 14px; background: #173b3f; border: 1px solid #436965; border-radius: 4px; color: #f4d593; cursor: pointer; }
+.vl-hand-controls button:disabled { opacity: .5; cursor: default; }
+.vl-hand-controls label { display: flex; align-items: center; gap: 5px; }
+.vl-hand-controls span { font-size: 9px; line-height: 1.5; text-align: right; }
 .biostat-lab .vl-layout.is-expanded { display: grid; grid-template-columns: minmax(0, 1fr); }
 .biostat-lab .vl-layout.is-expanded > .vl-control-panel { display: none; }
 .vl-stage { position: relative; min-height: 0; overflow: hidden; background: #a4bfbd; }

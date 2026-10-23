@@ -99,7 +99,7 @@ Blender models from `/virtual-lab/biopat/`. Their editable source is
 `assets/blender/hemoforge-biopat.blend`.
 
 Select **BIOSTAT STR** in the camera controls for the vessel view. The model
-badge confirms **BLENDER LAB + EQUIPMENT 4/4** after loading. A labeled procedural fallback
+badge confirms **BLENDER LAB + OPERATOR 5/5** after loading. A labeled procedural fallback
 appears if the GLB is unavailable. The legend shows measured FPS and current
 render quality. Lower-resolution Balanced mode is selected automatically if
 rendering falls below 32 FPS. RPM controls the shaft speed; recorded volume
@@ -125,7 +125,8 @@ clean work enclosure, centrifuge, balance, incubator, gas bank, trolley, stool,
 ceiling lights and ventilation. Locally generated epoxy and steel textures are
 embedded; the room requires no external material or HDRI request. Supporting
 screens and gauges are static scenery, separate from the live instrument data.
-Hands and process circuits retain their existing free visuals.
+Process circuits retain their existing free visuals; hands use a dedicated
+original CC0 Blender skin and rig.
 
 Choose **Ruangan**, then **Perluas 3D** for a wider inspection view. Drag to look
 around. **Kembali ke kontrol** or Escape restores the control panel; resizing
@@ -134,3 +135,21 @@ alongside Monitor 02 while running. The room adds 14 meshes and 38,040 triangles
 in a self-contained 2.33MB GLB; existing adaptive resolution remains enabled.
 If the room fails to load, its simple procedural fallback remains visible and
 the asset badge identifies `laboratory` as a fallback.
+
+## Operator hands and inspection
+
+Choose **BIOSTAT STR**, **BioPAT Trace** or **ViaMass**, run the culture until
+fresh passed readings are available, then click **Periksa layar** or the readout
+surface. The operator approaches the screen, extends an articulated index finger,
+inspects it and retracts. The gesture is visual only: no actuator or Guard
+approval is sent by touching a display. Process changes remain in Monitor 02.
+
+Pause freezes the gesture and camera approach. Resume continues from that pose.
+Sensor faults, stale readings, connection loss and hidden/stalled frames also
+hold interaction. Active interventions block inspection. Changing camera station
+cancels it. **Kurangi gerakan** cancels inspection and removes hand sway while
+the culture and its measurements continue normally.
+
+The original 185KB glove GLB has two skins, four material submissions and 6,752
+triangles. Editable source and Blender-only pose study:
+`assets/blender/hemoforge-operator-hands.blend` (frames 1–144).

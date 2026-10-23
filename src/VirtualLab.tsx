@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import BiostatScene, { type LabAsset, type LabAssetState } from "./BiostatScene"
 import { instrumentPresentation } from "./biopat-instrument"
+import { canInspect } from "./operator-hands"
 import BiostatTelemetry from "./BiostatTelemetry"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
@@ -29,7 +30,10 @@ export default function VirtualLab() {
     useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
   const [graphicsError, setGraphicsError] = useState("")
   const [expandedScene, setExpandedScene] = useState(false)
-  const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading", laboratory: "loading" })
+  const [inspectionRequest, setInspectionRequest] = useState(0)
+  const [handState, setHandState] = useState("Siap")
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+  const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading", laboratory: "loading", hands: "loading" })
   const onAssetState = useCallback((asset: LabAsset, state: LabAssetState) => setAssetState(previous => previous[asset] === state ? previous : { ...previous, [asset]: state }), [])
   const [renderStats, setRenderStats] = useState({ fps: 0, quality: "high" as "high" | "balanced" })
   const onPerformance = useCallback((fps: number, quality: "high" | "balanced") => setRenderStats({ fps, quality }), [])
@@ -197,6 +201,9 @@ export default function VirtualLab() {
             connected={ready}
             onAssetState={onAssetState}
             onPerformance={onPerformance}
+            inspectionRequest={inspectionRequest}
+            reducedMotion={reducedMotion}
+            onHandState={setHandState}
             onFrame={onFrame}
             onInteract={() => {
               if (canRun) command(snapshot?.running ? "pause" : "play")
@@ -208,7 +215,7 @@ export default function VirtualLab() {
               CELL CULTURE / SINGLE-USE STR 50
             </span>
             <span className="vl-scene-evidence">
-              {blenderCount === 4 ? "BLENDER LAB + EQUIPMENT 4/4 · CC0 MATERIALS" : fallbackAssets ? `BLENDER ${blenderCount}/4 · FALLBACK: ${fallbackAssets}` : `LOADING BLENDER MODELS ${blenderCount}/4…`}
+              {blenderCount === 5 ? "BLENDER LAB + OPERATOR 5/5 · CC0 MATERIALS" : fallbackAssets ? `BLENDER ${blenderCount}/5 · FALLBACK: ${fallbackAssets}` : `LOADING BLENDER MODELS ${blenderCount}/5…`}
             </span>
           </div>
           <div className="vl-scene-caption">
@@ -240,6 +247,11 @@ export default function VirtualLab() {
               {renderStats.fps > 0 ? `${renderStats.fps} FPS · ${renderStats.quality === "high" ? "High" : "Balanced"} quality` : "Measuring render performance…"}
             </small>
             {expandedScene && snapshot && <small>{snapshot.culture_hours.toFixed(3)} h · {ready ? snapshot.running ? "Running" : "Paused" : "Disconnected"}</small>}
+          </div>
+          <div className="vl-hand-controls">
+            <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !canInspect(snapshot, ready, station)} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
+            <label><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /> Kurangi gerakan</label>
+            <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : station === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !canInspect(snapshot, ready, station) ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
           </div>
           <div className="vl-station-nav" aria-label="Posisi kamera">
             {(["overview", "bioreactor", "trace", "viamass"] as const).map(

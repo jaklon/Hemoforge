@@ -1,0 +1,12 @@
+HemoForge articulated operator gloves and lab sleeves
+
+Original geometry, skin weights, rig and materials by HemoForge project
+contributors, dedicated under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+No downloaded meshes, textures, motion capture, paid assets or add-ons.
+Editable source: assets/blender/hemoforge-operator-hands.blend
+Repeatable builder: assets/blender/build_hands.py
+
+Runtime inspection gestures are visual only. They cannot issue actuator commands,
+generate measurements, or advance culture time independently of Monitor 01.
