@@ -899,22 +899,6 @@ export function MvpCharts({
 }) {
   const { batchMeasurements, replayEndHour } = useCultureData()
 
-  const box = useRef<HTMLDivElement>(null)
-
-  const [height, setHeight] = useState(260)
-
-  useEffect(() => {
-    if (!box.current) return
-
-    const observer = new ResizeObserver(([entry]) =>
-      setHeight(Math.max(220, entry.contentRect.height)),
-    )
-
-    observer.observe(box.current)
-
-    return () => observer.disconnect()
-  }, [])
-
   const rows = batchMeasurements(replicate)
 
   const end = Math.max(replayEndHour, 1)
@@ -939,30 +923,16 @@ export function MvpCharts({
   const ph = series.find((item) => item.right)!
 
   return (
-    <div className="mvp-charts">
-      <figure>
-        <figcaption className="mvp-legend">
-          {series.map((item) => (
-            <span key={item.key}>
-              <i style={{ borderTop: `2px ${item.right ? "dashed" : "solid"} ${item.color}` }} />
-              {item.label}
-              <small>
-                {item.values.length
-                  ? `${item.value(item.values.at(-1)!).toPrecision(3)} ${item.unit}`
-                  : "No data"}
-              </small>
-            </span>
-          ))}
-        </figcaption>
-        <div className="mvp-chart-box" ref={box}>
+    <>
           <InteractivePlot
-            compact
-            height={height}
+            controls={<h3>MVP variables</h3>}
+            logScale={false}
+            help={false}
             title={`Metabolites and pH through ${hour}h`}
             xExtent={[0, end]}
             values={left.flatMap((item) => item.all.map(item.value))}
             fromZero={false}
-            yLabel="mmol/L"
+            yLabel="Metabolites (mmol/L)"
             y2={{ values: ph.all.map(ph.value), label: "pH" }}
             points={series.flatMap((item) =>
               item.values.map((row, index) => {
@@ -1036,8 +1006,19 @@ export function MvpCharts({
               </>
             )}
           </InteractivePlot>
-        </div>
-      </figure>
-    </div>
+      <div className="guard-legend mvp-legend" aria-label="Chart series">
+        {series.map((item) => (
+          <span key={item.key}>
+            <i style={{ borderTop: `2px ${item.right ? "dashed" : "solid"} ${item.color}` }} />
+            {item.label}
+            <small>
+              {item.values.length
+                ? `${item.value(item.values.at(-1)!).toPrecision(3)} ${item.unit}`
+                : "No data"}
+            </small>
+          </span>
+        ))}
+      </div>
+    </>
   )
 }

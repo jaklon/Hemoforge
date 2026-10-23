@@ -641,22 +641,19 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .guard-note-label textarea { min-height: 95px; font-size: var(--text-caption); }
 .guard-note-status { display: block; font-size: var(--text-xs); color: var(--muted); margin: 7px 0 13px; min-height: 28px; }
 .guard-graphs { margin-bottom: 18px; }
-.guard-graphs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.guard-graphs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .guard-graphs-grid > * { min-width: 0; }
-.guard-mvp { border-left: 1px solid var(--line); align-self: stretch; display: flex; flex-direction: column; }
-.guard-mvp .mvp-charts { flex: 1; grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(260px, 1fr); }
-.mvp-charts figure { display: flex; flex-direction: column; }
-.mvp-chart-box { flex: 1; min-height: 110px; position: relative; }
-.mvp-chart-box .interactive-plot { position: absolute; inset: 0; }
-.guard-mvp h3 { padding: 14px 20px 0; font-size: var(--text-base); font-weight: 550; color: var(--navy); }
+/* Both charts share row tracks (toolbar, plot, footer, legend, note) so they line up even when one toolbar wraps. */
+@media (min-width: 1101px) {
+  .guard-graphs-grid > * { display: grid; grid-row: span 5; grid-template-rows: subgrid; }
+  .guard-graphs-grid .interactive-plot { display: contents; }
+}
+.guard-mvp { border-left: 1px solid var(--line); }
+.guard-plot-help { padding: 10px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-xs); text-align: center; }
+.guard-mvp h3 { margin-right: auto; font-size: var(--text-base); font-weight: 550; color: var(--navy); }
 @media (max-width: 1100px) { .guard-graphs-grid { grid-template-columns: minmax(0, 1fr); } .guard-mvp { border-left: 0; border-top: 1px solid var(--line); } }
-.mvp-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 6px 12px; padding: 14px 10px; }
-.mvp-charts figure { margin: 0; min-width: 0; }
-.mvp-charts figcaption { display: flex; justify-content: space-between; gap: 8px; padding: 0 10px; font-size: var(--text-caption); color: #44566a; }
-.mvp-charts figcaption small { color: var(--muted); font-variant-numeric: tabular-nums; }
-.mvp-charts .channel-chart { padding: 0; }
-.mvp-charts .mvp-legend { flex-wrap: wrap; justify-content: flex-start; gap: 4px 14px; padding-bottom: 6px; }
-.mvp-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.mvp-legend span { display: inline-flex; align-items: center; gap: 5px; color: #44566a; }
+.mvp-legend small { color: var(--muted); font-variant-numeric: tabular-nums; }
 .mvp-legend i { width: 14px; }
 .guard-secondary-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 18px; }
 .guard-secondary-grid .channel-grid strong { color: var(--navy); font-variant-numeric: tabular-nums; }
@@ -692,7 +689,7 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .interactive-plot-svg:focus-visible { outline-offset: -3px; }
 .interactive-plot-svg:focus:not(:focus-visible), .interactive-plot-svg[data-pointer]:focus { outline: none; }
 .interactive-plot-svg text { fill: var(--muted); font-size: 10px; user-select: none; }
-.interactive-plot-svg .axis-title { font-size: 10px; }
+.interactive-plot-svg .axis-title { fill: #44566a; font-size: 11px; font-weight: 600; letter-spacing: .01em; }
 .plot-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 20px; padding: 10px 18px; color: var(--muted); font-size: var(--text-xs); border-top: 1px solid var(--line); }
 .plot-footer span { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .forecast-display-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 14px 18px 0; font-size: var(--text-caption); }

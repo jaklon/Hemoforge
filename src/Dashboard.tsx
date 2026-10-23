@@ -442,7 +442,7 @@ export default function Dashboard({
             ...selected.visible.map((sample) => sample.value),
             ...limitLines(selected.settings).map((line) => line.value),
           ]}
-          yLabel={`${selected.variable.name} · ${selected.variable.unit}`}
+          yLabel={`${selected.variable.name}${selected.variable.unit ? ` (${selected.variable.unit})` : ""}`}
           points={[
             ...selected.visible.map((sample) =>
               sampleTip(selected.variable.name, selected.variable.unit, selected.variable.digits, sample, selected.settings),
@@ -482,7 +482,7 @@ export default function Dashboard({
               title="Cell count chart"
               xExtent={[0, replayEndHour]}
               values={countSamples.map((sample) => sample.value)}
-              yLabel="Cell count · ×10⁶ cells"
+              yLabel="Cell count (×10⁶ cells)"
               points={countSamples.map((sample) => ({
                 x: sample.hour,
                 y: sample.value,

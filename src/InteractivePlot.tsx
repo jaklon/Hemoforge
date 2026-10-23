@@ -40,6 +40,8 @@ export default function InteractivePlot({
   controls,
   fromZero = true,
   compact = false,
+  logScale = true,
+  help = true,
   height = 302,
   y2,
   xView,
@@ -58,6 +60,10 @@ export default function InteractivePlot({
   fromZero?: boolean
   // Small multiples: no toolbar or footer, same hover, zoom and pan.
   compact?: boolean
+  // Offer the log₁₀ Y axis; off for quantities that can be zero.
+  logScale?: boolean
+  // Show the zoom/pan hint in the footer; off when the page shows it once for several charts.
+  help?: boolean
   height?: number
   // Second quantity with its own unit, drawn on a right-hand axis that pans and zooms with the left.
   y2?: { values: number[]; label: string }
@@ -110,19 +116,8 @@ export default function InteractivePlot({
     observer.observe(svg.current)
     return () => observer.disconnect()
   }, [])
-  const left = compact ? 48 : 66,
-    right = width - (y2 ? (compact ? 40 : 52) : compact ? 12 : 22),
-    top = compact ? 22 : 30,
-    bottom = height - 42
   const transform = (value: number) => (logarithmic ? Math.log10(value) : value)
   const inverse = (value: number) => (logarithmic ? 10 ** value : value)
-  const x = (value: number) =>
-    left +
-    ((value - current.x[0]) / (current.x[1] - current.x[0])) * (right - left)
-  const y = (value: number) =>
-    bottom -
-    ((transform(value) - current.y[0]) / (current.y[1] - current.y[0])) *
-      (bottom - top)
   // The right axis shows the same fraction of its extent as the left axis does.
   const y2Extent = valueExtent(y2?.values ?? [], false, false)
   const y2Scale = (y2Extent[1] - y2Extent[0]) / (yExtent[1] - yExtent[0])
@@ -130,6 +125,29 @@ export default function InteractivePlot({
     y2Extent[0] + (current.y[0] - yExtent[0]) * y2Scale,
     y2Extent[0] + (current.y[1] - yExtent[0]) * y2Scale,
   ]
+  const yTicks = niceTicks(current.y, 6)
+  const y2Ticks = y2 ? niceTicks(y2View, 6) : []
+  // Margins fit the widest tick label, so the axis title sits just outside the ticks
+  // with a constant gap to the card edge. ponytail: ~5.6px per 10px-font character, not measured.
+  const labelWidth = (ticks: number[], format: (value: number) => number) =>
+    Math.max(0, ...ticks.map((value) => plotNumber(format(value)).length)) * 5.6
+  const edge = compact ? 6 : 12
+  const titleBand = 14
+  const leftTitle = edge + titleBand / 2
+  const left = edge + titleBand + labelWidth(yTicks, inverse) + 15,
+    rightTitle = width - edge - titleBand / 2,
+    right = y2
+      ? width - edge - titleBand - labelWidth(y2Ticks, (value) => value) - 14
+      : width - (compact ? 12 : 22),
+    top = compact ? 12 : 16,
+    bottom = height - (compact ? 40 : 50)
+  const x = (value: number) =>
+    left +
+    ((value - current.x[0]) / (current.x[1] - current.x[0])) * (right - left)
+  const y = (value: number) =>
+    bottom -
+    ((transform(value) - current.y[0]) / (current.y[1] - current.y[0])) *
+      (bottom - top)
   const yRight = y2
     ? (value: number) =>
         bottom -
@@ -227,6 +245,7 @@ export default function InteractivePlot({
       {!compact && (
       <div className="plot-toolbar" aria-label={`${title} controls`}>
         {controls}
+        {logScale && (
         <label>
           Y axis
           <select
@@ -237,6 +256,7 @@ export default function InteractivePlot({
             <option value="log">Logarithmic (log₁₀)</option>
           </select>
         </label>
+        )}
         <div className="plot-buttons">
           <Button icon="home" onClick={() => move(null)}>
             Home
@@ -328,11 +348,16 @@ export default function InteractivePlot({
             <rect x={left} y={top} width={right - left} height={bottom - top} />
           </clipPath>
         </defs>
-        <text x={left} y="16" className="axis-title">
+        <text
+          transform={`translate(${leftTitle} ${(top + bottom) / 2}) rotate(-90)`}
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="axis-title"
+        >
           {yLabel}
           {logarithmic ? " · log₁₀ scale" : ""}
         </text>
-        {niceTicks(current.y, 6).map((value) => {
+        {yTicks.map((value) => {
           const cy =
             bottom -
             ((value - current.y[0]) / (current.y[1] - current.y[0])) *
@@ -357,10 +382,15 @@ export default function InteractivePlot({
         </g>
         {y2 && (
           <>
-            <text x={width - 4} y="16" textAnchor="end" className="axis-title">
+            <text
+              transform={`translate(${rightTitle} ${(top + bottom) / 2}) rotate(90)`}
+              textAnchor="middle"
+              dominantBaseline="central"
+              className="axis-title"
+            >
               {y2.label}
             </text>
-            {niceTicks(y2View, 6).map((value) => (
+            {y2Ticks.map((value) => (
               <text key={value} x={right + 8} y={yRight(value) + 4}>
                 {plotNumber(value)}
               </text>
@@ -368,12 +398,17 @@ export default function InteractivePlot({
           </>
         )}
         {niceTicks(current.x, width < 500 ? 4 : 7).map((value) => (
-          <text key={value} x={x(value)} y={height - 21} textAnchor="middle">
+          <text key={value} x={x(value)} y={bottom + 17} textAnchor="middle">
             {plotNumber(value)}h
           </text>
         ))}
-        <text x={right} y={height - 3} textAnchor="end" className="axis-title">
-          Time (hours)
+        <text
+          x={(left + right) / 2}
+          y={bottom + 35}
+          textAnchor="middle"
+          className="axis-title"
+        >
+          Time (h)
         </text>
         {hover && hover.x >= current.x[0] && hover.x <= current.x[1] && (
           <PlotTooltip
@@ -389,7 +424,7 @@ export default function InteractivePlot({
       </svg>
       {!compact && (
       <div className="plot-footer">
-        <p id={`${id}-help`}>
+        <p id={`${id}-help`} className={help ? undefined : "sr-only"}>
           Scroll to zoom · Ctrl+scroll: time only · Shift+scroll: Y only ·
           Drag to pan · Hover a point for values
         </p>

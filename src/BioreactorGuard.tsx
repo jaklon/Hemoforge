@@ -203,6 +203,7 @@ function GrowthChart({
   return (
     <>
       <InteractivePlot
+        help={false}
         controls={
           <>
             <fieldset className="guard-segmented">
@@ -252,8 +253,8 @@ function GrowthChart({
         ]}
         yLabel={
           view.scale === "count"
-            ? "Cell count · ×10⁶ cells"
-            : "Fold change · first valid sample = 1×"
+            ? "Cell count (×10⁶ cells)"
+            : "Fold change (first valid sample = 1×)"
         }
       >
         {({ x, y, top, bottom }) => (
@@ -853,10 +854,13 @@ export default function BioreactorGuard({
           />
           </div>
           <div className="guard-mvp">
-            <h3>MVP variables</h3>
             <MvpCharts replicate={replicate} hour={hour} />
           </div>
           </div>
+          <p className="guard-plot-help">
+            Scroll to zoom · Ctrl+scroll: time only · Shift+scroll: Y only ·
+            Drag to pan · Hover a point for values
+          </p>
         </Panel>
       </section>
       <div className="guard-main-grid">
