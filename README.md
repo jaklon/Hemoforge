@@ -34,29 +34,18 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
-## Virtual Lab: Stage A–E local prototype
+## Virtual Lab: BIOSTAT STR Gen 2 + BioPAT Trace + ViaMass
 
-Open the dedicated `http://127.0.0.1:8443/#poc` launcher, enter Monitor 01, create a session, and open its dashboard link in a separate
-window on monitor 2. Collect → load FLEX2 → analyze. The completed synthetic reading feeds
-the existing Bioreactor Guard automatically. Culture time follows rendered 3D animation.
-Stage C adds nutrient/metabolite-dependent culture, sampling volume loss, seeded measurement variation,
-and teaching QC rejection for underfilled/unmixed samples. Choose a scenario before creating a session.
-See [local walkthrough](public/VIRTUAL_LAB.md), [Stage A/B contract](docs/VIRTUAL_LAB_STAGE_AB.md),
-and [Stage C model and assumptions](docs/VIRTUAL_LAB_STAGE_C.md).
-Stage D adds user-confirmed Guard decisions: one-time pairing, feed/medium-exchange actions, rendered pump
-execution, cancellation and a shared decision audit. Measure again with FLEX2 after each applied action.
-See [Stage D intervention contract](docs/VIRTUAL_LAB_STAGE_D.md).
-Stage E connects the same published measurements to live ErythroPilot forecasts/checkpoints and CulturePlan
-viable-cell targets/volume ledger. Switch modules on monitor 2 without changing the session. Forecasting
-requires three post-intervention observations spanning six culture hours; stale readings withhold predictions.
-CulturePlan's independent-experiment GP remains withheld: sequential samples are not DOE replicates.
-See [Stage E live analytics contract](docs/VIRTUAL_LAB_STAGE_E.md).
-The optional PoC workspace is separate from the main research routes. Monitor 02 shares the main dashboard's
-visual system and includes Dashboard, Guard, ErythroPilot and CulturePlan over the simulation's released data.
-Canonical routes are `#poc/lab/{id}` and `#poc/monitor/{id}/{module}`; old shared links remain supported.
-See [dedicated PoC workspace](docs/VIRTUAL_LAB_POC_WORKSPACE.md).
-Run the Python API with one worker; sessions are local, in memory, and lost on restart.
-No physical device, Supabase, NVIDIA, or LLM is called by this prototype. All bundled assets are free.
+Open `http://127.0.0.1:8443/#poc/lab`, create a session, then open its dashboard in a separate window on monitor 2.
+Start culture: online virtual pH/DO/temperature, glucose/lactate and capacitance signals publish automatically.
+The two monitors distinguish virtual sensors, uncalibrated ViaMass-derived cell estimates and unmeasured assays.
+Guard decisions return to the animated reactor; Pilot/Plan use bounded stage-aware local analytics.
+The main research workspace keeps its own inputs. Only visible rendered time advances culture; keep both windows visible.
+
+See [local walkthrough and free asset credits](public/VIRTUAL_LAB.md), [BIOSTAT implementation contract](docs/BIOSTAT_GEN2_SIMULATION.md),
+and [PoC routes](docs/VIRTUAL_LAB_POC_WORKSPACE.md). Run one Python API worker; sessions are local, in memory and lost on restart.
+No physical device, remote database, NVIDIA, hosted LLM, paid assets or cloud resources are called by this simulation.
+Stage A–E documents describe the historical FLEX2 implementation; new sessions default to BIOSTAT schema 4.
 
 ## Updating the live site (hemoforge.my.id)
 

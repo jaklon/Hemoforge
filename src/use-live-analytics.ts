@@ -3,7 +3,7 @@ import type { LabSnapshot } from "./lab-session"
 import {
   analysisMatches,
   fetchLiveAnalysis,
-  lastAppliedAction,
+  liveSegment,
   liveSettingsError,
   type LiveAnalysis,
   type LiveAnalysisSettings,
@@ -20,9 +20,7 @@ export default function useLiveAnalytics(
   const [retry, setRetry] = useState(0)
   const id = snapshot?.session_id
   const hash = snapshot?.measurements_sha256
-  const segment = snapshot
-    ? (lastAppliedAction(snapshot)?.id ?? "initial")
-    : "initial"
+  const segment = snapshot ? liveSegment(snapshot) : "initial"
   const active = snapshot?.active_intervention?.id
   useEffect(() => {
     setError("")

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
+
 import PocShell from "./PocShell"
+
 import { Badge, PageTitle, Panel } from "./workspace-ui"
+
 import {
   labSessionFromHash,
   pocMonitorHash,
@@ -9,27 +12,37 @@ import {
 
 export default function PocHub({ invalid = false }: { invalid?: boolean }) {
   const [reference, setReference] = useState("")
+
   const [error, setError] = useState("")
+
   useEffect(() => {
     document.title = "PoC & Simulation · HemoForge"
   }, [])
+
   function join(event: React.FormEvent) {
     event.preventDefault()
+
     const value = reference.trim()
+
     let id = sessionPattern.test(value) ? value : null
+
     try {
       id ??= labSessionFromHash(new URL(value, location.origin).hash)
     } catch {
       /* Invalid input stays local. */
     }
+
     if (!id) {
       setError(
         "Masukkan ID sesi 32 karakter atau tautan monitor dari Virtual Lab.",
       )
+
       return
     }
+
     location.hash = pocMonitorHash(id)
   }
+
   return (
     <PocShell>
       <PageTitle
@@ -47,9 +60,9 @@ export default function PocHub({ invalid = false }: { invalid?: boolean }) {
         <span className="badge tone-brand">TWO MONITORS · ONE SESSION</span>
         <h2>Run the lab. Follow the evidence.</h2>
         <p>
-          Monitor 01 menjalankan kultur, sampling, dan FLEX2. Monitor 02
-          menggunakan hasilnya di Dashboard, Bioreactor Guard, ErythroPilot, dan
-          CulturePlan.
+          Monitor 01 menjalankan BIOSTAT STR Gen 2, BioPAT Trace, dan ViaMass.
+          Monitor 02 menggunakan hasilnya di Dashboard, Bioreactor Guard,
+          ErythroPilot, dan CulturePlan.
         </p>
       </div>
       <div className="poc-launch-grid">
@@ -65,7 +78,7 @@ export default function PocHub({ invalid = false }: { invalid?: boolean }) {
                 <i />
                 <i />
               </div>
-              <b>Culture → sample → FLEX2</b>
+              <b>BIOSTAT → online PAT → HemoForge</b>
             </div>
             <p>
               Pilih skenario, buat sesi, lalu jalankan proses di laboratorium
@@ -97,6 +110,7 @@ export default function PocHub({ invalid = false }: { invalid?: boolean }) {
                   value={reference}
                   onChange={(event) => {
                     setReference(event.target.value)
+
                     setError("")
                   }}
                   placeholder="Tempel tautan dari Monitor 01"
@@ -128,8 +142,8 @@ export default function PocHub({ invalid = false }: { invalid?: boolean }) {
             dashboard ke monitor kedua.
           </li>
           <li>
-            Jaga laboratorium 3D terlihat. Hasil FLEX2 yang lolos QC muncul
-            otomatis di Monitor 02.
+            Jaga laboratorium 3D terlihat. Hasil sensor online yang lolos QC
+            muncul otomatis di Monitor 02.
           </li>
           <li>
             Pasangkan Guard hanya bila ingin menguji tindakan pada bioreaktor

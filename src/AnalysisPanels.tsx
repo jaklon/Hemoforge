@@ -1017,19 +1017,21 @@ function MvpChart({
 }
 
 export function MvpCharts({
+  rowsOverride,
   replicate,
 
   hour,
 }: {
+  rowsOverride?: CultureRow[]
   replicate: number
 
   hour: number
 }) {
   const { batchMeasurements, replayEndHour } = useCultureData()
 
-  const rows = batchMeasurements(replicate)
+  const rows = rowsOverride ?? batchMeasurements(replicate)
 
-  const end = Math.max(replayEndHour, 1)
+  const end = Math.max(replayEndHour, rows.at(-1)?.hour ?? 0, 1)
 
   return (
     <div className="mvp-charts">
@@ -1041,12 +1043,14 @@ export function MvpCharts({
 }
 
 export function ChannelPanel({
+  rowsOverride,
   replicate,
 
   hour,
 
   onImport,
 }: {
+  rowsOverride?: CultureRow[]
   replicate: number
 
   hour: number
@@ -1057,7 +1061,7 @@ export function ChannelPanel({
 
   const [selected, setSelected] = useState(channels[0].key)
 
-  const rows = batchMeasurements(replicate).filter(
+  const rows = (rowsOverride ?? batchMeasurements(replicate)).filter(
     (sample) => sample.hour <= hour,
   )
 

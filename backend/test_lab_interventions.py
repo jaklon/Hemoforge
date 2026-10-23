@@ -152,7 +152,8 @@ class DecisionTransportTests(unittest.TestCase):
         self.network = patch("socket.create_connection", side_effect=AssertionError("No external network"))
         self.network.start(); self.addCleanup(self.network.stop)
         self.client = TestClient(app)
-        created = self.client.post("/api/v1/lab/sessions", headers=HEADERS).json()
+        # Exercise legacy transport separately from the default BIOSTAT contract.
+        created = self.client.post("/api/v1/lab/sessions", headers=HEADERS, json={"device_profile": "legacy-flex2"}).json()
         self.session = sessions[created["session_id"]]
         self.base = f"/api/v1/lab/sessions/{self.session.id}"
         self.controller_headers = {**HEADERS, "x-lab-controller": created["controller_token"]}

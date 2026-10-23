@@ -133,3 +133,46 @@
 @media (min-width: 1500px) { .vl-layout { grid-template-columns: minmax(0, 1fr) 420px; } .vl-control-panel { padding: 35px; } }
 @media (max-width: 1000px) { .vl-layout { grid-template-columns: minmax(0, 1fr) 330px; } .vl-control-panel { padding: 22px 18px; } .vl-scene-caption { top: 110px; left: 24px; } }
 @media (max-width: 720px) { .vl-layout { display: flex; flex-direction: column; height: auto; } .vl-stage { min-height: 460px; } .vl-header { padding: 15px; gap: 12px; flex-wrap: wrap; } .vl-kicker { font-size: 8px; } .vl-stage-label { display: none; } .vl-control-panel { padding: 24px; } .vl-scene-caption h1 { font-size: 38px; } .vl-scene-evidence { display: none; } .vl-station-nav button { padding: 9px; } .vl-live-strip { padding: 12px 16px; gap: 12px; } .live-guard-main { padding: 16px; } .vl-sample-state { grid-template-columns: 1fr; } }
+.biostat-lab .vl-scene-caption { top: 82px; }
+.biostat-lab .vl-scene-caption small { font: 650 9px/1.6 Inter, sans-serif; letter-spacing: 2px; color: #466473; }
+.biostat-lab .vl-scene-caption h1 { font-size: clamp(28px, 3vw, 44px); margin-top: 8px; }
+.biostat-scene-legend { position: absolute; left: 24px; bottom: 118px; display: grid; gap: 7px; background: #f4f7f1df; border: 1px solid #ffffff99; border-radius: 7px; padding: 12px 15px; pointer-events: none; color: #375564; font-size: 10px; max-width: 240px; }
+.biostat-scene-legend span { display: flex; align-items: center; gap: 8px; }
+.biostat-scene-legend i { width: 18px; height: 3px; background: #3b9dcf; border-radius: 3px; }
+.biostat-scene-legend span:nth-child(2) i { background: #0e929c; }
+.biostat-scene-legend span:nth-child(3) i { background: #77af8f; }
+.biostat-scene-legend small { color: #7c8d92; line-height: 1.5; margin-top: 3px; }
+.biostat-telemetry { margin: 20px 0; font-size: 12px; color: #39515e; }
+.biostat-telemetry-heading { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.biostat-telemetry-heading small { font-size: 9px; letter-spacing: 1.3px; color: #728a90; }
+.biostat-telemetry-heading h2 { font-size: 19px; letter-spacing: -0.5px; margin: 6px 0; }
+.biostat-telemetry p { font-size: 11px; line-height: 1.65; color: #718084; }
+.biostat-auto { border: 1px solid #b5d6c9; background: #e4f1e9; color: #337160; border-radius: 4px; padding: 6px 8px; font-size: 9px; white-space: nowrap; }
+.biostat-source-group { margin-top: 20px; }
+.biostat-source-group h3 { font: 700 10px/1.5 Inter, sans-serif; letter-spacing: 1px; color: #218c8b; margin: 0 0 8px; }
+.biostat-source-group.is-model_estimate h3 { color: #956c29; }
+.biostat-source-group.is-unmeasured h3 { color: #899397; }
+.biostat-signal-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.biostat-signal { min-width: 0; padding: 12px; border: 1px solid #d3e2de; background: #f8fcfa; border-radius: 6px; }
+.biostat-signal > span { font-size: 10px; display: block; }
+.biostat-signal strong { display: block; font: 500 22px/1.7 'JetBrains Mono Variable', monospace; color: #31575c; }
+.biostat-signal strong small { margin-left: 5px; font: 400 9px/1.5 Inter, sans-serif; }
+.biostat-signal > small { display: block; font-size: 9px; color: #7a8e8d; line-height: 1.65; overflow-wrap: anywhere; }
+.is-model_estimate .biostat-signal { background: #fcf8ee; border-color: #e6d6ad; }
+.is-unmeasured .biostat-signal { background: #f1f3f2; border-color: #dce2df; }
+.biostat-telemetry.is-compact .biostat-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.biostat-telemetry.is-compact .biostat-telemetry-heading { display: block; }
+.biostat-telemetry.is-compact .biostat-signal { padding: 10px; }
+.biostat-telemetry.is-compact .biostat-signal strong { font-size: 19px; }
+.biostat-telemetry.is-compact .is-unmeasured .biostat-signal { padding: 7px 10px; }
+.biostat-telemetry.is-compact .is-unmeasured .biostat-signal strong, .biostat-telemetry.is-compact .is-unmeasured .biostat-signal > small { display: none; }
+.biostat-source-badge { display: block; margin: 5px 0 8px; font: 600 8px/1.6 Inter, sans-serif; letter-spacing: 0.7px; color: #338480; text-transform: uppercase; }
+.biostat-source-badge.is-model_estimate { color: #a17b32; }
+.biostat-source-badge.is-unmeasured { color: #8b949b; }
+.dash-card.biostat-origin-model_estimate { border-top: 3px solid #d2ac62; }
+.dash-card.biostat-origin-virtual_sensor { border-top: 3px solid #499d99; }
+.biostat-provenance-disclosure { margin: 15px 0; padding: 12px 16px; background: #f7faf8; border: 1px solid #d8e2df; border-radius: 7px; font-size: 12px; }
+.biostat-provenance-disclosure summary { cursor: pointer; color: #477173; }
+.biostat-lab .vl-model-config fieldset { border: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+@media (max-width: 1000px) { .biostat-lab .vl-scene-caption h1 { font-size: 29px; } .biostat-scene-legend { max-width: 195px; font-size: 9px; bottom: 125px; left: 12px; } }
+@media (max-width: 720px) { .biostat-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .biostat-lab .vl-scene-caption { top: 70px; left: 18px; } .biostat-scene-legend { display: none; } .biostat-lab .vl-station-nav { flex-wrap: wrap; bottom: 55px; gap: 5px; } .biostat-lab .vl-stage { min-height: 550px; } }

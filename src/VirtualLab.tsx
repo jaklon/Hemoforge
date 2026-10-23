@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import LabScene from "./LabScene"
+import BiostatScene from "./BiostatScene"
+import BiostatTelemetry from "./BiostatTelemetry"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
 import {
   AnimationClock,
   labSessionFromHash,
-  nextLabAction,
   pocLabHash,
   pocMonitorHash,
   type CultureScenario,
 } from "./lab-session"
 import useLabSession from "./use-lab-session"
 import "./virtual-lab.css"
-
-const actionLabels = {
-  collect: "Ambil sampel →",
-  load: "Masukkan ke FLEX2 →",
-  analyze: "Mulai analisis FLEX2 →",
-}
 
 export default function VirtualLab() {
   const [id, setId] = useState(() => labSessionFromHash(location.hash))
@@ -30,37 +24,26 @@ export default function VirtualLab() {
   const [createError, setCreateError] = useState("")
   const [scenario, setScenario] = useState<CultureScenario>("balanced")
   const [seed, setSeed] = useState(42)
-  const [withdrawal, setWithdrawal] = useState(1)
-  const [mixed, setMixed] = useState(true)
-  const [station, setStation] = useState<"overview" | "bioreactor" | "flex2">(
-    "overview",
-  )
+  const [station, setStation] =
+    useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
   const [graphicsError, setGraphicsError] = useState("")
+  const [setpoints, setSetpoints] = useState({
+    ph_setpoint: 7.3,
+    do_setpoint: 40,
+    temperature_setpoint: 37,
+  })
   const { snapshot, latest, connection, error, command, reconnect } =
     useLabSession(id, token)
   const clock = useRef(new AnimationClock())
   const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
-  const next = snapshot ? nextLabAction(snapshot.phase) : null
   const validSeed = Number.isInteger(seed) && seed >= 0 && seed <= 2147483647
-  const cannotCollect =
-    !!snapshot &&
-    next === "collect" &&
-    (!!snapshot.active_intervention ||
-      snapshot.culture_hours > snapshot.end_hour ||
-      snapshot.assays.length >= 100 ||
-      snapshot.working_volume_ml - withdrawal < 400)
-
   useEffect(() => {
-    document.title = "Virtual Lab · HemoForge"
+    document.title = "BIOSTAT Gen 2 · Monitor 01 · HemoForge"
   }, [])
   useEffect(() => {
     attemptedIntervention.current = null
   }, [connection, id])
-  useEffect(() => {
-    if (snapshot?.active_intervention?.status === "executing")
-      setStation("bioreactor")
-  }, [snapshot?.active_intervention?.id, snapshot?.active_intervention?.status])
   useEffect(() => {
     const sync = () => {
       const nextId = labSessionFromHash(location.hash)
@@ -74,7 +57,6 @@ export default function VirtualLab() {
     addEventListener("hashchange", sync)
     return () => removeEventListener("hashchange", sync)
   }, [])
-
   async function createSession() {
     setCreating(true)
     setCreateError("")
@@ -85,7 +67,11 @@ export default function VirtualLab() {
           "Content-Type": "application/json",
           "X-HemoForge-Action": "virtual-lab",
         },
-        body: JSON.stringify({ scenario, seed }),
+        body: JSON.stringify({
+          scenario,
+          seed,
+          device_profile: "biostat-str-gen2",
+        }),
         signal: AbortSignal.timeout(10000),
       })
       const value = await response.json()
@@ -109,7 +95,6 @@ export default function VirtualLab() {
       setCreating(false)
     }
   }
-
   const onFrame = useCallback(
     (delta: number) => {
       const intervention = latest.current?.active_intervention
@@ -121,15 +106,16 @@ export default function VirtualLab() {
       ) {
         attemptedIntervention.current = intervention.id
         clock.current.reset()
+        setStation("bioreactor")
       }
-      const active =
-        !!latest.current?.running && document.visibilityState === "visible"
-      const seconds = clock.current.frame(delta, active)
+      const seconds = clock.current.frame(
+        delta,
+        !!latest.current?.running && document.visibilityState === "visible",
+      )
       if (seconds) command("advance", { seconds })
     },
     [command, latest],
   )
-
   useEffect(() => {
     const hidden = () => {
       clock.current.reset()
@@ -138,19 +124,9 @@ export default function VirtualLab() {
     document.addEventListener("visibilitychange", hidden)
     return () => document.removeEventListener("visibilitychange", hidden)
   }, [command])
-
   useEffect(() => {
     if (graphicsError) command("pause")
   }, [graphicsError, command])
-
-  function interact() {
-    if (!ready || !next || cannotCollect) return
-    if (
-      command(next, next === "collect" ? { volume_ml: withdrawal, mixed } : {})
-    )
-      setStation(next === "collect" ? "bioreactor" : "flex2")
-  }
-
   function exportRun() {
     if (!snapshot) return
     const url = URL.createObjectURL(
@@ -160,98 +136,121 @@ export default function VirtualLab() {
     )
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = `${snapshot.batch_id}-stage-e.json`
+    anchor.download = `${snapshot.batch_id}-biostat.json`
     anchor.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-
+  const canRun =
+    ready &&
+    !graphicsError &&
+    snapshot!.active_intervention?.status !== "queued" &&
+    (snapshot!.culture_hours < snapshot!.end_hour ||
+      snapshot!.phase === "intervening")
+  const validSetpoints =
+    Number.isFinite(setpoints.ph_setpoint) &&
+    setpoints.ph_setpoint >= 6.8 &&
+    setpoints.ph_setpoint <= 7.6 &&
+    Number.isFinite(setpoints.do_setpoint) &&
+    setpoints.do_setpoint >= 20 &&
+    setpoints.do_setpoint <= 60 &&
+    Number.isFinite(setpoints.temperature_setpoint) &&
+    setpoints.temperature_setpoint >= 35 &&
+    setpoints.temperature_setpoint <= 38
   return (
-    <div className="virtual-lab">
+    <div className="virtual-lab biostat-lab">
       <header className="vl-header">
         <a className="vl-brand" href="#poc">
           H<span>HemoForge</span>
         </a>
-        <span className="vl-kicker">VIRTUAL LAB / MONITOR 01</span>
-        <a className="vl-stage-label" href="#poc">PoC & Simulation ↗</a>
+        <span className="vl-kicker">BIOSTAT STR GEN 2 / MONITOR 01</span>
+        <a className="vl-stage-label" href="#poc">
+          PoC & Simulation ↗
+        </a>
       </header>
       <main className="vl-layout">
         <section
           className="vl-stage"
-          aria-label="Laboratorium 3D orang pertama"
+          aria-label="Laboratorium BIOSTAT 3D orang pertama"
         >
-          <LabScene
-            onFrame={onFrame}
-            onInteract={interact}
-            onError={setGraphicsError}
+          <BiostatScene
             station={station}
-            phase={snapshot?.phase ?? "idle"}
-            running={snapshot?.running ?? false}
-            progress={snapshot?.analysis_progress ?? 0}
-            volumeMl={snapshot?.working_volume_ml ?? 500}
-            interventionKind={
-              snapshot?.active_intervention?.status === "executing"
-                ? snapshot.active_intervention.kind
-                : null
-            }
-            interventionProgress={snapshot?.active_intervention?.progress ?? 0}
+            snapshot={snapshot}
+            onFrame={onFrame}
+            onInteract={() => {
+              if (canRun) command(snapshot?.running ? "pause" : "play")
+            }}
+            onError={setGraphicsError}
           />
           <div className="vl-scene-top">
-            <span className="vl-room-label">HEMOFORGE / CULTURE LAB 01</span>
+            <span className="vl-room-label">
+              CELL CULTURE / SINGLE-USE STR 50
+            </span>
             <span className="vl-scene-evidence">
-              SYNTHETIC TRAINING ENVIRONMENT
+              VIRTUAL SENSOR FEED · FREE PROCEDURAL ASSETS
             </span>
           </div>
           <div className="vl-scene-caption">
-            <h1>
-              From culture
-              <br />
-              to insight.
-            </h1>
-            <p>Bioreaktor → FLEX2 → Guard → keputusan → bioreaktor</p>
+            <small>CONNECTED BIOPROCESS LAB</small>
+            <h1>Inside the process.</h1>
+            <p>BIOSTAT Gen 2 + BioPAT Trace + ViaMass</p>
+          </div>
+          <div className="biostat-scene-legend">
+            <span>
+              <i /> Gas & DO cascade
+            </span>
+            <span>
+              <i /> Trace fluid circuit
+            </span>
+            <span>
+              <i /> Feed / retention skid
+            </span>
+            <small>
+              Illustrative cutaway · geometry is not a certified device replica
+            </small>
           </div>
           <div className="vl-station-nav" aria-label="Posisi kamera">
-            {(["overview", "bioreactor", "flex2"] as const).map(
-              (value, index) => (
+            {(["overview", "bioreactor", "trace", "viamass"] as const).map(
+              (value, i) => (
                 <button
                   key={value}
                   aria-pressed={station === value}
                   onClick={() => setStation(value)}
                 >
-                  <span>0{index + 1}</span>
-                  {["Ruangan", "Bioreaktor", "FLEX2"][index]}
+                  <span>0{i + 1}</span>
+                  {["Ruangan", "BIOSTAT STR", "BioPAT Trace", "ViaMass"][i]}
                 </button>
               ),
             )}
           </div>
           <div className="vl-camera-hint">
-            Drag untuk melihat sekitar · klik panah di alat untuk langkah
-            berikutnya
+            Drag untuk melihat sekitar · panah mengaktifkan / menjeda kultur ·
+            waktu hanya maju setelah frame dirender
           </div>
           {graphicsError && (
             <div role="alert" className="vl-graphics-error">
               {graphicsError}
               <br />
-              Gunakan browser dengan WebGL aktif. Waktu simulasi berhenti.
+              Aktifkan WebGL. Jam kultur dijeda.
             </div>
           )}
         </section>
         <aside className="vl-control-panel">
           <div className="vl-panel-heading">
-            <span className="vl-eyebrow">CONNECTED LABORATORY</span>
-            <h2>Jalankan satu siklus.</h2>
+            <span className="vl-eyebrow">ONLINE PROCESS MONITORING</span>
+            <h2>One culture. Live signals.</h2>
             <p>
-              Monitor pertama menjalankan proses. Monitor kedua membaca hasil
-              pengukuran.
+              Mulai kultur; sensor inti, Trace, dan ViaMass mengirim hasil
+              otomatis. Tidak ada langkah sampling FLEX2.
             </p>
           </div>
           <div className="vl-session-row">
             <span className={`vl-status ${ready ? "is-online" : ""}`}>
               {id ? connection : "Belum ada sesi"}
             </span>
-            <span>{snapshot?.batch_id ?? "Local session"}</span>
+            <span>{snapshot?.batch_id ?? "Local only"}</span>
           </div>
           <div className="vl-clock">
-            <span>WAKTU KULTUR</span>
+            <span>WAKTU KULTUR · {snapshot?.stage ?? "expansion"} MODEL</span>
             <strong data-testid="lab-hour">
               {snapshot?.culture_hours.toFixed(3) ?? "0.000"}
               <small>h</small>
@@ -262,317 +261,219 @@ export default function VirtualLab() {
                 : "Paused · tidak ada waktu yang maju"}
             </span>
           </div>
-          <details className="vl-config-disclosure" open={!id}>
-            <summary>Pengaturan sesi baru</summary>
-            <fieldset
-              className="vl-model-config"
-              disabled={creating || !!snapshot?.running}
-            >
-              <legend>Model kultur</legend>
-              <label>
-                Skenario kultur
-                <select
-                  value={scenario}
-                  onChange={(event) =>
-                    setScenario(event.target.value as CultureScenario)
-                  }
-                >
-                  <option value="balanced">Nutrisi seimbang</option>
-                  <option value="nutrient_limited">Nutrisi terbatas</option>
-                  <option value="metabolite_stress">Stres metabolit</option>
-                </select>
-              </label>
-              <label>
-                Seed pengukuran
-                <input
-                  type="number"
-                  min={0}
-                  max={2147483647}
-                  step={1}
-                  value={seed}
-                  onChange={(event) => setSeed(Number(event.target.value))}
-                />
-              </label>
-              <small>
-                Berlaku saat membuat sesi. Skenario, seed, volume dan jadwal
-                sampling yang sama menghasilkan pengukuran yang dapat diulang.
-              </small>
-            </fieldset>
-          </details>
-          {!id ? (
-            <button
-              className="vl-primary"
-              disabled={creating || !validSeed}
-              onClick={() => void createSession()}
-            >
-              {creating ? "Menghubungkan…" : "Buat sesi simulasi →"}
-            </button>
-          ) : (
+          {!id && (
             <>
-              <a
-                className="vl-primary"
-                href={pocMonitorHash(id!)}
-                target="_blank"
-                rel="noopener"
-                data-testid="open-live-guard"
-              >
-                Buka dashboard di monitor 2 ↗
-              </a>
-              <div className="vl-clock-controls">
-                <button
-                  disabled={
-                    !ready ||
-                    !!graphicsError ||
-                    snapshot?.phase === "collected" ||
-                    snapshot?.phase === "loaded" ||
-                    snapshot?.active_intervention?.status === "queued" ||
-                    (!snapshot?.running &&
-                      snapshot &&
-                      snapshot.culture_hours >= snapshot.end_hour &&
-                      snapshot?.phase !== "analyzing" &&
-                      snapshot?.phase !== "intervening")
-                  }
-                  onClick={() => command(snapshot?.running ? "pause" : "play")}
-                >
-                  {snapshot?.running ? "Ⅱ Pause" : "▶ Lanjutkan waktu"}
-                </button>
+              <fieldset className="vl-model-config" disabled={creating}>
+                <legend>Profil sesi baru · STR 50 Gen 2</legend>
                 <label>
-                  Kecepatan
+                  Skenario kultur
                   <select
-                    aria-label="Kecepatan kultur"
-                    value={snapshot?.speed ?? 6}
-                    disabled={
-                      !ready ||
-                      snapshot?.phase === "analyzing" ||
-                      !!snapshot?.active_intervention
-                    }
-                    onChange={(event) =>
-                      command("speed", { speed: Number(event.target.value) })
+                    value={scenario}
+                    onChange={(e) =>
+                      setScenario(e.target.value as CultureScenario)
                     }
                   >
+                    <option value="balanced">Nutrisi seimbang</option>
+                    <option value="nutrient_limited">Nutrisi terbatas</option>
+                    <option value="metabolite_stress">Stres metabolit</option>
+                  </select>
+                </label>
+                <label>
+                  Seed sensor
+                  <input
+                    type="number"
+                    min={0}
+                    max={2147483647}
+                    step={1}
+                    value={seed}
+                    onChange={(e) => setSeed(Number(e.target.value))}
+                  />
+                </label>
+                <small>
+                  Volume awal 12,5 L · kapasitas profil 50 L. Kinetika, waktu
+                  sensor, dan transisi fase adalah asumsi edukatif.
+                </small>
+              </fieldset>
+              <button
+                className="vl-primary"
+                disabled={creating || !validSeed}
+                onClick={() => void createSession()}
+              >
+                {creating ? "Menghubungkan…" : "Buat sesi BIOSTAT →"}
+              </button>
+            </>
+          )}
+          {id && (
+            <>
+              <button
+                className="vl-primary"
+                data-testid="open-live-guard"
+                onClick={() =>
+                  window.open(
+                    pocMonitorHash(id),
+                    `hemoforge-monitor-${id}`,
+                    "popup=yes,width=1440,height=1000",
+                  )
+                }
+              >
+                Buka dashboard di monitor 2 ↗
+              </button>
+              <p className="vl-footnote">
+                Pindahkan jendela baru ke monitor kedua dan biarkan kedua
+                jendela terlihat. Menyembunyikan tab 3D menjeda kultur.
+              </p>
+              <div className="vl-clock-controls">
+                <button
+                  disabled={!canRun}
+                  onClick={() => command(snapshot?.running ? "pause" : "play")}
+                >
+                  {snapshot?.running ? "Ⅱ Pause" : "▶ Mulai / lanjutkan"}
+                </button>
+                <label>
+                  Kecepatan kultur
+                  <select
+                    aria-label="Kecepatan kultur"
+                    disabled={!ready || !!snapshot?.active_intervention}
+                    value={snapshot?.speed ?? 0.25}
+                    onChange={(e) =>
+                      command("speed", { speed: Number(e.target.value) })
+                    }
+                  >
+                    <option value={0.05}>0,05 h / detik</option>
+                    <option value={0.25}>0,25 h / detik</option>
                     <option value={1}>1 h / detik</option>
-                    <option value={6}>6 h / detik</option>
-                    <option value={12}>12 h / detik</option>
+                    <option value={6}>6 h / detik · cepat</option>
+                    <option value={12}>12 h / detik · cepat</option>
                   </select>
                 </label>
               </div>
             </>
           )}
-          {id && token && snapshot && (
-            <LabControlPanel
-              key={id}
-              id={id}
-              token={token}
-              ready={ready}
-              paired={snapshot.operator_paired}
-            />
-          )}
           {snapshot && (
-            <LabInterventionStatus
-              items={snapshot.interventions}
-              testId="lab-intervention-status"
-            />
-          )}
-          {snapshot && (
-            <div className="vl-volume-card" data-testid="lab-volume">
-              <span className="vl-eyebrow">
-                NERACA VOLUME · {snapshot.scenario}
-              </span>
-              <strong>
-                {snapshot.working_volume_ml.toFixed(1)} mL tersisa
-              </strong>
-              <p>
-                {snapshot.withdrawn_volume_ml.toFixed(1)} mL telah diambil ·
-                seed {snapshot.seed}
-              </p>
-              <p>
-                {snapshot.added_volume_ml.toFixed(1)} mL ditambahkan ·{" "}
-                {snapshot.exchanged_volume_ml.toFixed(1)} mL ditukar
-              </p>
-              <p>
-                Sel dan zat terlarut ikut terambil. Count di Guard = densitas
-                terukur × volume reaktor setelah sampling.
-              </p>
-            </div>
-          )}
-          <fieldset
-            className="vl-model-config"
-            disabled={
-              !ready ||
-              snapshot?.phase === "analyzing" ||
-              snapshot?.phase === "collected" ||
-              snapshot?.phase === "loaded" ||
-              !!snapshot?.active_intervention
-            }
-          >
-            <legend>Persiapan sampel berikutnya</legend>
-            <label>
-              Volume yang diambil
-              <select
-                value={withdrawal}
-                onChange={(event) => setWithdrawal(Number(event.target.value))}
+            <>
+              <BiostatTelemetry snapshot={snapshot} compact />
+              <form
+                className="vl-model-config"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (validSetpoints) command("setpoints", setpoints)
+                }}
               >
-                <option value={1}>1 mL · standar demo</option>
-                <option value={3}>3 mL · pengambilan lebih besar</option>
-                <option value={0.1}>0,1 mL · uji sampel kurang</option>
-              </select>
-            </label>
-            <label className="vl-check-label">
-              <input
-                type="checkbox"
-                checked={mixed}
-                onChange={(event) => setMixed(event.target.checked)}
+                <fieldset disabled={!ready || !!snapshot.active_intervention}>
+                  <legend>Setpoint controller virtual · AUTO</legend>
+                  {([
+                    ["ph_setpoint", "pH", 6.8, 7.6, 0.05],
+                    ["do_setpoint", "DO (% air sat.)", 20, 60, 1],
+                    ["temperature_setpoint", "Temperatur (°C)", 35, 38, 0.1],
+                  ] as const).map(([key, label, min, max, step]) => (
+                    <label key={key}>
+                      {label}
+                      <input
+                        type="number"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={setpoints[key]}
+                        onChange={(e) =>
+                          setSetpoints({
+                            ...setpoints,
+                            [key]: Number(e.target.value),
+                          })
+                        }
+                        required
+                      />
+                    </label>
+                  ))}
+                  <button
+                    className="vl-small-button"
+                    disabled={!validSetpoints}
+                  >
+                    Terapkan setpoint virtual
+                  </button>
+                  <small>
+                    Batas adalah batas skenario edukatif, bukan resep kultur
+                    atau spesifikasi Sartorius.
+                  </small>
+                </fieldset>
+              </form>
+              <details className="vl-config-disclosure">
+                <summary>Jadwal sensor & uji gangguan</summary>
+                <p className="vl-assay-context">
+                  Sensor inti setiap 0,5 h; ViaMass setiap 1 h, jeda 0,02 h;
+                  Trace setiap 2 h, jeda 0,1 h kultur. Jadwal dipercepat untuk
+                  demo, bukan spesifikasi vendor. Tunggu jadwal berikutnya
+                  setelah uji gangguan.
+                </p>
+                {(["core", "trace", "viamass"] as const).map((sensor) => (
+                  <button
+                    key={sensor}
+                    className="vl-small-button"
+                    disabled={!ready}
+                    onClick={() => command("sensor_fault", { sensor })}
+                  >
+                    {snapshot.sensor_faults?.includes(sensor)
+                      ? "Pulihkan"
+                      : "Uji fault"}{" "}
+                    {sensor}
+                  </button>
+                ))}
+              </details>
+              <div className="vl-volume-card" data-testid="lab-volume">
+                <span className="vl-eyebrow">NERACA VOLUME</span>
+                <strong>
+                  {(snapshot.working_volume_ml / 1000).toFixed(3)} L
+                </strong>
+                <p>
+                  {(snapshot.added_volume_ml / 1000).toFixed(3)} L ditambahkan ·{" "}
+                  {(snapshot.exchanged_volume_ml / 1000).toFixed(3)} L ditukar.
+                </p>
+                <p>
+                  Trace: loop dialisis tertutup tanpa penarikan volume bersih.
+                  Skid retensi virtual opsional: retensi sel 98%, bukan bagian
+                  bawaan STR atau data tervalidasi.
+                </p>
+              </div>
+              {token && (
+                <LabControlPanel
+                  key={id}
+                  id={id!}
+                  token={token}
+                  ready={ready}
+                  paired={snapshot.operator_paired}
+                />
+              )}
+              <LabInterventionStatus
+                items={snapshot.interventions}
+                testId="lab-intervention-status"
               />
-              Sampel sudah dihomogenkan
-            </label>
-            <small>
-              Assay virtual membutuhkan 0,275 mL. Sisa aliquot tidak
-              dikembalikan ke reaktor. Sampel kurang atau belum homogen ditolak
-              oleh QC edukatif.
-            </small>
-          </fieldset>
-          <details className="vl-config-disclosure">
-            <summary>Alur sampling & FLEX2</summary>
-            <ol className="vl-workflow">
-              {[
-                [
-                  "Ambil sampel",
-                  "Bioreaktor · pengamatan dibekukan saat sampling",
-                  snapshot?.phase === "idle" || snapshot?.phase === "complete",
-                ],
-                [
-                  "Masukkan ke FLEX2",
-                  "Tangan membawa sampel ke analyzer",
-                  snapshot?.phase === "collected",
-                ],
-                [
-                  "Jalankan analisis",
-                  `${snapshot?.protocol.animation_seconds ?? 8} detik animasi · ${snapshot?.protocol.culture_minutes ?? 4.5} menit kultur`,
-                  snapshot?.phase === "loaded" ||
-                    snapshot?.phase === "analyzing",
-                ],
-                [
-                  "Lihat hasil di Guard",
-                  "Pengukuran baru dirilis setelah assay selesai",
-                  snapshot?.phase === "complete",
-                ],
-              ].map(([title, detail, active], index) => (
-                <li key={String(title)} className={active ? "is-active" : ""}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{title}</strong>
-                    <p>{detail}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </details>
-          <button
-            className="vl-primary vl-action"
-            disabled={!ready || !next || !!graphicsError || cannotCollect}
-            onClick={interact}
-          >
-            {snapshot?.phase === "analyzing"
-              ? "FLEX2 sedang menganalisis…"
-              : snapshot?.phase === "intervening"
-                ? "Menjalankan keputusan Guard…"
-                : cannotCollect
-                  ? snapshot?.active_intervention
-                    ? "Tunggu tindakan Guard selesai"
-                    : "Batas sesi tercapai · buat sesi baru"
-                  : next && next in actionLabels
-                    ? actionLabels[(next as keyof typeof actionLabels)]
-                    : "Buat sesi untuk mulai"}
-          </button>
-          {snapshot?.phase === "analyzing" && (
-            <div className="vl-assay-progress" role="status">
-              <span>
-                {
-                  {
-                    aspiration: "Aspirasi sampel",
-                    chemistry: "Panel kimia",
-                    cell_count: "Hitung sel dan viabilitas",
-                    quality_review: "Pemeriksaan kualitas",
-                    complete: "Selesai",
-                    idle: "Siap",
-                  }[snapshot.assay_stage]
-                }
-              </span>
-              <progress
-                aria-label="Kemajuan assay FLEX2"
-                max={1}
-                value={snapshot.analysis_progress}
-              />
-            </div>
+              <p className="vl-assay-context" data-testid="lab-result-count">
+                {snapshot.sensor_readings?.length ?? 0} keluaran sensor ·{" "}
+                {snapshot.measurements.length} estimasi ViaMass dipublikasikan.
+              </p>
+              <p className="vl-assay-context" role="status">
+                {snapshot.reason}
+              </p>
+            </>
           )}
-          <div className="vl-reading-summary" role="status">
-            <span className="vl-eyebrow">PUBLISHED MEASUREMENTS</span>
-            <strong data-testid="lab-result-count">
-              {snapshot?.measurements.length ?? 0} sampel
-            </strong>
-            {snapshot && (
-              <p>
-                {snapshot.assays.length} assay selesai ·{" "}
-                {
-                  snapshot.assays.filter(
-                    (report) => report.quality.status === "rejected",
-                  ).length
-                }{" "}
-                ditolak QC
-              </p>
-            )}
-            <p>
-              {snapshot?.reason ?? "Buat sesi, buka Guard, lalu ikuti panah."}
-            </p>
-            {snapshot?.measurements.at(-1) && (
-              <p>
-                {snapshot.measurements.at(-1)!.sample_id} ·{" "}
-                {snapshot.measurements.at(-1)!.count.toFixed(2)} juta sel viabel
-              </p>
-            )}
-            {snapshot?.assays.at(-1)?.quality.status === "rejected" && (
-              <p className="vl-error" data-testid="lab-qc-rejection">
-                {snapshot.assays.at(-1)!.sample_id}:{" "}
-                {snapshot.assays.at(-1)!.quality.flags.join(", ")}. Ambil sampel
-                baru dengan persiapan yang sesuai.
-              </p>
-            )}
-          </div>
-          {(error || createError) && (
-            <p className="vl-error" role="alert">
+          {(createError || error) && (
+            <p role="alert" className="vl-error">
               {createError || error}
             </p>
           )}
-          {id && !token && (
-            <p className="vl-error">
-              Kontrol hanya tersedia di tab pembuat sesi. Buat sesi baru di
-              sini.
-            </p>
-          )}
           <div className="vl-secondary-actions">
-            {id && (
-              <>
-                <button onClick={reconnect}>Reconnect</button>
-                <button disabled={!snapshot} onClick={exportRun}>
-                  Unduh audit JSON
-                </button>
-                <button
-                  disabled={creating || !validSeed}
-                  onClick={() => void createSession()}
-                >
-                  Sesi baru
-                </button>
-              </>
-            )}
+            {id && <button onClick={reconnect}>Sambungkan ulang</button>}
+            <button disabled={!snapshot} onClick={exportRun}>
+              Unduh bukti sesi
+            </button>
+            <a href="#poc/lab">Sesi baru</a>
             <a href="/VIRTUAL_LAB.md" target="_blank" rel="noopener">
-              Panduan & batasan
+              Panduan & sumber
             </a>
           </div>
           <p className="vl-footnote">
-            Model kultur dan variasi pengukuran adalah asumsi edukatif, belum
-            dikalibrasi untuk BEL-A atau akurasi Nova. FLEX2 dan bioreaktor
-            berupa representasi virtual. Sesi disimpan di memori API; restart
-            menghapusnya. Tidak ada panggilan NVIDIA atau LLM.
+            PoC lokal dan aset gratis. Model belum dikalibrasi biologis atau
+            untuk skala BIOSTAT. Sesi hilang saat API restart. Tidak ada alat
+            fisik, NVIDIA, LLM, atau layanan berbayar yang dipanggil.
           </p>
         </aside>
       </main>

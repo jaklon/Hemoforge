@@ -1,4 +1,5 @@
 import type { LabSnapshot } from "./lab-session.ts"
+import { biostatProcessData } from "./biostat-data.ts"
 
 export const liveProcessVariables = [
   { id: "count", name: "Cell count", unit: "×10⁶ cells", digits: 2 },
@@ -20,6 +21,7 @@ export const liveProcessVariables = [
 ] as const
 
 export function liveProcessData(snapshot: LabSnapshot) {
+  if (snapshot.device_profile) return biostatProcessData(snapshot)
   const released = snapshot.measurements.filter(
     (row) =>
       row.quality.status === "passed" &&
@@ -41,6 +43,13 @@ export function liveProcessData(snapshot: LabSnapshot) {
           ]
         : []
     })
-    return { ...variable, samples, latest: samples.at(-1) ?? null }
+    return {
+      ...variable,
+      samples,
+      latest: samples.at(-1) ?? null,
+      origin: "virtual_sensor",
+      source: "Legacy FLEX2",
+      status: "live",
+    }
   })
 }

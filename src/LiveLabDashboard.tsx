@@ -4,6 +4,7 @@ import { DataProvider } from "./workspace-context"
 import {
   labSessionFromHash,
   liveCultureFile,
+  liveSensorRows,
   pocMonitorHash,
   type LiveModule,
 } from "./lab-session"
@@ -12,6 +13,7 @@ import GuardDecisions from "./GuardDecisions"
 import LivePilot from "./LivePilot"
 import LiveCulturePlan from "./LiveCulturePlan"
 import LiveProcessDashboard from "./LiveProcessDashboard"
+import BiostatTelemetry from "./BiostatTelemetry"
 import PocShell, { liveModuleNames } from "./PocShell"
 import { Badge, Details, PageTitle } from "./workspace-ui"
 import useLiveAnalytics from "./use-live-analytics"
@@ -94,9 +96,9 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
           </strong>
         </div>
         <div>
-          <small>FLEX2 RESULTS</small>
+          <small>BIOPAT OUTPUTS</small>
           <strong data-testid="live-result-count">
-            {snapshot?.measurements.length ?? 0} published samples
+            {snapshot?.sensor_readings?.length ?? 0} sensor outputs
           </strong>
         </div>
         <div>
@@ -115,12 +117,13 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
         </div>
       </section>
       <p className="poc-live-note">
-        PoC session · synthetic FLEX2 data. Culture time follows Monitor 01.{" "}
+        BIOSTAT Gen 2 PoC · virtual sensors. Cell counts are model estimates.
+        Culture time follows Monitor 01.{" "}
         {snapshot?.phase === "analyzing"
           ? `Analyzing · ${snapshot.assay_stage.replace(/_/g, " ")} · ${Math.round(snapshot.analysis_progress * 100)}%`
           : latest
             ? `Latest release: ${latest.sample_id} · collected ${latest.collected_at_hour.toFixed(3)}h · released ${latest.available_at_hour.toFixed(3)}h.`
-            : "Collect, load and analyze a sample on Monitor 01 to publish measurements."}
+            : "Start BIOSTAT on Monitor 01; online sensor readings arrive automatically."}
       </p>
       {error && (
         <p role="alert" className="import-error">
@@ -132,6 +135,14 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
           Disconnected · showing last known observations. Forecasts and
           decisions are paused until reconnection.
         </p>
+      )}
+      {snapshot?.device_profile && module !== "dashboard" && (
+        <details className="biostat-provenance-disclosure">
+          <summary>
+            Sensor sources, model estimates & unavailable assays
+          </summary>
+          <BiostatTelemetry snapshot={snapshot} />
+        </details>
       )}
       {report?.quality.status === "rejected" && (
         <div
@@ -160,6 +171,9 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
         <DataProvider liveCulture={culture}>
           <Guard
             live
+            sensorRows={
+              snapshot?.device_profile ? liveSensorRows(snapshot) : undefined
+            }
             hour={snapshot!.culture_hours}
             replicate={1}
             setReplicate={() => {}}
@@ -174,8 +188,10 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
             setEventNotes={setNotes}
             replayControls={
               <p className="poc-live-note">
-                Live mode · samples retain collection time and appear after
-                assay release. Replay controls are on Monitor 01.
+                Live BIOSTAT · chemistry, pH, DO and temperature come from
+                virtual sensors. Cell count is a ViaMass-derived estimate with
+                an uncalibrated stage/size conversion. Additional assays remain
+                unavailable. Replay controls are on Monitor 01.
               </p>
             }
           />
@@ -187,10 +203,11 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
             description="Live analysis from a dedicated simulation session."
           />
           <div className="empty-state">
-            <strong>Waiting for FLEX2</strong>
+            <strong>Waiting for BIOSTAT / BioPAT</strong>
             <p>
-              On Monitor 01, collect a sample, load the analyzer, then start
-              analysis. No demo rows or hidden reactor values are used.
+              Start culture on Monitor 01. Sensors publish on their own
+              schedules. No demo rows or hidden reactor values enter the live
+              modules.
             </p>
           </div>
         </>
@@ -235,18 +252,19 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
             {latest && (
               <p data-testid="measurement-receipt">
                 <b>{latest.sample_id}</b> · {latest.count.toFixed(2)} million
-                viable cells = measured density{" "}
+                estimated viable cells = ViaMass-derived density{" "}
                 {latest.viable_cell_density_million_ml.toFixed(3)} million/mL ×{" "}
-                {latest.volume_ml.toFixed(1)} mL after withdrawal. QC{" "}
+                {latest.volume_ml.toFixed(1)} mL recorded working volume. QC{" "}
                 {latest.quality.status}.
               </p>
             )}
             <p>
-              Uncalibrated teaching culture and analytical variation, not Nova
-              accuracy specifications or BEL-A validation. No physical device,
-              paid inference, or remote database is connected. Checkpoint and
-              prediction adapters use released measurements only. Credentials
-              and hidden reactor state stay out of exports.
+              Uncalibrated teaching culture, virtual sensor variation and
+              stage/size conversion; not Sartorius accuracy specifications,
+              BEL-A validation or validated 50 L RBC scale-up. No physical
+              device, paid inference, or remote database is connected.
+              Checkpoint and prediction adapters use released measurements only.
+              Credentials and hidden reactor state stay out of exports.
             </p>
           </Details>
         </div>

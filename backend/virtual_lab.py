@@ -46,15 +46,20 @@ def local_client(connection):
 
 
 class RunConfig(InputModel):
+    device_profile: Literal["biostat-str-gen2", "legacy-flex2"] = "biostat-str-gen2"
     scenario: Literal["balanced", "nutrient_limited", "metabolite_stress"] = "balanced"
     seed: int = Field(default=42, strict=True, ge=0, le=2_147_483_647)
 
 
 class Command(InputModel):
     seq: int = Field(strict=True, ge=1, le=1_000_000)
-    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed", "execute"]
+    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed", "execute", "setpoints", "sensor_fault"]
+    ph_setpoint: float = Field(default=7.3, ge=6.8, le=7.6)
+    do_setpoint: float = Field(default=40, ge=20, le=60)
+    temperature_setpoint: float = Field(default=37, ge=35, le=38)
+    sensor: Literal["core", "trace", "viamass"] = "trace"
     seconds: float = Field(default=0, ge=0, le=0.5)
-    speed: Literal[1, 6, 12] = 6
+    speed: Literal[0.05, 0.25, 1, 6, 12] = 6
     volume_ml: float = Field(default=1, ge=0.1, le=5)
     mixed: bool = Field(default=True, strict=True)
     intervention_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
@@ -254,7 +259,9 @@ async def create(request: Request, config: RunConfig | None = None):
     if len(sessions) >= MAX_SESSIONS:
         raise HTTPException(429, "Local session limit reached. Restart the prototype API or wait for expiry.")
     config = config or RunConfig()
-    session = Session(scenario=config.scenario, seed=config.seed)
+    from backend.biostat import BiostatSession
+    session_type = BiostatSession if config.device_profile == "biostat-str-gen2" else Session
+    session = session_type(scenario=config.scenario, seed=config.seed)
     sessions[session.id] = session
     return {"session_id": session.id, "controller_token": session.token}
 

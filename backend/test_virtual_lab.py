@@ -79,7 +79,8 @@ class TransportTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def create(self):
-        response = self.client.post("/api/v1/lab/sessions", headers={**ORIGIN, "x-hemoforge-action": "virtual-lab"})
+        # Retained schema-3 compatibility contract; schema-4 has separate tests.
+        response = self.client.post("/api/v1/lab/sessions", headers={**ORIGIN, "x-hemoforge-action": "virtual-lab"}, json={"device_profile": "legacy-flex2"})
         self.assertEqual(response.status_code, 201)
         return response.json()
 

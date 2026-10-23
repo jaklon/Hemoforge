@@ -47,7 +47,7 @@ export default function LabInterventionStatus({
           {" · "}
           {latest.kind === "feed"
             ? `${latest.outcome.added_medium_ml} mL ditambahkan`
-            : `${latest.outcome.exchanged_medium_ml.toFixed(1)} mL ditukar; retensi sel ideal`}
+            : `${latest.outcome.exchanged_medium_ml.toFixed(1)} mL ditukar; retensi ${((latest.outcome.retention_fraction ?? 1) * 100).toFixed(0)}% (asumsi)`}
         </p>
       )}
       {latest.cancel_reason && <p>{latest.cancel_reason}</p>}

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react"
 
 import { useCultureData, useWorkspace } from "./workspace-context"
+import type { CultureRow } from "./workspace-data"
 
 import {
   Button,
@@ -396,6 +397,7 @@ export default function BioreactorGuard({
 
   replayControls,
   live = false,
+  sensorRows,
 }: {
   hour: number
 
@@ -411,6 +413,7 @@ export default function BioreactorGuard({
 
   replayControls: ReactNode
   live?: boolean
+  sensorRows?: CultureRow[]
 }) {
   const {
     batches,
@@ -846,7 +849,7 @@ export default function BioreactorGuard({
           </div>
           <div className="guard-mvp">
             <h3>MVP variables</h3>
-            <MvpCharts replicate={replicate} hour={hour} />
+            <MvpCharts replicate={replicate} hour={hour} rowsOverride={sensorRows} />
           </div>
           </div>
         </Panel>
@@ -1023,6 +1026,7 @@ export default function BioreactorGuard({
       </div>
       <div className="guard-secondary-grid" id="guard-environment">
         <ChannelPanel
+          rowsOverride={sensorRows}
           replicate={replicate}
           hour={hour}
           onImport={() => navigate("data")}

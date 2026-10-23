@@ -20,6 +20,10 @@ export default function useLabSession(
     volume_ml?: number
     mixed?: boolean
     intervention_id?: string
+    ph_setpoint?: number
+    do_setpoint?: number
+    temperature_setpoint?: number
+    sensor?: "core" | "trace" | "viamass"
   } | null>(null)
   const nextSeq = useRef(1)
   const command = useCallback(
@@ -31,6 +35,10 @@ export default function useLabSession(
         volume_ml?: number
         mixed?: boolean
         intervention_id?: string
+        ph_setpoint?: number
+        do_setpoint?: number
+        temperature_setpoint?: number
+        sensor?: "core" | "trace" | "viamass"
       } = {},
     ) => {
       if (
@@ -92,7 +100,7 @@ export default function useLabSession(
       if (
         message.type !== "snapshot" ||
         message.session_id !== id ||
-        message.schema_version !== 3
+        ![3, 4].includes(message.schema_version)
       )
         return
       latest.current = message

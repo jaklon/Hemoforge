@@ -30,14 +30,24 @@ export default function GuardDecisions({
   )
   const [code, setCode] = useState("")
   const [presetId, setPresetId] = useState("feed-10")
-  const [note, setNote] = useState("Review hasil FLEX2 terbaru")
+  const [note, setNote] = useState("Review sensor BIOSTAT dan BioPAT terbaru")
   const [review, setReview] = useState<Decision | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const latest = snapshot.measurements.at(-1)
   const preset = interventionPresets.find((item) => item.id === presetId)!
-  const block = decisionBlockReason(snapshot, preset.kind, preset.amount)
+  const block = decisionBlockReason(
+    snapshot,
+    preset.kind,
+    preset.amount,
+    review?.source_sample_id,
+  )
+  const multiplier = snapshot.device_profile?.feed_multiplier_ml ?? 1
+  const label = (item: { kind: string amount: number }) =>
+    item.kind === "feed"
+      ? `Tambah medium ${item.amount * multiplier} mL`
+      : `Pertukaran medium ${item.amount}%`
   const paired = !!token && snapshot.operator_paired
   const unavailable =
     !connected || !paired || busy || !!block || note.trim().length < 3
@@ -81,7 +91,7 @@ export default function GuardDecisions({
       setMessage(
         cancelId
           ? "Pembatalan dicatat."
-          : "Keputusan dikirim. Tunggu animasi layar 3D; ambil FLEX2 baru setelah tindakan selesai.",
+          : "Keputusan dikirim. Tunggu animasi layar 3D, lalu lanjutkan kultur untuk pembacaan sensor berikutnya.",
       )
     } catch (failure) {
       setError(
@@ -110,7 +120,8 @@ export default function GuardDecisions({
       </div>
       <p>
         Keputusan dikonfirmasi pengguna. Dampak kultur terlihat pada pengukuran
-        berikutnya, bukan dengan mengubah hasil FLEX2 yang sudah dirilis.
+        berikutnya. Hasil yang telah dirilis tidak diubah. Jumlah sel adalah
+        estimasi ViaMass, bukan pengukuran RBC matang.
       </p>
       {!paired && (
         <div className="vl-pairing-form">
@@ -170,7 +181,7 @@ export default function GuardDecisions({
           >
             {interventionPresets.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.label}
+                {snapshot.device_profile ? label(item) : item.label}
               </option>
             ))}
           </select>
@@ -189,10 +200,10 @@ export default function GuardDecisions({
         </label>
       </div>
       <p className="vl-decision-assumptions">
-        Medium simulasi: glukosa 24 dan glutamin 4 mmol/L; tanpa sel, laktat,
-        atau amonium. Penambahan mengencerkan densitas tanpa membuang sel.
-        Pertukaran mengasumsikan retensi sel 100% dan volume tetap. Ini asumsi
-        edukatif, bukan instruksi alat nyata.
+        Penambahan medium mengencerkan densitas tanpa membuang sel. Pertukaran
+        memakai skid retensi virtual opsional, retensi{" "}
+        {snapshot.device_profile ? "98%" : "100%"}, dan volume tetap. Bukan
+        fitur bawaan STR atau instruksi alat nyata.
       </p>
       {block && (
         <p className="vl-decision-block" role="status">
@@ -223,11 +234,15 @@ export default function GuardDecisions({
           role="region"
           aria-label="Konfirmasi keputusan"
         >
-          <b>{interventionLabel(review)}</b>
+          <b>
+            {snapshot.device_profile
+              ? label(review)
+              : interventionLabel(review)}
+          </b>
           <p>
             {review.source_sample_id} · {review.note}.{" "}
             {review.kind === "feed"
-              ? `Volume diperkirakan ${snapshot.working_volume_ml.toFixed(1)} → ${(snapshot.working_volume_ml + review.amount).toFixed(1)} mL.`
+              ? `Volume diperkirakan ${snapshot.working_volume_ml.toFixed(1)} → ${(snapshot.working_volume_ml + review.amount * multiplier).toFixed(1)} mL.`
               : `Tukar ${((snapshot.working_volume_ml * review.amount) / 100).toFixed(1)} mL dengan volume reaktor tetap.`}
           </p>
           <p>
@@ -236,13 +251,16 @@ export default function GuardDecisions({
             kultur. Jaga layar 3D terlihat. Transfer medium diterapkan sekali
             setelah animasi selesai.
           </p>
-          {review.source_sample_id !== latest?.sample_id && (
-            <p role="alert">Ada pengukuran baru. Tinjau ulang keputusan.</p>
-          )}
+          {!snapshot.device_profile &&
+            review.source_sample_id !== latest?.sample_id && (
+              <p role="alert">Ada pengukuran baru. Tinjau ulang keputusan.</p>
+            )}
           <button
             className="vl-small-button"
             disabled={
-              unavailable || review.source_sample_id !== latest?.sample_id
+              unavailable ||
+              (!snapshot.device_profile &&
+                review.source_sample_id !== latest?.sample_id)
             }
             onClick={() => void send()}
           >

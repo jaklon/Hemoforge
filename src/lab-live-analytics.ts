@@ -2,6 +2,7 @@ import type { LabSnapshot } from "./lab-session.ts"
 import type { CultureForecast } from "./culture-forecast.ts"
 import type { PredictionEnvelope } from "./python-api.ts"
 import { analyzeMeasurements } from "./culture-monitoring.ts"
+import { lastSensor, sensorUsable } from "./biostat-data.ts"
 
 export interface LiveAnalysisSettings {
   horizon: 12 | 24 | 48
@@ -30,7 +31,7 @@ export interface LiveAnalysis {
     target_million: number
     observed_count: number | null
     observed_hour: number | null
-    status: "withheld" | "observed_target_reached" | "non_growing" | "projected" | "beyond_run"
+    status: "withheld" | "observed_target_reached" | "estimated_target_reached" | "non_growing" | "projected" | "beyond_run"
     hours_from_observation: number | null
     target_hour: number | null
     doubling_hours: number | null
@@ -51,6 +52,13 @@ export function lastAppliedAction(snapshot: LabSnapshot) {
   )
 }
 
+export function liveSegment(snapshot: LabSnapshot) {
+  const base = lastAppliedAction(snapshot)?.id ?? "initial"
+  return snapshot.device_profile
+    ? `${base}:${snapshot.stage}:${snapshot.controller?.events.at(-1)?.id ?? "initial"}`
+    : base
+}
+
 export function liveSettingsError(settings: LiveAnalysisSettings) {
   return ![12, 24, 48].includes(settings.horizon) ||
     !Number.isFinite(settings.target_million) ||
@@ -69,16 +77,30 @@ export function analysisMatches(
     !!data &&
     data.session_id === snapshot.session_id &&
     data.source_hash === snapshot.measurements_sha256 &&
-    data.segment_id === (lastAppliedAction(snapshot)?.id ?? "initial") &&
+    data.segment_id === liveSegment(snapshot) &&
     data.settings.horizon === settings.horizon &&
     data.settings.target_million === settings.target_million
   )
 }
 
 export function liveAnalysisHold(snapshot: LabSnapshot) {
+  if (snapshot.device_profile) {
+    if (snapshot.stage === "differentiation")
+      return "Proyeksi pertumbuhan ditahan pada fase diferensiasi. Estimasi sel bukan hasil RBC matang."
+    if (
+      (["core", "trace", "viamass"] as const).some(
+        (device) => !sensorUsable(snapshot, lastSensor(snapshot, device)),
+      )
+    )
+      return "Sensor belum tersedia, gagal QC, atau kedaluwarsa. Proyeksi dan ETA ditahan."
+  }
   if (snapshot.active_intervention)
     return "Tindakan sedang berlangsung. Proyeksi ditahan sampai tindakan selesai dan pengukuran baru tersedia."
-  const cutoff = lastAppliedAction(snapshot)?.completed_at_hour ?? 0
+  const cutoff = Math.max(
+    lastAppliedAction(snapshot)?.completed_at_hour ?? 0,
+    snapshot.stage_start_hour ?? 0,
+    snapshot.controller?.events.at(-1)?.hour ?? 0,
+  )
   const latest = snapshot.measurements
     .filter(
       (row) =>
@@ -87,8 +109,11 @@ export function liveAnalysisHold(snapshot: LabSnapshot) {
         row.collected_at_hour >= cutoff,
     )
     .at(-1)
-  if (!latest) return "Menunggu hasil FLEX2 pada segmen kultur saat ini."
-  if (snapshot.culture_hours - latest.collected_at_hour > 24)
+  if (!latest) return "Menunggu keluaran baru pada segmen kultur saat ini."
+  if (
+    snapshot.culture_hours - latest.collected_at_hour >
+    (snapshot.device_profile ? 3 : 24)
+  )
     return "Sampel terakhir lebih dari 24 jam kultur. Ambil pengukuran baru; proyeksi dan ETA ditahan."
   return ""
 }

@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react"
+
 import ForecastChart from "./ForecastChart"
+
 import LiveAnalysisControls from "./LiveAnalysisControls"
+
 import type { LabSnapshot } from "./lab-session"
+
 import {
   liveAnalysisHold,
   liveCheckpointReports,
@@ -10,67 +14,100 @@ import {
   type LiveAnalysis,
   type LiveAnalysisSettings,
 } from "./lab-live-analytics"
+
 import { downloadFile } from "./workspace-utils"
+
 import { PageTitle, Badge, Icon, Panel, Button } from "./workspace-ui"
 
 export interface LiveModuleProps {
   snapshot: LabSnapshot
+
   analysis: LiveAnalysis | null
+
   settings: LiveAnalysisSettings
+
   setSettings: (settings: LiveAnalysisSettings) => void
+
   loading: boolean
+
   error: string
+
   connected: boolean
+
   refresh: () => void
+
   openGuard: () => void
 }
 
 export default function LivePilot(props: LiveModuleProps) {
   const { snapshot, analysis, settings, loading, error } = props
+
   const reports = useMemo(
     () => liveCheckpointReports(snapshot),
+
     [
       snapshot.measurements_sha256,
+
       Math.floor(snapshot.culture_hours / 3),
+
       lastAppliedAction(snapshot)?.id,
     ],
   )
+
   const hold = !props.connected
     ? "Koneksi terputus. Sambungkan ulang sebelum membaca proyeksi live."
     : liveSettingsError(settings) || liveAnalysisHold(snapshot)
+
   const forecast = !hold ? analysis?.forecast : null
+
   const result = forecast?.result
+
   const last = result?.distribution.at(-1)
+
   const [reportPage, setReportPage] = useState(0)
+
   const [activeHour, setActiveHour] = useState<number | null>(null)
+
   const maxPage = Math.max(0, Math.ceil(reports.length / 8) - 1)
+
   const safePage = Math.min(reportPage, maxPage)
+
   const shown = [...reports].reverse().slice(safePage * 8, safePage * 8 + 8)
+
   const selected =
     reports.find((report) => report.checkpoint_hour === activeHour) ??
     reports.at(-1)
+
   return (
     <section className="vl-live-module" aria-label="ErythroPilot live">
       <PageTitle
         title="ErythroPilot"
-        description="Simulate growth and review checkpoint reports from the live FLEX2 session."
+        description="Project ViaMass-derived cell estimates and review online PAT checkpoint reports."
         action={
           <button
             className="vl-small-button"
             onClick={() =>
               downloadFile(
                 `${snapshot.batch_id}-live-pilot.json`,
+
                 JSON.stringify(
                   {
                     session_id: snapshot.session_id,
+
                     source_hash: snapshot.measurements_sha256,
+
                     settings,
+
                     analysis: hold ? null : analysis,
+
                     reports,
                   },
+
                   null,
+
                   2,
                 ),
+
                 "application/json",
               )
             }
@@ -85,7 +122,7 @@ export default function LivePilot(props: LiveModuleProps) {
           <div>
             <h2>Reading Guard through {snapshot.culture_hours.toFixed(3)}h</h2>
             <p>
-              Released observations only · fitting restarts after applied
+              Released cell estimates only · fitting restarts after material
               interventions.
             </p>
           </div>
@@ -119,7 +156,7 @@ export default function LivePilot(props: LiveModuleProps) {
       )}
       {result && last ? (
         <div className="panel" data-testid="pilot-forecast">
-          <h2>Proyeksi pertumbuhan</h2>
+          <h2>Proyeksi estimasi jumlah sel</h2>
           <div className="vl-live-metrics">
             <div>
               <span>Median pada {last.hour.toFixed(3)} h</span>
@@ -155,9 +192,9 @@ export default function LivePilot(props: LiveModuleProps) {
             {loading ? "Menghitung proyeksi…" : "Proyeksi belum tersedia"}
           </h2>
           <p>
-            Butuh sedikitnya 3 pengukuran valid yang membentang ≥6 jam kultur
-            pada segmen setelah intervensi terakhir. Tidak ada fallback ke kurva
-            demo atau laju literatur.
+            Butuh sedikitnya 3 estimasi dari sinyal ViaMass valid yang
+            membentang ≥6 jam kultur pada segmen setelah intervensi terakhir.
+            Tidak ada fallback ke kurva demo atau laju literatur.
           </p>
         </div>
       )}
@@ -188,7 +225,7 @@ export default function LivePilot(props: LiveModuleProps) {
                   <span>
                     <strong>
                       {report.newly_released_ids.length
-                        ? "New FLEX2 release"
+                        ? "New PAT estimate"
                         : "No new measurements"}
                     </strong>
                     <small>
@@ -240,7 +277,7 @@ export default function LivePilot(props: LiveModuleProps) {
               <>
                 <dl>
                   <div>
-                    <dt>Latest collected sample</dt>
+                    <dt>Latest estimate source time</dt>
                     <dd>{selected.latest_collected_at?.toFixed(3) ?? "—"}h</dd>
                   </div>
                   <div>
@@ -248,7 +285,7 @@ export default function LivePilot(props: LiveModuleProps) {
                     <dd>{selected.latest_available_at?.toFixed(3) ?? "—"}h</dd>
                   </div>
                   <div>
-                    <dt>Viable cells</dt>
+                    <dt>Estimated viable cells</dt>
                     <dd>{selected.latest_count?.toFixed(2) ?? "—"} million</dd>
                   </div>
                   <div>
@@ -280,10 +317,12 @@ export default function LivePilot(props: LiveModuleProps) {
         </Panel>
       </div>
       <p className="vl-evidence-note">
-        Fitting dimulai ulang setelah setiap tindakan diterapkan. Proyeksi
-        mengasumsikan pola log-growth berlanjut; tidak mengantisipasi feeding,
-        sampling berikutnya, atau perubahan kinetika. Hasil sintetik ini bukan
-        prakiraan panen atau RBC matang.
+        Fitting memakai estimasi ViaMass pada jendela 24 jam dengan jarak ≥2
+        jam. Perubahan setpoint, fase, dan transfer medium memulai segmen baru;
+        koreksi kecil controller tidak mereset fitting. Proyeksi mengasumsikan
+        pola log-growth berlanjut; tidak mengantisipasi feeding, sampling
+        berikutnya, atau perubahan kinetika. Hasil sintetik ini bukan prakiraan
+        panen atau RBC matang.
       </p>
       <button className="vl-small-button" onClick={props.openGuard}>
         Tinjau keputusan di Guard

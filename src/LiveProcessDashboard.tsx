@@ -1,34 +1,51 @@
 import { useState } from "react"
+
 import type { LabSnapshot, LiveModule } from "./lab-session"
+
 import { Badge, Button, PageTitle, Panel } from "./workspace-ui"
+
 import InteractivePlot from "./InteractivePlot"
+
 import { liveProcessData } from "./live-process-data"
 
 export default function LiveProcessDashboard({
   snapshot,
+
   connected,
+
   navigate,
 }: {
   snapshot: LabSnapshot
+
   connected: boolean
+
   navigate: (module: LiveModule) => void
 }) {
   const [selectedId, setSelectedId] = useState("lactate_mmol_l")
+
   const [windowHours, setWindowHours] = useState(48)
+
   const variables = liveProcessData(snapshot)
+
   const selected = variables.find((variable) => variable.id === selectedId)!
+
   const end = Math.max(1, snapshot.culture_hours)
+
   const start = Math.max(0, end - windowHours)
+
   const applied = snapshot.interventions.filter(
     (item) => item.status === "applied",
   )
+
   const latest = snapshot.measurements.at(-1)
+
   const stale = latest && snapshot.culture_hours - latest.collected_at_hour > 24
+
   return (
     <>
       <PageTitle
         title="Dashboard"
-        description="Process variables and cell counts from released virtual FLEX2 measurements."
+        description="BIOSTAT Gen 2 + Trace + ViaMass: virtual sensor signals, model estimates and unavailable assays."
         action={<Badge tone="warning">Synthetic · simulation session</Badge>}
       />
       <div className="dash-summary">
@@ -36,7 +53,7 @@ export default function LiveProcessDashboard({
           <strong>
             {variables.filter((item) => item.latest).length}/{variables.length}
           </strong>{" "}
-          measured variables
+          available signals / estimates
         </span>
         <span>
           <strong>{snapshot.measurements.length}</strong> released samples
@@ -59,7 +76,7 @@ export default function LiveProcessDashboard({
         <p className="poc-live-note is-warning">
           {!connected
             ? "Disconnected · last known measurements. Reconnect to resume live monitoring."
-            : "The latest sample is older than 24 culture hours. Collect a fresh FLEX2 measurement."}
+            : "The latest cell estimate is stale. Resume the 3D culture and wait for fresh online signals."}
         </p>
       )}
       <div className="dash-timebar">
@@ -79,7 +96,7 @@ export default function LiveProcessDashboard({
           {start.toFixed(1)}h – {end.toFixed(1)}h · following 3D culture time
         </span>
         <span className="dash-hint">
-          Sampled values · no continuous sensor feed
+          Online signals · device-specific cadence and latency
         </span>
       </div>
       <div className="dash-grid" data-testid="live-process-grid">
@@ -87,16 +104,21 @@ export default function LiveProcessDashboard({
           const visible = variable.samples.filter(
             (sample) => sample.hour >= start,
           )
+
           const values = visible.map((sample) => sample.value)
+
           const lo = Math.min(...values),
             hi = Math.max(...values),
             span = hi - lo || Math.max(1, Math.abs(lo) * 0.1)
+
           const x = (hour: number) => 6 + ((hour - start) / (end - start)) * 288
+
           const y = (value: number) => 105 - ((value - lo) / span) * 90
+
           return (
             <button
               key={variable.id}
-              className="dash-card poc-sample-card"
+              className={`dash-card poc-sample-card biostat-origin-${variable.origin}`}
               aria-pressed={selectedId === variable.id}
               onClick={() => setSelectedId(variable.id)}
             >
@@ -107,17 +129,27 @@ export default function LiveProcessDashboard({
                   <small>{variable.unit}</small>
                 </span>
               </span>
+              <span className={`biostat-source-badge is-${variable.origin}`}>
+                {variable.origin === "model_estimate"
+                  ? "MODEL ESTIMATE"
+                  : variable.origin === "unmeasured"
+                    ? "NOT MEASURED"
+                    : "VIRTUAL SENSOR"}{" "}
+                · {variable.status}
+              </span>
               {visible.length ? (
                 <svg
                   className="poc-process-chart"
                   viewBox="0 0 300 120"
-                preserveAspectRatio="none"
+                  preserveAspectRatio="none"
                   role="img"
-                  aria-label={`${variable.name} · released FLEX2 samples`}
+                  aria-label={`${variable.name} · ${variable.source}`}
                 >
                   <polyline
                     points={visible
+
                       .map((sample) => `${x(sample.hour)},${y(sample.value)}`)
+
                       .join(" ")}
                   />
                   {visible.map((sample) => (
@@ -133,13 +165,17 @@ export default function LiveProcessDashboard({
                 <span className="poc-no-data">
                   {variable.latest
                     ? "No samples in this time window"
-                    : "Not measured"}
+                    : variable.status === "fault"
+                      ? "Sensor fault · QC rejected"
+                      : variable.status === "stale"
+                        ? "Stale signal"
+                        : "Not measured"}
                 </span>
               )}
               <span className="dash-card-foot">
                 {variable.latest
                   ? `${variable.latest.sample_id} · collected ${variable.latest.hour.toFixed(3)}h · released ${variable.latest.available_at_hour.toFixed(3)}h`
-                  : "No observation supplied by this simulation"}
+                  : variable.source}
               </span>
             </button>
           )
@@ -147,7 +183,11 @@ export default function LiveProcessDashboard({
       </div>
       <Panel
         title={selected.name}
-        caption="Original collection times; points appear only after completed assay release."
+        caption={`${selected.source} · ${
+          selected.origin === "model_estimate"
+            ? "Uncalibrated model estimate"
+            : "Device-timed output"
+        }. Points appear only after release.`}
         action={<Badge>{selected.unit}</Badge>}
       >
         <div className="poc-process-detail">
@@ -161,10 +201,14 @@ export default function LiveProcessDashboard({
               yLabel={`${selected.name} · ${selected.unit}`}
               points={selected.samples.map((sample) => ({
                 x: sample.hour,
+
                 y: sample.value,
+
                 lines: [
                   sample.sample_id,
+
                   `${sample.hour.toFixed(3)}h`,
+
                   `${sample.value.toFixed(selected.digits)} ${selected.unit}`,
                 ],
               }))}
@@ -174,7 +218,9 @@ export default function LiveProcessDashboard({
                   <polyline
                     className="dash-line"
                     points={selected.samples
+
                       .map((sample) => `${x(sample.hour)},${y(sample.value)}`)
+
                       .join(" ")}
                   />
                   {selected.samples.map((sample) => (
@@ -192,7 +238,10 @@ export default function LiveProcessDashboard({
           ) : (
             <div className="empty-state">
               <strong>No measured data</strong>
-              <p>This channel is not available in the virtual FLEX2 output.</p>
+              <p>
+                This channel requires an additional assay and is not supplied by
+                the configured sensors.
+              </p>
             </div>
           )}
         </div>
@@ -228,7 +277,7 @@ export default function LiveProcessDashboard({
                     <td>{item.source_sample_id}</td>
                     <td>
                       {item.kind === "feed"
-                        ? `Feed ${item.amount} mL`
+                        ? `Feed ${item.amount * (item.feed_multiplier_ml ?? 1)} mL`
                         : `Exchange ${item.amount}%`}
                     </td>
                     <td>{item.status}</td>

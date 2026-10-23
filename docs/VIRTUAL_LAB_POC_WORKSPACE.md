@@ -28,18 +28,14 @@ Mobile menu, desktop pin/hover/focus behavior and skip-to-content remain availab
 
 ## Data boundaries and behavior
 
-The live Dashboard is a dedicated measured-data adapter, not the main Dashboard's independent process-curve
-generator. It reads only published QC-passed FLEX2 results, at collection time with release provenance. Seven
-channels can be populated: viable count, lactate, ammonium, glucose, glutamine, pH and viability. DO, CO₂,
-temperature and osmolality remain unmeasured. Glucose stays mmol/L; NH4 is not renamed to ammonia. Missing
-readings are not zero-filled or replaced with synthetic continuous curves. Window changes only change the chart
-view and cannot advance culture time. Connection loss displays last known values and pauses decisions/forecasts.
-
-Dashboard actions link to Guard for explicit review, pairing and confirmation. Its log shows real virtual-session
-interventions rather than generating automatic corrections. Guard uses the existing component. ErythroPilot and
-CulturePlan retain Stage E's release gating, stale/sparse holds, post-intervention fitting and bounded local CPU
-analytics. Pilot checkpoints use an eight-item timeline and per-checkpoint detail with source IDs and publication
-times. Independent-experiment GP remains withheld without controlled experiment inputs.
+The current default is BIOSTAT STR Gen 2 + BioPAT Trace + ViaMass (schema 4). See
+[BIOSTAT contract](BIOSTAT_GEN2_SIMULATION.md) and [walkthrough](../public/VIRTUAL_LAB.md).
+Dashboard separates virtual sensors (pH, DO, temperature, glucose, lactate, capacitance), model-derived cell density/count,
+and unavailable glutamine/ammonium/viability/osmolality/pCO2/enucleation assays. Sensor channels retain their own
+measurement/release times; no hidden reactor values fill missing channels. Guard gets separate sensor rows and cell estimates.
+Pilot/Plan use rolling, thinned, stage-aware estimate fits. Faults, staleness, active actions and differentiation withhold predictions.
+Material events start new fit segments; routine AUTO corrections do not reset them. Independent-experiment GP stays withheld.
+Dashboard links to Guard for explicit pairing/review/confirmation. Only the visible 3D controller advances culture time.
 
 This is UI/navigation and source-state separation, not a separate deployment, authentication system or tenant
 boundary. Backend localhost/Origin/header checks, read capabilities, scoped control tokens, TTL and one-worker

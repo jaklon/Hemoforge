@@ -21,7 +21,7 @@ class InterventionRequest(InputModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     kind: Literal["feed", "medium_exchange"]
     amount: Literal[10, 25, 50]
-    source_sample_id: str = Field(pattern=r"^FLEX2-[0-9]{3}$")
+    source_sample_id: str = Field(pattern=r"^(FLEX2-[0-9]{3}|PAT-[0-9]{5})$")
     note: str = Field(min_length=3, max_length=160)
 
     @model_validator(mode="after")
@@ -61,15 +61,29 @@ def queue_intervention(session, request, end_hour):
         raise ValueError("Finish the current sample or intervention first.")
     if session.hour + INTERVENTION_HOURS > end_hour:
         raise ValueError("Not enough culture time remains for this intervention.")
-    latest = session.results[-1] if session.results else None
+    biostat = hasattr(session, "sensor_readings")
+    latest = (next((row for row in session.results if row["sample_id"] == request.source_sample_id), None)
+              if biostat else session.results[-1] if session.results else None)
     if not latest or latest["sample_id"] != request.source_sample_id:
         raise ValueError("Review the latest released FLEX2 sample before sending a decision.")
-    if session.hour - latest["collected_at_hour"] > DECISION_MAX_AGE_HOURS:
+    if biostat:
+        if not any(id.startswith("TRACE-") for id in latest.get("source_sensor_ids", [])):
+            raise ValueError("Wait for a cell estimate linked to a released Trace reading.")
+        for device in ("core", "trace", "viamass"):
+            reading = next((r for r in reversed(session.sensor_readings) if r["device"] == device), None)
+            if not reading or reading["quality"]["status"] != "passed" or reading["expires_at_hour"] < session.hour:
+                raise ValueError("Wait for fresh, QC-passed core, Trace and ViaMass readings before deciding.")
+        applied = [r for r in session.interventions if r["status"] == "applied"]
+        if applied and latest["collected_at_hour"] <= applied[-1]["completed_at_hour"]:
+            raise ValueError("Wait for a post-intervention reading before another decision.")
+    if session.hour - latest["collected_at_hour"] > (3 if biostat else DECISION_MAX_AGE_HOURS):
         raise ValueError("Observation is older than 24 culture hours. Collect a fresh sample.")
     if any(item["status"] == "applied" and item["source_sample_id"] == request.source_sample_id
            for item in session.interventions):
         raise ValueError("Collect a new FLEX2 result after the last applied action before deciding again.")
-    if request.kind == "feed" and session.culture.volume_ml + request.amount > MAX_VOLUME_ML:
+    limit = 50000 if biostat else MAX_VOLUME_ML
+    added = request.amount * (50 if biostat else 1)
+    if request.kind == "feed" and session.culture.volume_ml + added > limit:
         raise ValueError("Feed would exceed the 550 mL working-volume limit.")
     if request.kind == "medium_exchange" and session.culture.volume_ml < 400.1:
         raise ValueError("Not enough volume remains to sample after exchange. Add medium or start a new session.")
@@ -78,6 +92,8 @@ def queue_intervention(session, request, end_hour):
               "requested_at_hour": round(session.hour, 6), "started_at_hour": None,
               "completed_at_hour": None, "status": "queued", "progress": 0.0,
               "outcome": None, "cancel_reason": None}
+    if biostat:
+        record["feed_multiplier_ml"] = 50
     session.interventions.append(record)
     session.stop("Guard decision queued. Waiting for the visible 3D controller to execute it.")
     session.touched = time.monotonic()

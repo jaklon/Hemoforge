@@ -24,10 +24,23 @@ def live_analytics(snapshot, request):
     last_action = applied[-1] if applied else None
     cutoff = last_action["completed_at_hour"] if last_action else 0.0
     segment_id = last_action["id"] if last_action else "initial"
+    biostat = snapshot.get("schema_version") == 4
+    if biostat:
+        stage_start = snapshot["stage_start_hour"]
+        event = snapshot["controller"]["events"][-1] if snapshot["controller"]["events"] else None
+        cutoff = max(cutoff, stage_start, event["hour"] if event else 0)
+        segment_id = f"{segment_id}:{snapshot['stage']}:{event['id'] if event else 'initial'}"
     released = [row for row in snapshot["measurements"]
                 if row["quality"]["status"] == "passed" and row["available_at_hour"] <= hour
                 and row["collected_at_hour"] <= row["available_at_hour"]]
     training = [row for row in released if row["collected_at_hour"] >= cutoff]
+    if biostat:
+        # A bounded 24 h window, >=2 h spacing; dense telemetry is not independent experiments.
+        thinned = []
+        for row in training:
+            if row["collected_at_hour"] >= hour - 24 and (not thinned or row["collected_at_hour"] - thinned[-1]["collected_at_hour"] >= 2):
+                thinned.append(row)
+        training = thinned
     samples = [{"hour": row["collected_at_hour"], "count": row["count"], "unit": row["unit"]}
                for row in training]
     input_hash = hashlib.sha256(json.dumps(samples, sort_keys=True).encode()).hexdigest()
@@ -41,7 +54,14 @@ def live_analytics(snapshot, request):
     elif any(not math.isfinite(row["count"]) or row["count"] <= 0 or row["unit"] != "million cells"
              for row in training):
         status, reason = "needs_review", "Review non-positive or invalid counts before forecasting."
-    elif hour - latest["collected_at_hour"] > 24:
+    elif biostat and snapshot["stage"] != "expansion":
+        status, reason = "needs_review", "Growth extrapolation is withheld in differentiation; cell estimates are not mature RBC yield."
+    elif biostat and (not snapshot.get("sensor_readings") or any(
+            not (reading := next((r for r in reversed(snapshot["sensor_readings"]) if r["device"] == device), None))
+            or reading["quality"]["status"] != "passed" or reading["expires_at_hour"] < hour
+            for device in ("core", "trace", "viamass"))):
+        status, reason = "stale", "Fresh QC-passed core, Trace and ViaMass signals are required; estimates cannot replace failed sensors."
+    elif hour - latest["collected_at_hour"] > (3 if biostat else 24):
         status, reason = "stale", "The latest observation is older than 24 culture hours. Collect a fresh sample."
     elif len(training) < 3:
         status, reason = "needs_samples", "At least three released observations are required after the last applied intervention."
@@ -68,7 +88,7 @@ def live_analytics(snapshot, request):
             if math.isfinite(doubling):
                 target["doubling_hours"] = doubling
         if latest["count"] >= request.target_million and status not in {"stale", "needs_review", "intervention_in_progress"}:
-            target["status"] = "observed_target_reached"
+            target["status"] = "estimated_target_reached" if biostat else "observed_target_reached"
         elif forecast:
             rate = forecast["result"]["logDrift"]
             if rate <= 0:
@@ -90,5 +110,7 @@ def live_analytics(snapshot, request):
         "forecast": forecast, "target_plan": target,
         "experiment_gp": {"status": "withheld", "reason":
             "A sequential single-reactor time series is not independent controlled experiment data. No DOE rows or ammonia values are fabricated."},
-        "evidence": "software_test_only", "model_version": "live-modules-v1",
+        "evidence": "software_test_only", "model_version": "live-pat-estimates-v2" if biostat else "live-modules-v1",
+        "count_source_kind": "model_estimate" if biostat else "virtual_assay",
+        "estimate_notice": snapshot.get("estimate_notice"),
     }

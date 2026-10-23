@@ -1,4 +1,5 @@
 import type { LabIntervention, LabSnapshot } from "./lab-session.ts"
+import { lastSensor, sensorUsable } from "./biostat-data.ts"
 
 export const interventionPresets = [
   {
@@ -28,10 +29,10 @@ export const interventionPresets = [
 ] as const
 
 export function interventionLabel(
-  action: Pick<LabIntervention, "kind" | "amount">,
+  action: Pick<LabIntervention, "kind" | "amount" | "feed_multiplier_ml">,
 ) {
   return action.kind === "feed"
-    ? `Tambah medium ${action.amount} mL`
+    ? `Tambah medium ${action.amount * (action.feed_multiplier_ml ?? 1)} mL`
     : `Pertukaran medium ${action.amount}%`
 }
 
@@ -39,8 +40,18 @@ export function decisionBlockReason(
   snapshot: LabSnapshot,
   kind: string,
   amount: number,
+  sourceId?: string,
 ) {
-  const latest = snapshot.measurements.at(-1)
+  const latest = sourceId
+    ? snapshot.measurements.find((r) => r.sample_id === sourceId)
+    : snapshot.measurements.at(-1)
+  if (
+    snapshot.device_profile &&
+    (["core", "trace", "viamass"] as const).some(
+      (device) => !sensorUsable(snapshot, lastSensor(snapshot, device)),
+    )
+  )
+    return "Tunggu sensor inti, Trace dan ViaMass yang segar dan lolos QC. Estimasi tidak menggantikan sensor gagal."
   if (!snapshot.controller_connected)
     return "Hubungkan layar 3D terlebih dahulu."
   if (snapshot.active_intervention)
@@ -53,12 +64,29 @@ export function decisionBlockReason(
     snapshot.end_hour
   )
     return "Waktu kultur tidak cukup. Buat sesi baru."
-  if (!latest) return "Tunggu pengukuran FLEX2 pertama yang lolos QC."
+  if (!latest)
+    return snapshot.device_profile
+      ? "Tunggu keluaran sensor pertama yang lolos QC."
+      : "Tunggu pengukuran FLEX2 pertama yang lolos QC."
+  if (
+    snapshot.device_profile &&
+    !latest.source_sensor_ids?.some((id) => id.startsWith("TRACE-"))
+  )
+    return "Tunggu estimasi sel yang terhubung ke pembacaan Trace."
+  if (
+    snapshot.device_profile &&
+    snapshot.interventions.some(
+      (r) =>
+        r.status === "applied" &&
+        r.completed_at_hour! >= latest.collected_at_hour,
+    )
+  )
+    return "Tunggu pembacaan online setelah tindakan terakhir."
   if (
     snapshot.culture_hours - latest.collected_at_hour >
     snapshot.intervention_protocol.decision_max_age_hours
   )
-    return "Pengukuran lebih dari 24 jam kultur. Ambil sampel baru."
+    return `Dasar keputusan lebih dari ${snapshot.intervention_protocol.decision_max_age_hours} jam kultur. Tinjau pembacaan terbaru.`
   if (
     snapshot.interventions.some(
       (item) =>
@@ -72,10 +100,11 @@ export function decisionBlockReason(
     return "Batas assay tercapai. Buat sesi baru agar dampak tindakan dapat diukur."
   if (
     kind === "feed" &&
-    snapshot.working_volume_ml + amount >
+    snapshot.working_volume_ml +
+      amount * (snapshot.device_profile?.feed_multiplier_ml ?? 1) >
       snapshot.intervention_protocol.max_volume_ml
   )
-    return "Penambahan ini melewati batas volume 550 mL."
+    return `Penambahan ini melewati batas volume ${snapshot.intervention_protocol.max_volume_ml} mL.`
   if (kind === "medium_exchange" && snapshot.working_volume_ml < 400.1)
     return "Volume tidak cukup untuk sampling setelah pertukaran. Tambah medium atau buat sesi baru."
   return ""
