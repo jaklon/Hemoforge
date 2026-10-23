@@ -58,6 +58,34 @@ export const processVariables: ProcessVariable[] = [
   { id: "temp", name: "Temperature", unit: "°C", digits: 1, start: 37, drift: -0.012, noise: 0.06, lowAction: "Heater on", highAction: "Cooling jacket", limits: limits(36.5, 37.5, 36, 38, 0.8, 0.8) },
 ]
 
+// v2: exchange triggers store doseHigh as exchanged volume %, not a concentration.
+export const limitsKey = "dashboard-limits-v2"
+
+const defaultLimits = () =>
+  Object.fromEntries(processVariables.map((variable) => [variable.id, variable.limits]))
+
+/** Limits saved on the Dashboard, read by the Dashboard and the activity log. */
+export function loadLimits(): Record<string, Limits> {
+  try {
+    return { ...defaultLimits(), ...JSON.parse(localStorage.getItem(limitsKey) ?? "{}") }
+  } catch {
+    return defaultLimits()
+  }
+}
+
+// Invalid entries (NaN while typing) fall back to that variable's defaults.
+export function safeLimits(limits: Record<string, Limits>): Record<string, Limits> {
+  return Object.fromEntries(
+    processVariables.map((variable) => {
+      const settings = limits[variable.id] ?? variable.limits
+      const valid = Object.values(settings).every(
+        (value) => value === null || typeof value === "boolean" || Number.isFinite(value),
+      )
+      return [variable.id, valid ? settings : variable.limits]
+    }),
+  )
+}
+
 export interface Sample {
   hour: number
   value: number

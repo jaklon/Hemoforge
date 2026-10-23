@@ -82,6 +82,9 @@ interface WorkspaceContextValue {
   apply: (files: InputFile[]) => Promise<void>
   notice: Notice | null
   notify: (message: string | null, tone?: Notice["tone"]) => void
+  // Every finished notification, newest first, kept in this browser.
+  activity: ActivityEntry[]
+  clearActivity: () => void
   // Sidebar pages with results the user has not opened yet.
   updates: string[]
   flag: (...views: string[]) => void
@@ -98,6 +101,21 @@ export interface Notice {
   id: number
   message: string
   tone: "info" | "success" | "error"
+}
+export interface ActivityEntry extends Notice {
+  at: string
+  // Workspace page open when it happened.
+  page: string
+}
+const activityKey = "activity-log-v1"
+// ponytail: capped local list; move to the backend when logs must survive across devices.
+const activityLimit = 300
+function loadActivity(): ActivityEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(activityKey) ?? "[]")
+  } catch {
+    return []
+  }
 }
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 export async function checksum(value: BufferSource) {
@@ -121,9 +139,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [activity, setActivity] = useState(loadActivity)
   function notify(message: string | null, tone: Notice["tone"] = "info") {
-    setNotice(message ? { id: Date.now(), message, tone } : null)
+    const id = Date.now()
+    setNotice(message ? { id, message, tone } : null)
+    // Progress messages ("…") are replaced by their outcome, which is the one worth keeping.
+    if (!message || message.endsWith("…")) return
+    const page = location.hash.slice(1).split("/")[0] || "workspace"
+    setActivity((old) =>
+      [{ id, message, tone, at: new Date(id).toISOString(), page }, ...old].slice(0, activityLimit),
+    )
+    if (page !== "activity") flag("activity")
   }
+  function clearActivity() {
+    setActivity([])
+  }
+  useEffect(() => {
+    try {
+      localStorage.setItem(activityKey, JSON.stringify(activity))
+    } catch {
+      // Storage blocked: the log still works for this visit.
+    }
+  }, [activity])
   const [updates, setUpdates] = useState<string[]>([])
   function flag(...views: string[]) {
     setUpdates((old) => [...new Set([...old, ...views])])
@@ -360,6 +397,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         apply,
         notice,
         notify,
+        activity,
+        clearActivity,
         updates,
         flag,
         unflag,

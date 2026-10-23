@@ -11,25 +11,14 @@ import {
   limitProblem,
   processVariables,
   simulate,
+  limitsKey,
+  loadLimits,
+  safeLimits,
   type Level,
   type Limits,
   type ProcessVariable,
   type Sample,
 } from "./dashboard-sim"
-
-// v2: exchange triggers store doseHigh as exchanged volume %, not a concentration.
-const storageKey = "dashboard-limits-v2"
-
-const defaults = () =>
-  Object.fromEntries(processVariables.map((variable) => [variable.id, variable.limits]))
-
-function loadLimits(): Record<string, Limits> {
-  try {
-    return { ...defaults(), ...JSON.parse(localStorage.getItem(storageKey) ?? "{}") }
-  } catch {
-    return defaults()
-  }
-}
 
 const levelLabel: Record<Level, string> = {
   normal: "In range",
@@ -270,23 +259,14 @@ export default function Dashboard({
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify(limits))
+      localStorage.setItem(limitsKey, JSON.stringify(limits))
     } catch {
       // Storage blocked: limits still apply for this visit.
     }
   }, [limits])
 
-  // Invalid entries (NaN while typing) fall back to that variable's defaults.
   const runs = useMemo(() => {
-    const safe = Object.fromEntries(
-      processVariables.map((variable) => {
-        const settings = limits[variable.id]
-        const valid = Object.values(settings).every(
-          (value) => value === null || typeof value === "boolean" || Number.isFinite(value),
-        )
-        return [variable.id, valid ? settings : variable.limits]
-      }),
-    )
+    const safe = safeLimits(limits)
     const results = simulate(safe, replayEndHour)
     return processVariables.map((variable) => {
       const run = results[variable.id]

@@ -1094,3 +1094,22 @@ button.dash-card-head { width: 100%; padding: 0; border: 0; background: none; fo
 .report-timeline button[aria-pressed="true"] { background: #eef5fb; box-shadow: inset 3px 0 0 #2584be; }
 .report-timeline button[aria-pressed="true"] .checkpoint-time, .report-timeline button[aria-pressed="true"] strong { color: #1d5f86; font-weight: 600; }
 .report-layout .report-filters .search-field { flex-basis: 100%; max-width: none; }
+/* Activity log: notifications grouped by day, process events by replay hour. */
+.activity-day h3 { padding: 12px 18px 4px; color: var(--muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.activity-list { margin: 0; padding: 0; list-style: none; }
+.activity-list li { display: flex; align-items: flex-start; gap: 12px; padding: 11px 18px; border-bottom: 1px solid #edf1f5; }
+.activity-list li:last-child { border-bottom: 0; }
+.activity-dot { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: #64748b; }
+.activity-list .is-success .activity-dot { background: #1f9d55; }
+.activity-list .is-error .activity-dot { background: #c53030; }
+.activity-list .is-info .activity-dot { background: #2584be; }
+.activity-body { flex: 1; min-width: 0; }
+.activity-body strong { display: flex; align-items: center; gap: 6px; color: #334155; font-size: var(--text-caption); font-weight: 550; overflow-wrap: anywhere; }
+.activity-body strong .icon { flex: none; width: 14px; height: 14px; color: #b45309; }
+.activity-body small { display: block; margin-top: 3px; color: var(--muted); font-size: var(--text-xs); }
+.activity-list time, .activity-hour { flex: none; color: var(--muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.activity-hour { width: 42px; padding-top: 1px; color: #44566a; font-size: var(--text-caption); }
+.activity-source { flex: none; font-size: var(--text-xs); white-space: nowrap; }
+.activity-list.is-process .is-warning { background: #fffbf2; }
+.activity-empty { padding: 22px 18px; }
+@media (max-width: 600px) { .activity-list.is-process li { flex-wrap: wrap; } .activity-source { margin-left: 54px; } }

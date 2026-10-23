@@ -46,6 +46,7 @@ import {
 const MethodsPage = lazy(() => import("./MethodsPage"))
 
 import AccountPage, { initials, useProfile } from "./AccountPage"
+import ActivityLog from "./ActivityLog"
 
 import { CheckpointRoadmap, StageEstimate, TrendHealth } from "./PilotInsights"
 
@@ -60,7 +61,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "account"
+type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "account" | "activity"
 
 interface NavigationItem {
   id: View
@@ -183,6 +184,13 @@ const navigation: NavigationItem[] = [
     group: "Output",
 
     role: "Report",
+  },
+  {
+    id: "activity",
+    name: "Activity log",
+    purpose: "Notifications & process events",
+    icon: "bell",
+    group: "Output",
   },
 
   {
@@ -1559,6 +1567,8 @@ function ResearchWorkspaceContent() {
           />
         ) : view === "account" ? (
           <AccountPage />
+        ) : view === "activity" ? (
+          <ActivityLog hour={hour} replicate={replicate} />
         ) : view === "methods" ? (
           <Suspense
             fallback={
