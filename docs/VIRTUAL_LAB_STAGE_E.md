@@ -7,7 +7,9 @@ Existing Kenney CC0 decorations and procedural equipment/hands are retained.
 
 ## Data and routes
 
-- Controller: `#lab/{id}`; read-only dashboards: `#guard/live/{id}`, `#pilot/live/{id}`, `#plan/live/{id}`.
+- Canonical controller: `#poc/lab/{id}`; read-only dashboards: `#poc/monitor/{id}/dashboard`, `/guard`, `/pilot`, `/plan`.
+  The dedicated `#poc` launcher and revised UI are described in [PoC workspace](VIRTUAL_LAB_POC_WORKSPACE.md).
+  Original `#lab/{id}` and `#{module}/live/{id}` links remain compatible.
 - Switching dashboard modules within a session retains its WebSocket and analysis settings. A different
   session remounts the dashboard, preventing old results or credentials from becoming its active input.
 - `POST /api/v1/lab/sessions/{id}/analytics` is a local read-only operation. It requires the same local

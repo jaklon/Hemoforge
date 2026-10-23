@@ -36,7 +36,7 @@ variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
 ## Virtual Lab: Stage A–E local prototype
 
-Open `http://127.0.0.1:8443/#lab`, create a session, and open its dashboard link in a separate
+Open the dedicated `http://127.0.0.1:8443/#poc` launcher, enter Monitor 01, create a session, and open its dashboard link in a separate
 window on monitor 2. Collect → load FLEX2 → analyze. The completed synthetic reading feeds
 the existing Bioreactor Guard automatically. Culture time follows rendered 3D animation.
 Stage C adds nutrient/metabolite-dependent culture, sampling volume loss, seeded measurement variation,
@@ -51,6 +51,10 @@ viable-cell targets/volume ledger. Switch modules on monitor 2 without changing 
 requires three post-intervention observations spanning six culture hours; stale readings withhold predictions.
 CulturePlan's independent-experiment GP remains withheld: sequential samples are not DOE replicates.
 See [Stage E live analytics contract](docs/VIRTUAL_LAB_STAGE_E.md).
+The optional PoC workspace is separate from the main research routes. Monitor 02 shares the main dashboard's
+visual system and includes Dashboard, Guard, ErythroPilot and CulturePlan over the simulation's released data.
+Canonical routes are `#poc/lab/{id}` and `#poc/monitor/{id}/{module}`; old shared links remain supported.
+See [dedicated PoC workspace](docs/VIRTUAL_LAB_POC_WORKSPACE.md).
 Run the Python API with one worker; sessions are local, in memory, and lost on restart.
 No physical device, Supabase, NVIDIA, or LLM is called by this prototype. All bundled assets are free.
 

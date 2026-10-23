@@ -6,6 +6,8 @@ import {
   AnimationClock,
   labSessionFromHash,
   nextLabAction,
+  pocLabHash,
+  pocMonitorHash,
   type CultureScenario,
 } from "./lab-session"
 import useLabSession from "./use-lab-session"
@@ -96,7 +98,7 @@ export default function VirtualLab() {
       clock.current.reset()
       setToken(value.controller_token)
       setId(value.session_id)
-      location.hash = `lab/${value.session_id}`
+      location.hash = pocLabHash(value.session_id)
     } catch (failure) {
       setCreateError(
         failure instanceof Error
@@ -166,11 +168,11 @@ export default function VirtualLab() {
   return (
     <div className="virtual-lab">
       <header className="vl-header">
-        <a className="vl-brand" href="#">
+        <a className="vl-brand" href="#poc">
           H<span>HemoForge</span>
         </a>
         <span className="vl-kicker">VIRTUAL LAB / MONITOR 01</span>
-        <span className="vl-stage-label">STAGE E · LIVE MODULES</span>
+        <a className="vl-stage-label" href="#poc">PoC & Simulation ↗</a>
       </header>
       <main className="vl-layout">
         <section
@@ -309,7 +311,7 @@ export default function VirtualLab() {
             <>
               <a
                 className="vl-primary"
-                href={`#guard/live/${id}`}
+                href={pocMonitorHash(id!)}
                 target="_blank"
                 rel="noopener"
                 data-testid="open-live-guard"

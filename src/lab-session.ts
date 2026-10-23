@@ -115,22 +115,48 @@ export interface LabSnapshot {
 }
 
 export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed" | "execute"
-export type LiveModule = "guard" | "pilot" | "plan"
+export type LiveModule = "dashboard" | "guard" | "pilot" | "plan"
 export const sessionPattern = /^[a-f0-9]{32}$/
 
+export interface PocRoute {
+  kind: "hub" | "lab" | "monitor" | "invalid"
+  sessionId: string | null
+  module: LiveModule
+}
+
+export function pocRouteFromHash(hash: string): PocRoute | null {
+  const base: PocRoute = { kind: "hub", sessionId: null, module: "dashboard" }
+  if (hash === "#poc" || hash === "#poc/") return base
+  if (hash === "#poc/lab" || hash === "#lab") return { ...base, kind: "lab" }
+  const lab = hash.match(/^#(?:poc\/lab|lab)\/([a-f0-9]{32})$/)
+  if (lab) return { ...base, kind: "lab", sessionId: lab[1] }
+  const monitor = hash.match(/^#poc\/monitor\/([a-f0-9]{32})\/(dashboard|guard|pilot|plan)$/)
+  if (monitor) return { kind: "monitor", sessionId: monitor[1], module: monitor[2] as LiveModule }
+  // Retain old shared monitor links without moving them into the research workspace.
+  const legacy = hash.match(/^#(dashboard|guard|pilot|plan)\/live\/([a-f0-9]{32})$/)
+  if (legacy) return { kind: "monitor", sessionId: legacy[2], module: legacy[1] as LiveModule }
+  if (/^#(?:poc|lab)(?:\/|$)/.test(hash) || /^#(?:dashboard|guard|pilot|plan)\/live(?:\/|$)/.test(hash))
+    return { ...base, kind: "invalid" }
+  return null
+}
+
+export function pocLabHash(id?: string) {
+  if (id !== undefined && !sessionPattern.test(id)) throw new Error("Invalid simulation session ID")
+  return id ? `#poc/lab/${id}` : "#poc/lab"
+}
+
+export function pocMonitorHash(id: string, module: LiveModule = "dashboard") {
+  if (!sessionPattern.test(id) || !["dashboard", "guard", "pilot", "plan"].includes(module))
+    throw new Error("Invalid simulation monitor route")
+  return `#poc/monitor/${id}/${module}`
+}
+
 export function labSessionFromHash(hash: string) {
-  const match = hash.match(
-    /^#(?:lab|(?:guard|pilot|plan)\/live)\/([a-f0-9]{32})$/,
-  )
-  return match?.[1] ?? null
+  return pocRouteFromHash(hash)?.sessionId ?? null
 }
 
 export function liveModuleFromHash(hash: string): LiveModule {
-  return hash.startsWith("#pilot/live/")
-    ? "pilot"
-    : hash.startsWith("#plan/live/")
-      ? "plan"
-      : "guard"
+  return pocRouteFromHash(hash)?.module ?? "dashboard"
 }
 
 export function liveCultureFile(

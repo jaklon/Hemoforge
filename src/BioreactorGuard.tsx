@@ -755,7 +755,7 @@ export default function BioreactorGuard({
           className="guard-growth-panel"
           action={
             <div className="header-actions">
-              <a className="method-link" href="#methods/monitoring">
+              <a className="method-link" href="#methods/monitoring" target={live ? "_blank" : undefined} rel={live ? "noopener" : undefined}>
                 Growth &amp; warning formulas
               </a>
               <Status status={state.status} />

@@ -1,6 +1,6 @@
 # HemoForge Virtual Lab — Stage E
 
-Open http://127.0.0.1:8443/#lab. Choose a scenario/seed under **Pengaturan sesi baru**,
+Open http://127.0.0.1:8443/#poc, then choose **Buka Monitor 01 →**. Choose a scenario/seed under **Pengaturan sesi baru**,
 create a session, then click **Buka dashboard di monitor 2 ↗**.
 Move the opened tab into a separate browser window on the second monitor. Keep the 3D window visible.
 
@@ -60,7 +60,7 @@ experiment GP, real instrument integration and biological validation remain late
 
 ## Live ErythroPilot and CulturePlan on monitor 2
 
-1. Use **Bioreactor Guard / ErythroPilot / CulturePlan** tabs in the same live dashboard. They share
+1. Use **Dashboard / Bioreactor Guard / ErythroPilot / CulturePlan** in the dedicated live sidebar. They share
    the session, clock, sample IDs and source hash. Normal workspace routes remain separate input workspaces.
 2. Complete an initial valid assay. Run the 3D clock at **1 h / detik**, pause around 6 h, sample/analyze,
    then repeat around 12 h. Aim for at least three observations spanning six hours in the same intervention segment.
@@ -82,6 +82,22 @@ CulturePlan's GP experiment ranking is deliberately unavailable in this live mod
 are not independent experiments with controlled conditions and outcomes. Ammonium is not renamed to ammonia;
 no synthetic DOE replicates are manufactured. This planner does not predict mature RBC yield, enucleation,
 blood group, or clinical production. The growth fit and its intervals are uncalibrated teaching projections.
+
+## Dedicated PoC access
+
+The main `#dashboard`, `#guard`, `#pilot`, and `#plan` remain the normal HemoForge research workspace.
+Use **PoC & Simulation ↗** to open the separate launcher, without loading simulation data into those pages.
+The launcher does not create a session or advance a clock. Monitor 01 is `#poc/lab/{id}`; Monitor 02 is
+`#poc/monitor/{id}/dashboard` (or `/guard`, `/pilot`, `/plan`). You can also paste a session ID/monitor link into
+the launcher to join Monitor 02 in read-only mode. Pair Guard separately when control is required.
+Legacy `#lab/{id}` and `#guard/live/{id}` etc. continue to work; newly generated links use the PoC namespace.
+
+Monitor 02 uses the same sidebar/header/card/plot design as the main product. Its Dashboard shows released
+cell counts and FLEX2 channels, with source collection/release times. Missing DO, temperature, CO₂ and
+osmolality stay unmeasured; no continuous process curve or automatic correction is fabricated. Chemistry units
+are preserved, including glucose in mmol/L and ammonium (NH4). Actual virtual interventions remain in Guard.
+This separation is a navigation/data workspace boundary, not a new login system or permission to expose the
+local API publicly. Existing localhost checks and scoped control tokens remain in effect.
 
 Sessions live only in one API process, expire after an hour without accepted commands, and disappear on restart.
 This prototype is limited to localhost; do not expose it as a public/multi-user service. The random session ID is

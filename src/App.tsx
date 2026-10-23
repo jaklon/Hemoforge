@@ -2,32 +2,21 @@ import { lazy, Suspense, useEffect, useState } from "react"
 import Landing from "./Landing"
 import WorkWithUs from "./WorkWithUs"
 import { labSessionFromHash, liveModuleFromHash } from "./lab-session"
+import { appPageFromHash } from "./app-routing"
 
 const ResearchWorkspace = lazy(() => import("./ResearchWorkspace"))
 const VirtualLab = lazy(() => import("./VirtualLab"))
 const LiveLabDashboard = lazy(() => import("./LiveLabDashboard"))
+const PocHub = lazy(() => import("./PocHub"))
 
-// #work-with-us shows the business page, any other hash (#guard, #pilot, …) opens the workspace,
-// and an empty hash shows the landing page.
-const page = () =>
-  location.hash.startsWith("#lab")
-    ? "lab"
-    : /^#(?:guard|pilot|plan)\/live\//.test(location.hash)
-      ? "live"
-      : location.hash === "#work-with-us"
-        ? "business"
-        : location.hash.length > 1
-          ? "workspace"
-          : "landing"
-
+// PoC routes have a dedicated shell; normal module hashes retain the research workspace.
 export default function App() {
-  const [current, setCurrent] = useState(page)
   const [hash, setHash] = useState(() => location.hash)
+  const current = appPageFromHash(hash)
 
   useEffect(() => {
     const sync = () => {
       setHash(location.hash)
-      setCurrent(page())
     }
     addEventListener("hashchange", sync)
     return () => removeEventListener("hashchange", sync)
@@ -43,7 +32,9 @@ export default function App() {
 
   return (
     <Suspense fallback={null}>
-      {current === "lab" ? (
+      {current === "poc" ? (
+        <PocHub invalid={hash !== "#poc" && hash !== "#poc/"} />
+      ) : current === "lab" ? (
         <VirtualLab />
       ) : current === "live" ? (
         <LiveLabDashboard

@@ -2,6 +2,7 @@ import LiveAnalysisControls from "./LiveAnalysisControls"
 import { liveAnalysisHold, liveSettingsError } from "./lab-live-analytics"
 import type { LiveModuleProps } from "./LivePilot"
 import { downloadFile } from "./workspace-utils"
+import { PageTitle, Badge, Icon } from "./workspace-ui"
 
 export default function LiveCulturePlan(props: LiveModuleProps) {
   const { snapshot, analysis, settings } = props
@@ -14,39 +15,48 @@ export default function LiveCulturePlan(props: LiveModuleProps) {
     plan?.status === "projected" && plan.target_hour! < snapshot.culture_hours
   return (
     <section className="vl-live-module" aria-label="CulturePlan live">
-      <div className="vl-module-heading">
-        <div>
-          <span className="vl-eyebrow">LIVE · CULTUREPLAN</span>
-          <h1>CulturePlan</h1>
-          <p>Perencanaan target jumlah sel dari tren kultur yang terukur.</p>
-        </div>
-        <button
-          className="vl-small-button"
-          onClick={() =>
-            downloadFile(
-              `${snapshot.batch_id}-live-plan.json`,
-              JSON.stringify(
-                {
-                  session_id: snapshot.session_id,
-                  source_hash: snapshot.measurements_sha256,
-                  settings,
-                  analysis: hold ? null : analysis,
-                  volume_ledger: {
-                    working_ml: snapshot.working_volume_ml,
-                    sampled_ml: snapshot.withdrawn_volume_ml,
-                    added_ml: snapshot.added_volume_ml,
-                    exchanged_ml: snapshot.exchanged_volume_ml,
+      <PageTitle
+        title="CulturePlan"
+        description="Plan viable-cell targets from the measured trend of this simulation session."
+        action={
+          <button
+            className="vl-small-button"
+            onClick={() =>
+              downloadFile(
+                `${snapshot.batch_id}-live-plan.json`,
+                JSON.stringify(
+                  {
+                    session_id: snapshot.session_id,
+                    source_hash: snapshot.measurements_sha256,
+                    settings,
+                    analysis: hold ? null : analysis,
+                    volume_ledger: {
+                      working_ml: snapshot.working_volume_ml,
+                      sampled_ml: snapshot.withdrawn_volume_ml,
+                      added_ml: snapshot.added_volume_ml,
+                      exchanged_ml: snapshot.exchanged_volume_ml,
+                    },
                   },
-                },
-                null,
-                2,
-              ),
-              "application/json",
-            )
-          }
-        >
-          Unduh rencana live
-        </button>
+                  null,
+                  2,
+                ),
+                "application/json",
+              )
+            }
+          >
+            <Icon name="download" /> Unduh rencana live
+          </button>
+        }
+      />
+      <div className="context-strip">
+        <Badge tone="warning">Synthetic · FLEX2 session</Badge>
+        <span>
+          Source: <b>{snapshot.batch_id}</b> · {snapshot.measurements.length}{" "}
+          released observations
+        </span>
+        <span>
+          Independent experiment GP: waiting for controlled experiment data
+        </span>
       </div>
       <LiveAnalysisControls {...props} />
       {(hold || props.error || analysis?.reason) && (
