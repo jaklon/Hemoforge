@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import BiostatScene from "./BiostatScene"
+import BiostatScene, { type LabAsset, type LabAssetState } from "./BiostatScene"
+import { instrumentPresentation } from "./biopat-instrument"
 import BiostatTelemetry from "./BiostatTelemetry"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
@@ -27,7 +28,8 @@ export default function VirtualLab() {
   const [station, setStation] =
     useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
   const [graphicsError, setGraphicsError] = useState("")
-  const [assetState, setAssetState] = useState<"loading" | "blender" | "fallback">("loading")
+  const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading" })
+  const onAssetState = useCallback((asset: LabAsset, state: LabAssetState) => setAssetState(previous => previous[asset] === state ? previous : { ...previous, [asset]: state }), [])
   const [renderStats, setRenderStats] = useState({ fps: 0, quality: "high" as "high" | "balanced" })
   const onPerformance = useCallback((fps: number, quality: "high" | "balanced") => setRenderStats({ fps, quality }), [])
   const [setpoints, setSetpoints] = useState({
@@ -40,6 +42,9 @@ export default function VirtualLab() {
   const clock = useRef(new AnimationClock())
   const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
+  const blenderCount = Object.values(assetState).filter(value => value === "blender").length
+  const fallbackAssets = Object.entries(assetState).filter(([,value]) => value === "fallback").map(([name]) => name).join(", ")
+  const instrument = station === "trace" || station === "viamass" ? instrumentPresentation(snapshot, station, ready) : null
   const validSeed = Number.isInteger(seed) && seed >= 0 && seed <= 2147483647
   useEffect(() => {
     document.title = "BIOSTAT Gen 2 · Monitor 01 · HemoForge"
@@ -179,7 +184,7 @@ export default function VirtualLab() {
             station={station}
             snapshot={snapshot}
             connected={ready}
-            onAssetState={setAssetState}
+            onAssetState={onAssetState}
             onPerformance={onPerformance}
             onFrame={onFrame}
             onInteract={() => {
@@ -192,7 +197,7 @@ export default function VirtualLab() {
               CELL CULTURE / SINGLE-USE STR 50
             </span>
             <span className="vl-scene-evidence">
-              {assetState === "blender" ? "BLENDER MODEL · ORIGINAL CC0 MATERIALS" : assetState === "loading" ? "LOADING BLENDER MODEL…" : "PROCEDURAL FALLBACK · MODEL UNAVAILABLE"}
+              {blenderCount === 3 ? "BLENDER MODELS 3/3 · ORIGINAL CC0 MATERIALS" : fallbackAssets ? `BLENDER ${blenderCount}/3 · FALLBACK: ${fallbackAssets}` : `LOADING BLENDER MODELS ${blenderCount}/3…`}
             </span>
           </div>
           <div className="vl-scene-caption">
@@ -201,6 +206,12 @@ export default function VirtualLab() {
             <p>BIOSTAT Gen 2 + BioPAT Trace + ViaMass</p>
           </div>
           <div className="biostat-scene-legend">
+            {instrument ? <>
+              <strong>{station === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
+              {instrument.values.map(value => <span key={value}>{value}</span>)}
+              <small>{instrument.status} · {instrument.receipt}</small>
+              <small>{instrument.times}</small>
+            </> : <>
             <span>
               <i /> Gas & DO cascade
             </span>
@@ -213,6 +224,7 @@ export default function VirtualLab() {
             <small>
               Illustrative cutaway · geometry is not a certified device replica
             </small>
+            </>}
             <small aria-live="off">
               {renderStats.fps > 0 ? `${renderStats.fps} FPS · ${renderStats.quality === "high" ? "High" : "Balanced"} quality` : "Measuring render performance…"}
             </small>

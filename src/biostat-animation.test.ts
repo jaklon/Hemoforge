@@ -35,7 +35,8 @@ test("shipped Blender GLB contains neutral runtime bindings and self-contained t
   assert.equal(bytes.readUInt32LE(8), bytes.length)
   assert.ok(bytes.length < 2_000_000, "Keep the hero asset within the 2MB budget")
   const doc = JSON.parse(bytes.subarray(20, 20+bytes.readUInt32LE(12)).toString())
-  for (const name of ["HF_Impeller", "HF_Liquid", "HF_Bag"]) {
+  assert.equal(doc.scenes.length, 1)
+  for (const name of ["HF_Impeller", "HF_Liquid", "HF_Bag", "HF_ViaMass_Legacy"]) {
     const node = doc.nodes.find((node: { name: string }) => node.name === name)
     assert.ok(node, `Missing animation binding ${name}`)
     assert.deepEqual(node.scale ?? [1,1,1], [1,1,1])

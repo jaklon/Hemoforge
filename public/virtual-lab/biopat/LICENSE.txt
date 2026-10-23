@@ -1,0 +1,13 @@
+HemoForge BioPAT-inspired teaching models
+
+Original geometry and locally generated/shared textures:
+HemoForge project contributors, dedicated under CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+No vendor CAD, logos, product photography, paid assets or add-ons are included.
+These are illustrative teaching models, not verified manufacturer replicas.
+Product names and trademarks remain with their respective owners.
+
+The extra screens are HemoForge virtual readouts. Instrument values and QC are
+provided at runtime; no measurement values or animations are baked in Blender.
+Editable sources, rebuild scripts and reference details: assets/blender/README.md.

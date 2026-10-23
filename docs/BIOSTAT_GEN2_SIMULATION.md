@@ -96,3 +96,26 @@ instanced particles, capped pixel ratio and an automatic lower-resolution mode
 below 32 measured FPS. The visible FPS meter reports the current device, not a
 promised performance on all browsers. No new runtime dependency or paid asset
 is required.
+
+## BioPAT instrument assets and displays
+
+Dedicated original CC0 Trace and ViaMass GLBs load from `/virtual-lab/biopat/`.
+`assets/blender/build_biopat.py` builds both in Blender, preserving existing scenes.
+The extra display surfaces are explicit HemoForge virtual readouts; ViaMass is
+modeled as disc/pre-amplifier/electronics, not as a device measuring RBC count.
+
+`biopat-instrument.ts` is the shared presentation boundary for 3D canvas textures
+and accessible overlays. It reads only device-specific released receipts and
+gates numeric values on QC, expiry, finite channels, explicit device fault state
+and connection. Pauses preserve valid last values with a PAUSED label. Invalid
+states display dashes and HOLD; no plant state or estimated channel is substituted.
+The two Trace rotor nodes integrate rendered time without a restart jump. ViaMass
+LED brightening follows a newly published passed receipt. Flow/LED animation holds
+on pause, hidden tabs, stalls and disconnect; sensor faults hold the affected device.
+
+Each model independently validates required named transforms and reports a labeled
+fallback if loading fails. The former ViaMass geometry is isolated inside the
+BIOSTAT GLB so the dedicated module can replace it without overlapping meshes.
+Instrument asset tests check neutral roots, display UVs, rotor pivots, size/mesh
+budgets and embedded resources. Presentation tests exercise device identity,
+future releases, fault/stale/invalid/offline data, pause and recovery.

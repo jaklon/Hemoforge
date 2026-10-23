@@ -288,14 +288,16 @@ for i,(x,z) in enumerate(((-0.37,0.1),(-0.17,0.29),(0.25,0.2),(0.4,-0.14))):
             torus('Filter cap seal',0.053,0.004,(x+0.24,yy,z-0.28),blue)
 
 # Side-entry PAT probes and electronics. Display is populated by the app.
+via_legacy=empty('HF_ViaMass_Legacy',parent=root)
 for i,(x,y,z) in enumerate(((0.58,0.8,0.29),(-0.56,0.9,0.29),(-0.43,0.65,0.4))):
-    cyl('Probe sanitary clamp',0.065,0.04,(x,y,z),polish,(1,0,0))
-    cyl('Probe body',0.034,0.19,(x+0.055,y,z),gold if i==0 else white,(1,0,0))
-    cyl('Probe coupling',0.048,0.04,(x+0.15,y,z),graphite,(1,0,0))
-box('ViaMass transmitter enclosure',(0.29,0.35,0.2),(0.83,1.14,0.12),graphite,0.022)
-box('ViaMass face surround',(0.34,0.25,0.022),(0.83,1.16,0.23),rubber,0.012)
-cyl('Status lens',0.009,0.008,(0.96,1.28,0.247),led,(0,0,1),verts=12)
-tube('ViaMass probe lead',[(0.75,0.8,0.29),(0.98,0.81,0.15),(1,1.04,0.1),(0.85,1.05,0.1)],0.012,rubber)
+    parent=via_legacy if i==0 else static
+    cyl('Probe sanitary clamp',0.065,0.04,(x,y,z),polish,(1,0,0),parent)
+    cyl('Probe body',0.034,0.19,(x+0.055,y,z),gold if i==0 else white,(1,0,0),parent)
+    cyl('Probe coupling',0.048,0.04,(x+0.15,y,z),graphite,(1,0,0),parent)
+box('ViaMass transmitter enclosure',(0.29,0.35,0.2),(0.83,1.14,0.12),graphite,0.022,via_legacy)
+box('ViaMass face surround',(0.34,0.25,0.022),(0.83,1.16,0.23),rubber,0.012,via_legacy)
+cyl('Status lens',0.009,0.008,(0.96,1.28,0.247),led,(0,0,1),via_legacy,verts=12)
+tube('ViaMass probe lead',[(0.75,0.8,0.29),(0.98,0.81,0.15),(1,1.04,0.1),(0.85,1.05,0.1)],0.012,rubber,via_legacy)
 tube('Temperature jacket hose',[(-0.65,0.54,-0.17),(-0.91,0.52,-0.18),(-0.95,0.39,-0.35),(-0.89,0.3,-0.45)],0.024,rubber)
 
 # Legible small labels and etched volume scale, all original artwork.
@@ -327,6 +329,7 @@ def merge_by_material(parent):
 merge_by_material(static)
 merge_by_material(impeller)
 merge_by_material(bag_group)
+merge_by_material(via_legacy)
 
 # Keep GLB dynamics at neutral scale; set the initial volume in the Blender preview afterwards.
 liquid.scale.z=1
@@ -335,13 +338,17 @@ for ob in root.children_recursive:
     ob.select_set(True)
 root.select_set(True)
 gltf_path=OUT/'biostat-gen2.glb'
-bpy.ops.export_scene.gltf(filepath=str(gltf_path),export_format='GLB',use_selection=True,export_animations=False,export_extras=True,export_cameras=False,export_lights=False)
+properties=bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
+active_scene={key:True for key in ('use_active_scene','export_active_scene') if key in properties}
+if not active_scene:
+    raise RuntimeError('An active-scene glTF export option is required')
+bpy.ops.export_scene.gltf(filepath=str(gltf_path),export_format='GLB',use_selection=True,export_animations=False,export_extras=True,export_cameras=False,export_lights=False,**active_scene)
 # Blender names are global across scenes. Rebuilds can add .001 suffixes; keep
 # the exported runtime contract stable without renaming existing user objects.
 raw=gltf_path.read_bytes()
 json_length=struct.unpack_from('<I',raw,12)[0]
 document=json.loads(raw[20:20+json_length])
-bindings={'HF_Biostat','HF_Static','HF_Impeller','HF_Liquid','HF_Bag'}
+bindings={'HF_Biostat','HF_Static','HF_Impeller','HF_Liquid','HF_Bag','HF_ViaMass_Legacy'}
 for node in document['nodes']:
     base=node.get('name','').split('.')[0]
     if base in bindings:
@@ -395,7 +402,7 @@ manifest={
     'license':'CC0-1.0','author':'HemoForge project contributors',
     'source':'assets/blender/build_biostat.py','blender':bpy.app.version_string,
     'glb_bytes':gltf_path.stat().st_size,'meshes':len(meshes),'triangles':triangles,
-    'runtime_nodes':['HF_Impeller','HF_Liquid','HF_Bag'],
+    'runtime_nodes':['HF_Impeller','HF_Liquid','HF_Bag','HF_ViaMass_Legacy'],
     'units':'meters; illustrative proportions, not manufacturer CAD',
     'textures':[{'name':'HF_original_brushed_roughness','size':[512,512],'license':'CC0-1.0','source':'Original seeded numerical grain, generated locally'}],
     'reference':'https://www.sartorius.com/en/company/newsroom/product-news/16302-16302',

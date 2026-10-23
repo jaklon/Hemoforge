@@ -5,12 +5,16 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
 import type { LabSnapshot } from "./lab-session"
 import { lastSensor, sensorUsable } from "./biostat-data"
 import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
+import { instrumentPresentation } from "./biopat-instrument"
+
+export type LabAsset = "biostat" | "trace" | "viamass"
+export type LabAssetState = "loading" | "blender" | "fallback"
 
 interface Props {
   station: "overview" | "bioreactor" | "trace" | "viamass"
   snapshot: LabSnapshot | null
   connected: boolean
-  onAssetState: (state: "loading" | "blender" | "fallback") => void
+  onAssetState: (asset: LabAsset, state: LabAssetState) => void
   onPerformance: (fps: number, quality: "high" | "balanced") => void
   onFrame: (delta: number) => void
   onInteract: () => void
@@ -273,7 +277,7 @@ export default function BiostatScene(props: Props) {
     }
     const viaProbe = cyl(fallback, 0.09, 0.26, [0.58, 0.8, 0.29], amber)
     viaProbe.rotation.z = Math.PI / 2
-    plaque(fallback, "ViaMass / pF per cm", [0.32, 0.62, 0.65], 0.72, 0.13)
+    const fallbackViaPlaque = plaque(fallback, "ViaMass / pF per cm", [0.32, 0.62, 0.65], 0.72, 0.13)
     plaque(fallback, "STR 50 / GEN 2", [0, 1.97, 0.75], 0.95, 0.16)
     for (let i = 0; i < 6; i++) {
       const y = 0.62 + i * 0.2
@@ -333,23 +337,25 @@ export default function BiostatScene(props: Props) {
     scene.add(trace)
     box(scene, [1.65, 0.09, 1.1], [2.05, 0.98, -1.5], dark)
     for (const x of [1.4, 2.7]) cyl(scene, 0.035, 0.95, [x, 0.48, -1.65], steel)
-    box(trace, [1.3, 0.68, 0.74], [0, 0.38, 0], white)
-    box(trace, [1.34, 0.12, 0.78], [0, 0.08, 0], dark)
+    const traceFallback = new THREE.Group()
+    trace.add(traceFallback)
+    box(traceFallback, [1.3, 0.68, 0.74], [0, 0.38, 0], white)
+    box(traceFallback, [1.34, 0.12, 0.78], [0, 0.08, 0], dark)
     const traceScreen = surface()
-    box(trace, [0.79, 0.41, 0.028], [-0.13, 0.42, 0.386], traceScreen.material)
+    box(traceFallback, [0.79, 0.41, 0.028], [-0.13, 0.42, 0.386], traceScreen.material)
     const traceLampMat = new THREE.MeshStandardMaterial({
       color: "#50d5aa",
       emissive: "#50d5aa",
       emissiveIntensity: 0.7,
     })
-    const lamp = cyl(trace, 0.03, 0.04, [0.49, 0.59, 0.39], traceLampMat)
+    const lamp = cyl(traceFallback, 0.03, 0.04, [0.49, 0.59, 0.39], traceLampMat)
     lamp.rotation.x = Math.PI / 2
     for (const x of [-0.4, -0.1, 0.2]) {
-      cyl(trace, 0.05, 0.2, [x, 0.86, 0], bagMat)
-      cyl(trace, 0.055, 0.035, [x, 0.98, 0], teal)
+      cyl(traceFallback, 0.05, 0.2, [x, 0.86, 0], bagMat)
+      cyl(traceFallback, 0.055, 0.035, [x, 0.98, 0], teal)
     }
-    plaque(trace, "BioPAT TRACE", [0, 0.16, 0.4], 0.95, 0.12)
-    plaque(trace, "GLUCOSE / LACTATE", [0, -0.1, 0.5], 1.1, 0.13)
+    plaque(traceFallback, "BioPAT TRACE", [0, 0.16, 0.4], 0.95, 0.12)
+    plaque(traceFallback, "GLUCOSE / LACTATE", [0, -0.1, 0.5], 1.1, 0.13)
     // Separate visible paths for gas, sampling/return, feed and filtrate.
     const paths: {
       curve: THREE.CatmullRomCurve3
@@ -386,14 +392,14 @@ export default function BiostatScene(props: Props) {
         [-1.1, 1.2, -0.6],
         [-0.8, 2.7, -1.4],
         [0.7, 2.75, -1.7],
-        [1.5, 1.4, -1.1],
+        [2.13, 1.21, -1.02],
       ],
       teal,
       "trace",
     )
     circuit(
       [
-        [2.55, 1.3, -1.1],
+        [2.50, 1.21, -1.02],
         [2.9, 2.5, -1.6],
         [0.6, 2.95, -2],
         [-1.4, 2.1, -1],
@@ -443,16 +449,16 @@ export default function BiostatScene(props: Props) {
     }
     plaque(scene, "AIR / O2 / N2", [-3.4, 0.8, -1.68], 0.9, 0.14)
     // A ViaMass electronics box and lead, distinct from the glucose/lactate fluid circuit.
-    box(fallback, [0.27, 0.34, 0.2], [0.82, 1.14, 0.12], dark)
+    const fallbackViaBox = box(fallback, [0.27, 0.34, 0.2], [0.82, 1.14, 0.12], dark)
     const viaScreen = surface()
-    box(reactor, [0.52, 0.28, 0.025], [0.82, 1.16, 0.24], viaScreen.material)
-    plaque(reactor, "VIAMASS", [0.82, 0.94, 0.23], 0.45, 0.1)
+    const fallbackViaDisplay = box(reactor, [0.52, 0.28, 0.025], [0.82, 1.16, 0.24], viaScreen.material)
+    const fallbackViaLabel = plaque(reactor, "VIAMASS", [0.82, 0.94, 0.23], 0.45, 0.1)
     const wire = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.9, 0.8, -0.61),
       new THREE.Vector3(-0.5, 1, -0.6),
       new THREE.Vector3(-0.78, 1.2, -0.78),
     ])
-    mesh(
+    const fallbackViaWire = mesh(
       scene,
       new THREE.TubeGeometry(wire, 20, 0.015, 6, false),
       amber,
@@ -519,36 +525,90 @@ export default function BiostatScene(props: Props) {
       })
     }
     const loader = new GLTFLoader()
-    current.current.onAssetState("loading")
+    let legacyHeroVia: THREE.Object3D | undefined
+    let viaLoaded = false
+    const tracePumps: THREE.Object3D[] = []
+    let traceStatus: THREE.Object3D | undefined
+    let viaStatus: THREE.Object3D | undefined
+    const viaFallbackObjects = [viaProbe, fallbackViaPlaque, fallbackViaBox, fallbackViaDisplay, fallbackViaLabel, fallbackViaWire]
+    const prepareModel = (model: THREE.Object3D) => model.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material]
+        object.castShadow = materials.every(m => !m.transparent)
+        object.receiveShadow = true
+      }
+    })
+    const bindDisplay = (node: THREE.Mesh, face: ReturnType<typeof surface>) => {
+      // Blender/glTF UVs use the opposite texture origin from procedural meshes.
+      face.texture.flipY = false
+      face.texture.needsUpdate = true
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) material.dispose()
+      node.material = face.material
+    }
+    for (const asset of ["biostat", "trace", "viamass"] as const) current.current.onAssetState(asset, "loading")
     loader.load(
       "/virtual-lab/biostat/biostat-gen2.glb",
       ({ scene: model }) => {
         if (disposed) { disposeObject(model); return }
         const shaft = model.getObjectByName("HF_Impeller")
         const fluid = model.getObjectByName("HF_Liquid")
-        if (!shaft || !fluid) {
+        legacyHeroVia = model.getObjectByName("HF_ViaMass_Legacy")
+        if (!shaft || !fluid || !legacyHeroVia) {
           disposeObject(model)
-          current.current.onAssetState("fallback")
+          current.current.onAssetState("biostat", "fallback")
           return
         }
-        model.traverse((object) => {
-          if (object instanceof THREE.Mesh) {
-            const materials = Array.isArray(object.material) ? object.material : [object.material]
-            object.castShadow = materials.every(m => !m.transparent)
-            object.receiveShadow = true
-          }
-        })
+        prepareModel(model)
+        if (viaLoaded) legacyHeroVia.visible = false
         reactor.add(model)
         fallback.visible = false
         // Rebind to exported transform nodes, not baked Blender animation.
         impellers = shaft
         liquid = fluid
         blenderLoaded = true
-        current.current.onAssetState("blender")
+        current.current.onAssetState("biostat", "blender")
       },
       undefined,
-      () => { if (!disposed) current.current.onAssetState("fallback") },
+      () => { if (!disposed) current.current.onAssetState("biostat", "fallback") },
     )
+    loader.load("/virtual-lab/biopat/biopat-trace.glb", ({ scene: model }) => {
+      if (disposed) { disposeObject(model); return }
+      const display = model.getObjectByName("HF_Trace_Display")
+      const pumpA = model.getObjectByName("HF_Trace_PumpA")
+      const pumpB = model.getObjectByName("HF_Trace_PumpB")
+      const status = model.getObjectByName("HF_Trace_Status")
+      if (!(display instanceof THREE.Mesh) || !pumpA || !pumpB || !status) {
+        disposeObject(model)
+        current.current.onAssetState("trace", "fallback")
+        return
+      }
+      prepareModel(model)
+      bindDisplay(display, traceScreen)
+      trace.add(model)
+      traceFallback.visible = false
+      tracePumps.push(pumpA, pumpB)
+      traceStatus = status
+      current.current.onAssetState("trace", "blender")
+    }, undefined, () => { if (!disposed) current.current.onAssetState("trace", "fallback") })
+    loader.load("/virtual-lab/biopat/biopat-viamass.glb", ({ scene: model }) => {
+      if (disposed) { disposeObject(model); return }
+      const display = model.getObjectByName("HF_ViaMass_Display")
+      const status = model.getObjectByName("HF_ViaMass_Status")
+      if (!(display instanceof THREE.Mesh) || !status) {
+        disposeObject(model)
+        current.current.onAssetState("viamass", "fallback")
+        return
+      }
+      prepareModel(model)
+      bindDisplay(display, viaScreen)
+      model.position.set(0.58, 0.8, 0.29)
+      reactor.add(model)
+      viaLoaded = true
+      viaStatus = status
+      viaFallbackObjects.forEach(object => { object.visible = false })
+      if (legacyHeroVia) legacyHeroVia.visible = false
+      current.current.onAssetState("viamass", "blender")
+    }, undefined, () => { if (!disposed) current.current.onAssetState("viamass", "fallback") })
     for (const [name, x, z, scale] of [
       ["bookcaseClosedWide", 4.4, -3.2, 1.5],
       ["chairDesk", 4.7, -0.9, 1.2],
@@ -632,7 +692,22 @@ moved: boolean } | null = null,
       elapsed = 0,
       lastPaint = 0,
       previousStation = props.station
-    let angle = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
+    let angle = 0, traceElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
+    let instrumentSnapshot: LabSnapshot | null | undefined, instrumentConnected: boolean | undefined
+    let traceView = instrumentPresentation(null, "trace", false)
+    let viaView = instrumentPresentation(null, "viamass", false)
+    let tracePulse = 0, viaPulse = 0
+    const paintStatus = (root: THREE.Object3D | undefined, color: string, pulse: number) => root?.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+          if (material instanceof THREE.MeshStandardMaterial) {
+            material.color.set(color)
+            material.emissive.set(color)
+            material.emissiveIntensity = 0.3 + pulse
+          }
+        }
+      }
+    })
     function screen(
       face: ReturnType<typeof surface>,
       title: string,
@@ -655,6 +730,16 @@ moved: boolean } | null = null,
       const delta = Math.max(0, (now - last) / 1000)
       last = now
       const { station, snapshot: s, connected } = current.current
+      if (instrumentSnapshot !== s || instrumentConnected !== connected) {
+        const nextTrace = instrumentPresentation(s, "trace", connected)
+        const nextVia = instrumentPresentation(s, "viamass", connected)
+        if (nextTrace.state === "live" && nextTrace.receipt !== traceView.receipt) tracePulse = 0.6
+        if (nextVia.state === "live" && nextVia.receipt !== viaView.receipt) viaPulse = 0.6
+        traceView = nextTrace
+        viaView = nextVia
+        instrumentSnapshot = s
+        instrumentConnected = connected
+      }
       if (station !== previousStation) {
         yaw = pitch = 0
         previousStation = station
@@ -663,11 +748,11 @@ moved: boolean } | null = null,
         goal.set(0.6, 2.55, Math.max(6.4, 6 / Math.max(0.55, camera.aspect)))
         goalLook.set(-0.3, 1.35, -1)
       } else if (station === "trace") {
-        goal.set(2.35, 1.9, 1.1)
-        goalLook.set(2.05, 1.45, -1.4)
+        goal.set(2.15, 1.9, Math.max(1.4, 1.9 / camera.aspect - 1.2))
+        goalLook.set(2.0, 1.5, -1.2)
       } else if (station === "viamass") {
-        goal.set(-0.1, 1.45, 1.4)
-        goalLook.set(-1.2, 0.95, -0.55)
+        goal.set(0.1, 1.65, Math.max(1.35, 0.8 / camera.aspect))
+        goalLook.set(-0.8, 1.25, -0.65)
       } else {
         goal.set(-1.3, 1.8, Math.max(2.8, 1.5 / camera.aspect))
         goalLook.set(-1.55, 1.25, -0.9)
@@ -680,6 +765,12 @@ moved: boolean } | null = null,
         !!s?.running && connected && document.visibilityState === "visible" && !contextLost
       const motionSeconds = renderedSeconds(delta, running)
       elapsed += motionSeconds
+      if (traceView.flowing) traceElapsed += motionSeconds
+      tracePumps.forEach((pump, index) => { pump.rotation.z = traceElapsed * (index === 0 ? 3 : -3) })
+      tracePulse = traceView.state === "live" ? Math.max(0, tracePulse - motionSeconds * 2) : 0
+      viaPulse = viaView.state === "live" ? Math.max(0, viaPulse - motionSeconds * 2) : 0
+      paintStatus(traceStatus, traceView.color, tracePulse)
+      paintStatus(viaStatus, viaView.color, viaPulse)
       const rpm = s?.controller?.outputs.stirrer_rpm ?? 100
       angle = stirrerAngle(angle, rpm, motionSeconds)
       impellers.rotation.y = angle
@@ -721,17 +812,16 @@ moved: boolean } | null = null,
           particle.visible =
             !!s &&
             (kind === "gas" ||
-              (kind === "trace" && !s.sensor_faults?.includes("trace")) ||
+              (kind === "trace" && traceView.flowing) ||
               (transferring &&
                 (kind === "feed" ||
                   s.active_intervention?.kind === "medium_exchange")))
           particle.position.copy(
-            curve.getPoint((elapsed * 0.18 + i / particles.length) % 1),
+            curve.getPoint(((kind === "trace" ? traceElapsed : elapsed) * 0.18 + i / particles.length) % 1),
           )
         }),
       )
-      const traceFault = s?.sensor_faults?.includes("trace") ?? false
-      traceLampMat.color.set(traceFault ? "#d65956" : "#50d5aa")
+      traceLampMat.color.set(traceView.color)
       traceLampMat.emissive.copy(traceLampMat.color)
       hands.position.y = Math.sin(elapsed * 1.7) * 0.006
       hands.rotation.x = transferring ? Math.sin(elapsed * 2) * 0.025 : 0
@@ -740,15 +830,10 @@ moved: boolean } | null = null,
       arrow.position.y = 2.6 + Math.sin(now / 400) * 0.035
       if (document.visibilityState === "visible" && now - lastPaint > 500) {
         lastPaint = now
-        const core = s ? lastSensor(s, "core") : null,
-          traceReading = s ? lastSensor(s, "trace") : null
+        const core = s ? lastSensor(s, "core") : null
         const pv = (key: string, digits: number) =>
           s && sensorUsable(s, core)
             ? (core!.channels[key]?.toFixed(digits) ?? "--")
-            : "--"
-        const tv = (key: string) =>
-          s && sensorUsable(s, traceReading)
-            ? (traceReading!.channels[key]?.toFixed(2) ?? "--")
             : "--"
         screen(
           controllerScreen,
@@ -765,31 +850,15 @@ moved: boolean } | null = null,
         )
         screen(
           traceScreen,
-          "BioPAT TRACE | ONLINE",
-          [
-            `GLU ${tv("glucose_mmol_l")} mmol/L`,
-            `LAC ${tv("lactate_mmol_l")} mmol/L`,
-            traceFault ? "QC FAULT / HOLD" : "DIALYSIS / VIRTUAL",
-            `DELAY 0.1 h (demo)`,
-            `SOURCE: VIRTUAL SENSOR`,
-          ],
-          traceFault,
+          "BioPAT TRACE / VIRTUAL",
+          traceView.rows,
+          traceView.state !== "live",
         )
-        const via = s ? lastSensor(s, "viamass") : null
         screen(
           viaScreen,
-          "BioPAT VIAMASS",
-          [
-            `CAP ${
-              s && sensorUsable(s, via)
-                ? via!.channels.capacitance_pf_cm.toFixed(3)
-                : "--"
-            } pF/cm`,
-            "VIABLE BIOMASS SIGNAL",
-            "NOT A MATURE RBC COUNT",
-            "SOURCE: VIRTUAL SENSOR",
-          ],
-          !!s?.sensor_faults?.includes("viamass"),
+          "BioPAT VIAMASS / VIRTUAL",
+          viaView.rows,
+          viaView.state !== "live",
         )
       }
       if (!contextLost && document.visibilityState === "visible") {

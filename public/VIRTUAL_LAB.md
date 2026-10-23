@@ -94,12 +94,27 @@ See docs/BIOSTAT_GEN2_SIMULATION.md for the implementation contract. Stage A–E
 The BIOSTAT vessel now loads an original CC0 Blender model with a brushed steel
 holder, polymer bag, impellers, connectors and instrument housing. Its source is
 `assets/blender/hemoforge-biostat-gen2.blend`; rebuild and license details are in
-`assets/blender/README.md`. Trace, room props and hands retain their existing
-visuals in this first asset upgrade.
+`assets/blender/README.md`. Trace and ViaMass also load dedicated original
+Blender models from `/virtual-lab/biopat/`; room props and hands retain their
+existing free visuals. Their editable source is
+`assets/blender/hemoforge-biopat.blend`.
 
 Select **BIOSTAT STR** in the camera controls for the vessel view. The model
-badge confirms **BLENDER MODEL** after loading. A labeled procedural fallback
+badge confirms **BLENDER MODELS 3/3** after loading. A labeled procedural fallback
 appears if the GLB is unavailable. The legend shows measured FPS and current
 render quality. Lower-resolution Balanced mode is selected automatically if
 rendering falls below 32 FPS. RPM controls the shaft speed; recorded volume
 controls the liquid level. Pause/hidden tabs/disconnect stop process animation.
+
+Select **BioPAT Trace** or **ViaMass** for close-up camera views. Both displays
+are labeled HemoForge virtual readouts and use the same released sensor receipts
+as Monitor 02. Trace shows glucose/lactate in mmol/L; ViaMass shows capacitance
+in pF/cm, not an RBC count. The overlay includes receipt ID, acquisition/release
+time and QC state. The Trace heads and circuit motion hold on pause or device
+fault. ViaMass has a publication indicator, not a mechanical pump.
+
+Expand **Jadwal sensor & uji gangguan**, toggle a Trace or ViaMass fault, and
+inspect the red HOLD state and hidden numeric values. Restore the device, run
+until a new passed receipt is released, then pause. The instrument display and
+Monitor 02 must agree on the receipt and values. Missing, future, stale, invalid
+and disconnected data never become new live values on the virtual screens.

@@ -5,13 +5,14 @@
   "author": "HemoForge project contributors",
   "source": "assets/blender/build_biostat.py",
   "blender": "5.2.2 LTS",
-  "glb_bytes": 1560512,
-  "meshes": 16,
+  "glb_bytes": 1560860,
+  "meshes": 20,
   "triangles": 42160,
   "runtime_nodes": [
     "HF_Impeller",
     "HF_Liquid",
-    "HF_Bag"
+    "HF_Bag",
+    "HF_ViaMass_Legacy"
   ],
   "units": "meters; illustrative proportions, not manufacturer CAD",
   "textures": [

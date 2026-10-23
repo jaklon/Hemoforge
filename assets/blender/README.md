@@ -41,13 +41,65 @@ includes no baked timeline that can advance the culture independently. Pause,
 hidden tabs, disconnects, and stalls stop visual process motion. Camera movement
 remains available while paused. The decorative arrow can pulse while paused.
 
-Static pieces are merged by material. The asset has 16 meshes, about 42k
+Static pieces are merged by material. The asset has 20 meshes, about 42k
 triangles, and a 1.56MB GLB. Browser reflections use the existing Three.js
 RoomEnvironment locally; no HDRI or other remote texture is fetched. The
 renderer caps pixel ratio at 1.5, lowers it to 1 if measured visible rendering is
 below 32 FPS, and skips rendering and screen texture uploads in hidden tabs.
 Measured FPS is shown in Monitor 01, not a hardware-independent guarantee.
 The existing procedural vessel is a labeled fallback if loading/validation fails.
+
+## BioPAT Trace and ViaMass
+
+`hemoforge-biopat.blend` contains both original CC0 instrument models in a
+side-by-side inspection scene. `build_biopat.py` creates that scene and exports
+two self-contained GLBs into `public/virtual-lab/biopat/`:
+
+| Asset | Size | Meshes | Triangles |
+| --- | --- | --- | --- |
+| Trace | 0.88 MB | 19 | 17,354 |
+| ViaMass | 0.56 MB | 9 | 9,170 |
+
+Trace has two peristaltic heads, silicone tubing, luer connectors, reagent
+bottles, service panels and a separate virtual readout. ViaMass has a single-use
+sensor disc with four electrode faces, pre-amplifier, locking tabs, shielded lead,
+slim electronics housing and a separate virtual readout. The readouts are added
+HemoForge teaching interfaces, not claims about built-in factory displays. No
+vendor images or logos are embedded. General dimensions remain illustrative.
+
+Rebuild with `blender --background --python assets/blender/build_biopat.py` for a
+traditional Blender install, or use the open app's Python Console (also supported
+for Microsoft Store installations). Set `p` to the absolute path of the builder:
+
+```python
+exec(compile(open(p, encoding='utf-8').read(), p, 'exec'), {'__file__': p})
+```
+
+Trace exports `HF_Trace_Display` (UV-mapped surface), `HF_Trace_PumpA` and
+`HF_Trace_PumpB` (local Z pivots), and `HF_Trace_Status`. ViaMass exports
+`HF_ViaMass_Display` and `HF_ViaMass_Status`. GLB origins are neutral; inspection
+scene offsets are applied only after export. Export normalizes Blender suffixes
+without renaming objects in other scenes. Only the active scene and selected
+model are exported; older selected objects in preserved scenes are excluded.
+
+The instrument presentation function gates both canvas textures and accessible
+overlays using released, fresh, passed receipts. A device fault, stale data,
+invalid channels or disconnection displays dashes and HOLD; pause retains valid
+last values and explicitly labels them PAUSED. Conductivity, viability and RBC
+count are not fabricated. Trace pump and tubing motion is qualitative, advances
+only with valid rendered time, and holds during pause/fault/disconnection. ViaMass
+has no rotating mechanical part; its LED briefly brightens when a new passed
+receipt is published. LED motion also freezes while paused.
+
+The BIOSTAT model keeps its former ViaMass placeholder in the separately named
+`HF_ViaMass_Legacy` group. It is hidden after the dedicated ViaMass loads, so
+geometry does not overlap; the placeholder remains if that asset fails to load.
+Each of the three models reports load/fallback status in Monitor 01.
+
+Device references, used only for visual interpretation:
+
+- https://shop.sartorius.com/ww/p/biopat-trace/BioPAT_Trace
+- https://www.sartorius.com/download/1223770/biopat-viamass-datasheet-en-b-sll2010-sartorius-pdf-8982--data.pdf
 
 ## License
 
