@@ -76,7 +76,7 @@ export default function ForecastChart({
           ]),
           ...(paths ? result.paths.slice(0, 24).flat() : []),
         ]}
-        yLabel="Cell count · ×10⁶ cells"
+        yLabel="Cell count (×10⁶ cells)"
       >
         {({ x, y, top, bottom }) => (
           <>

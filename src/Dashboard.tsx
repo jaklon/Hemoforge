@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Badge, Button, NumberField, PageTitle, Panel, Status } from "./workspace-ui"
 import InteractivePlot from "./InteractivePlot"
 import { useCultureData } from "./workspace-context"
 import { replayEndHour } from "./culture-monitoring"
-import { boundRange, niceTicks, panRange, zoomRange, type Range } from "./plot-navigation"
+import { boundRange, panRange, zoomRange, type Range } from "./plot-navigation"
 import {
   exchangeAction,
   hoursToAction,
@@ -11,25 +11,14 @@ import {
   limitProblem,
   processVariables,
   simulate,
+  limitsKey,
+  loadLimits,
+  safeLimits,
   type Level,
   type Limits,
   type ProcessVariable,
   type Sample,
 } from "./dashboard-sim"
-
-// v2: exchange triggers store doseHigh as exchanged volume %, not a concentration.
-const storageKey = "dashboard-limits-v2"
-
-const defaults = () =>
-  Object.fromEntries(processVariables.map((variable) => [variable.id, variable.limits]))
-
-function loadLimits(): Record<string, Limits> {
-  try {
-    return { ...defaults(), ...JSON.parse(localStorage.getItem(storageKey) ?? "{}") }
-  } catch {
-    return defaults()
-  }
-}
 
 const levelLabel: Record<Level, string> = {
   normal: "In range",
@@ -59,6 +48,38 @@ function limitLines(settings: Limits) {
 }
 
 const extent: Range = [0, replayEndHour]
+
+type Action = { hour: number; label: string; before: number; after: number; linkedFrom?: string }
+
+const limitNote: Record<Level, string | null> = {
+  normal: null,
+  warning: "⚠ Past warning limit",
+  action: "⚠ Past action limit",
+}
+
+// Hover text for one sample, flagging warning and action limit breaches.
+function sampleTip(title: string, unit: string, digits: number, sample: Sample, settings?: Limits) {
+  const note = settings ? limitNote[level(sample.value, settings)] : null
+  return {
+    x: sample.hour,
+    y: sample.value,
+    lines: [`${title} · ${sample.hour}h`, `${sample.value.toFixed(digits)} ${unit}`, ...(note ? [note] : [])],
+  }
+}
+
+// Hover text for an automated correction marker: what was done and its effect.
+function actionTip(action: Action, unit: string, digits: number) {
+  return {
+    x: action.hour,
+    y: 0,
+    marker: true,
+    lines: [
+      `${action.hour}h · ${action.label}`,
+      ...(action.linkedFrom ? [`Triggered by ${nameOf(action.linkedFrom)}`] : []),
+      `${action.before.toFixed(digits)} → ${action.after.toFixed(digits)} ${unit}`,
+    ],
+  }
+}
 // Narrowest zoom, so a few samples always stay on screen.
 const minSpan = 6
 
@@ -72,10 +93,12 @@ function zoomTo(range: Range, factor: number, anchor = 0.5): Range {
   return zoomRange(range, extent, factor, anchor)
 }
 
-// Card chart: warning lines dashed, action lines solid, automated corrections as
-// vertical markers with a triangle. Drag pans and Ctrl+wheel (or pinch) zooms the
-// time range shared by every card; without onRange the chart is a fixed view.
+// Card chart: same hover, zoom and pan as Bioreactor Guard's charts, over the shared time
+// window. Warning lines dashed, action lines solid, automated corrections as markers.
 function MiniChart({
+  title,
+  unit,
+  digits,
   samples,
   actions,
   settings,
@@ -84,19 +107,18 @@ function MiniChart({
   onRange,
   dots = false,
 }: {
+  title: string
+  unit: string
+  digits: number
   samples: Sample[]
-  actions: { hour: number; label: string }[]
+  actions: Action[]
   settings?: Limits
   hour: number
   dots?: boolean
   range: Range
-  onRange?: (next: Range) => void
+  // Shared time window; without it the chart zooms and pans on its own.
+  onRange?: (next: Range | null) => void
 }) {
-  const svg = useRef<SVGSVGElement>(null)
-  const drag = useRef<{ x: number; range: Range; moved: boolean } | null>(null)
-  const width = 300,
-    height = 120,
-    pad = 6
   const lines = settings ? limitLines(settings) : []
   const seen = samples.filter((sample) => sample.hour <= hour)
   // Keep the nearest sample beyond each edge so the line runs off the chart instead of
@@ -106,102 +128,45 @@ function MiniChart({
   const inView = seen.slice(first, after === -1 ? undefined : after + 1)
   // Dense series scale to what is on screen, so zooming shows detail. Sparse ones scale to
   // all samples so far: two points stretched to full height would fake a spike or crash.
-  const values = [
-    ...(dots ? seen : inView).map((sample) => sample.value),
-    ...lines.map((line) => line.value),
-  ]
-  const min = Math.min(...values),
-    max = Math.max(...values)
-  const span = max - min || 1
-  const x = (h: number) => ((h - range[0]) / (range[1] - range[0])) * width
-  const y = (v: number) => height - pad - ((v - min) / span) * (height - pad * 2)
-  const last = seen.at(-1)
-
-  // React wheel listeners are passive, so preventDefault needs a native one.
-  const latest = useRef({ range, onRange })
-  latest.current = { range, onRange }
-  useEffect(() => {
-    const element = svg.current!
-    const wheel = (event: WheelEvent) => {
-      if (!latest.current.onRange || (!event.ctrlKey && !event.metaKey)) return
-      event.preventDefault()
-      const rect = element.getBoundingClientRect()
-      const anchor = (event.clientX - rect.left) / rect.width
-      latest.current.onRange(zoomTo(latest.current.range, event.deltaY > 0 ? 1.25 : 0.8, anchor))
-    }
-    element.addEventListener("wheel", wheel, { passive: false })
-    return () => element.removeEventListener("wheel", wheel)
-  }, [])
-
+  const values = [...(dots ? seen : inView).map((sample) => sample.value), ...lines.map((line) => line.value)]
+  const shown = actions.filter((action) => action.hour <= hour)
   return (
-    <span className="dash-mini-wrap">
-      <svg
-        ref={svg}
-        className={`dash-mini${onRange ? "" : " is-fixed"}`}
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        aria-hidden="true"
-        onPointerDown={(event) => {
-          if (!onRange) return
-          drag.current = { x: event.clientX, range, moved: false }
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          if (!drag.current) return
-          const dx = event.clientX - drag.current.x
-          if (Math.abs(dx) > 3) drag.current.moved = true
-          if (drag.current.moved)
-            onRange!(panRange(drag.current.range, extent, -dx / event.currentTarget.getBoundingClientRect().width))
-        }}
-        onPointerUp={() => {
-          // Keep the flag until the click that follows, then clear it.
-          setTimeout(() => (drag.current = null))
-        }}
-        onClickCapture={(event) => {
-          // A drag ends in a click; do not let it reselect the card.
-          if (drag.current?.moved) event.stopPropagation()
-        }}
-      >
-        {x(hour) < width && (
-          <rect x={Math.max(0, x(hour))} y={0} width={width - Math.max(0, x(hour))} height={height} className="dash-future" />
-        )}
-        {lines.map((line, i) => (
-          <line key={i} x1={0} x2={width} y1={y(line.value)} y2={y(line.value)} className={`dash-limit is-${line.kind}`} />
-        ))}
-        {actions
-          .filter((action) => action.hour <= hour && action.hour >= range[0] && action.hour <= range[1])
-          .map((action) => (
+    <InteractivePlot
+      compact
+      height={160}
+      title={`${title} chart`}
+      xExtent={onRange ? extent : range}
+      xView={range}
+      onXView={onRange}
+      values={values}
+      fromZero={false}
+      yLabel={unit}
+      points={[
+        ...inView.map((sample) => sampleTip(title, unit, digits, sample, settings)),
+        ...shown.map((action) => actionTip(action, unit, digits)),
+      ]}
+    >
+      {({ x, y, top, bottom, left, right }) => (
+        <>
+          {hour < range[1] && (
+            <rect x={Math.max(left, x(hour))} y={top} width={Math.max(0, right - Math.max(left, x(hour)))} height={bottom - top} className="dash-future" />
+          )}
+          {lines.map((line, i) => (
+            <line key={i} x1={left} x2={right} y1={y(line.value)} y2={y(line.value)} className={`dash-limit is-${line.kind}`} />
+          ))}
+          {shown.map((action) => (
             <g key={`${action.hour}-${action.label}`} className="dash-marker">
-              <line x1={x(action.hour)} x2={x(action.hour)} y1={7} y2={height} />
-              <path d={`M${x(action.hour)} 0l4 7h-8z`} />
+              <line x1={x(action.hour)} x2={x(action.hour)} y1={top + 7} y2={bottom} />
+              <path d={`M${x(action.hour)} ${top}l4 7h-8z`} />
             </g>
           ))}
-        <polyline
-          points={inView.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
-          className="dash-line"
-        />
-        {dots && last && last.hour < hour && (
-          <line x1={x(last.hour)} x2={x(hour)} y1={y(last.value)} y2={y(last.value)} className="dash-carry" />
-        )}
-        {/* Zero-length round-capped strokes stay circular in the stretched viewBox. */}
-        {dots
-          ? inView.map((sample) => (
-              <line key={sample.hour} x1={x(sample.hour)} x2={x(sample.hour)} y1={y(sample.value)} y2={y(sample.value)} className="dash-point" />
-            ))
-          : last?.hour === hour && (
-              <line x1={x(last.hour)} x2={x(last.hour)} y1={y(last.value)} y2={y(last.value)} className="dash-point" />
-            )}
-      </svg>
-      <span className="dash-ticks" aria-hidden="true">
-        {niceTicks(range, 6)
-          .filter((tick) => Number.isInteger(tick))
-          .map((tick) => (
-            <span key={tick} style={{ left: `${((tick - range[0]) / (range[1] - range[0])) * 100}%` }}>
-              {tick}h
-            </span>
+          <polyline points={inView.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")} className="dash-line" />
+          {(dots ? inView : inView.filter((sample) => sample.hour === hour)).map((sample) => (
+            <circle key={sample.hour} cx={x(sample.hour)} cy={y(sample.value)} r="3" className="dash-dot" />
           ))}
-      </span>
-    </span>
+        </>
+      )}
+    </InteractivePlot>
   )
 }
 
@@ -294,23 +259,14 @@ export default function Dashboard({
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify(limits))
+      localStorage.setItem(limitsKey, JSON.stringify(limits))
     } catch {
       // Storage blocked: limits still apply for this visit.
     }
   }, [limits])
 
-  // Invalid entries (NaN while typing) fall back to that variable's defaults.
   const runs = useMemo(() => {
-    const safe = Object.fromEntries(
-      processVariables.map((variable) => {
-        const settings = limits[variable.id]
-        const valid = Object.values(settings).every(
-          (value) => value === null || typeof value === "boolean" || Number.isFinite(value),
-        )
-        return [variable.id, valid ? settings : variable.limits]
-      }),
-    )
+    const safe = safeLimits(limits)
     const results = simulate(safe, replayEndHour)
     return processVariables.map((variable) => {
       const run = results[variable.id]
@@ -403,17 +359,15 @@ export default function Dashboard({
         <span className="dash-range">
           {Math.round(range[0])}h – {Math.round(range[1])}h{pinned ? " · paused view" : " · following replay"}
         </span>
-        <span className="dash-hint">Drag a chart to pan · Ctrl+scroll to zoom</span>
+        <span className="dash-hint">Hover a chart for values · scroll to zoom · drag to pan</span>
       </div>
 
       <div className="dash-grid">
-        <button
-          type="button"
-          className={`dash-card is-${countLevel}`}
-          aria-pressed={selectedId === countId}
+        <div
+          className={`dash-card is-${countLevel}${selectedId === countId ? " is-selected" : ""}`}
           onClick={() => setSelectedId(countId)}
         >
-          <span className="dash-card-head">
+          <button type="button" className="dash-card-head" aria-pressed={selectedId === countId}>
             <span className="dash-name" title={levelLabel[countLevel]}>
               Cell count
               <span className="sr-only"> · {levelLabel[countLevel]}</span>
@@ -422,10 +376,10 @@ export default function Dashboard({
               {countState.latest ? countState.latest.count!.toFixed(2) : "—"}
               <small>×10⁶ cells</small>
             </span>
-          </span>
+          </button>
           {/* Fixed full run (0h to end of data), independent of the shared window. With a live
               stream the right edge would grow with the newest sample. */}
-          <MiniChart samples={countSamples} actions={[]} hour={hour} range={extent} dots />
+          <MiniChart title="Cell count" unit="×10⁶ cells" digits={2} samples={countSamples} actions={[]} hour={hour} range={extent} dots />
           <span className="dash-card-foot">
             {countState.latest
               ? `${culture.batchId(replicate)} · sampled ${countState.latest.hour}h${
@@ -433,16 +387,14 @@ export default function Dashboard({
                 }`
               : "No count measured yet"}
           </span>
-        </button>
+        </div>
         {runs.map((run) => (
-          <button
+          <div
             key={run.variable.id}
-            type="button"
-            className={`dash-card is-${run.level}`}
-            aria-pressed={run.variable.id === selectedId}
+            className={`dash-card is-${run.level}${run.variable.id === selectedId ? " is-selected" : ""}`}
             onClick={() => setSelectedId(run.variable.id)}
           >
-            <span className="dash-card-head">
+            <button type="button" className="dash-card-head" aria-pressed={run.variable.id === selectedId}>
               <span className="dash-name" title={levelLabel[run.level]}>
                 {run.variable.name}
                 <span className="sr-only"> · {levelLabel[run.level]}</span>
@@ -451,8 +403,11 @@ export default function Dashboard({
                 {format(run.variable, run.current.value)}
                 <small>{run.variable.unit}</small>
               </span>
-            </span>
+            </button>
             <MiniChart
+              title={run.variable.name}
+              unit={run.variable.unit}
+              digits={run.variable.digits}
               samples={run.samples}
               actions={run.actions}
               settings={run.settings}
@@ -469,7 +424,7 @@ export default function Dashboard({
                   ? `${run.done.length} automated ${run.done.length === 1 ? "action" : "actions"} · last ${run.done.at(-1)!.hour}h`
                   : "Auto control armed"}
             </span>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -487,21 +442,12 @@ export default function Dashboard({
             ...selected.visible.map((sample) => sample.value),
             ...limitLines(selected.settings).map((line) => line.value),
           ]}
-          yLabel={`${selected.variable.name} · ${selected.variable.unit}`}
+          yLabel={`${selected.variable.name}${selected.variable.unit ? ` (${selected.variable.unit})` : ""}`}
           points={[
-            ...selected.visible.map((sample) => ({
-              x: sample.hour,
-              y: sample.value,
-              lines: [`${sample.hour}h`, `${format(selected.variable, sample.value)} ${selected.variable.unit}`],
-            })),
-            ...selected.done.map((action) => ({
-              x: action.hour,
-              y: action.after,
-              lines: [
-                `${action.hour}h · ${action.linkedFrom ? `${action.label} (from ${nameOf(action.linkedFrom)})` : action.label}`,
-                `${format(selected.variable, action.before)} → ${format(selected.variable, action.after)} ${selected.variable.unit}`,
-              ],
-            })),
+            ...selected.visible.map((sample) =>
+              sampleTip(selected.variable.name, selected.variable.unit, selected.variable.digits, sample, selected.settings),
+            ),
+            ...selected.done.map((action) => actionTip(action, selected.variable.unit, selected.variable.digits)),
           ]}
         >
           {({ x, y, top, bottom, left, right }) => (
@@ -536,7 +482,7 @@ export default function Dashboard({
               title="Cell count chart"
               xExtent={[0, replayEndHour]}
               values={countSamples.map((sample) => sample.value)}
-              yLabel="Cell count · ×10⁶ cells"
+              yLabel="Cell count (×10⁶ cells)"
               points={countSamples.map((sample) => ({
                 x: sample.hour,
                 y: sample.value,

@@ -31,7 +31,7 @@ export interface LiveAnalysis {
     target_million: number
     observed_count: number | null
     observed_hour: number | null
-    status: "withheld" | "observed_target_reached" | "estimated_target_reached" | "non_growing" | "projected" | "beyond_run"
+    status: "withheld" | "observed_target_reached" | "estimated_target_reached" | "non_growing" | "projected" | "beyond_run" | "beyond_phase"
     hours_from_observation: number | null
     target_hour: number | null
     doubling_hours: number | null

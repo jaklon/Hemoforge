@@ -106,6 +106,8 @@ export function Icon({ name }: { name: string }) {
 
     logout: <path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" />,
 
+    bell: <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0" />,
+
     team: (
       <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 9c0-3 3-5 6-5s6 2 6 5m1-9a3 3 0 1 0 0-6m2 15c0-2-1-4-3-5" />
     ),

@@ -44,7 +44,8 @@ export default function GuardDecisions({
     review?.source_sample_id,
   )
   const multiplier = snapshot.device_profile?.feed_multiplier_ml ?? 1
-  const label = (item: { kind: string amount: number }) =>
+  const label = (item: { kind: string
+amount: number }) =>
     item.kind === "feed"
       ? `Tambah medium ${item.amount * multiplier} mL`
       : `Pertukaran medium ${item.amount}%`

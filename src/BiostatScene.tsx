@@ -535,7 +535,9 @@ export default function BiostatScene(props: Props) {
     const observer = new ResizeObserver(resize)
     observer.observe(container)
     resize()
-    let drag: { x: number y: number moved: boolean } | null = null,
+    let drag: { x: number
+y: number
+moved: boolean } | null = null,
       yaw = 0,
       pitch = 0
     const ray = new THREE.Raycaster(),

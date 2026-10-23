@@ -56,6 +56,8 @@ def live_analytics(snapshot, request):
         status, reason = "needs_review", "Review non-positive or invalid counts before forecasting."
     elif biostat and snapshot["stage"] != "expansion":
         status, reason = "needs_review", "Growth extrapolation is withheld in differentiation; cell estimates are not mature RBC yield."
+    elif biostat and latest["collected_at_hour"] + request.horizon > 72:
+        status, reason = "needs_review", "The growth horizon crosses the assumed differentiation boundary at 72 h. Choose a shorter horizon or review the next phase."
     elif biostat and (not snapshot.get("sensor_readings") or any(
             not (reading := next((r for r in reversed(snapshot["sensor_readings"]) if r["device"] == device), None))
             or reading["quality"]["status"] != "passed" or reading["expires_at_hour"] < hour
@@ -98,8 +100,11 @@ def live_analytics(snapshot, request):
                 target_hour = latest["collected_at_hour"] + eta
                 doubling = math.log(2) / rate
                 if all(math.isfinite(value) for value in (eta, target_hour, doubling)):
-                    target.update(status="projected" if target_hour <= snapshot["end_hour"] else "beyond_run",
-                                  hours_from_observation=max(0, eta), target_hour=target_hour, doubling_hours=doubling)
+                    if biostat and target_hour > 72:
+                        target.update(status="beyond_phase", doubling_hours=doubling)
+                    else:
+                        target.update(status="projected" if target_hour <= snapshot["end_hour"] else "beyond_run",
+                                      hours_from_observation=max(0, eta), target_hour=target_hour, doubling_hours=doubling)
     return {
         "session_id": snapshot["session_id"], "batch_id": snapshot["batch_id"],
         "source_hash": snapshot["measurements_sha256"], "fit_input_hash": input_hash,

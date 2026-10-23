@@ -102,14 +102,18 @@ export interface LabSnapshot {
   estimate_notice?: string
   controller?: {
     mode: "AUTO"
-    setpoints: { ph: number dissolved_oxygen: number temperature: number }
+    setpoints: { ph: number
+dissolved_oxygen: number
+temperature: number }
     outputs: {
       stirrer_rpm: number
       oxygen_percent: number
       base_output_percent: number
       thermal_output_percent: number
     }
-    events: { id: string hour: number setpoints: Record<string, number> }[]
+    events: { id: string
+hour: number
+setpoints: Record<string, number> }[]
   }
   session_id: string
   batch_id: string

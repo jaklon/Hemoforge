@@ -38,6 +38,7 @@ import {
 import type { ExperimentRow, ScenarioTable } from "./workspace-data"
 import { analyzeMeasurements, type Measurement } from "./culture-monitoring"
 import { defaultGuardView, type GuardView } from "./guard-insights"
+import { accountApi } from "./account"
 export interface SimulationResult {
   batchId: string
   sourceHash: string
@@ -82,6 +83,9 @@ interface WorkspaceContextValue {
   apply: (files: InputFile[]) => Promise<void>
   notice: Notice | null
   notify: (message: string | null, tone?: Notice["tone"]) => void
+  // Every finished notification, newest first, saved to the signed-in account.
+  activity: ActivityEntry[]
+  clearActivity: () => void
   // Sidebar pages with results the user has not opened yet.
   updates: string[]
   flag: (...views: string[]) => void
@@ -99,6 +103,14 @@ export interface Notice {
   message: string
   tone: "info" | "success" | "error"
 }
+export interface ActivityEntry extends Notice {
+  at: string
+  // Workspace page open when it happened.
+  page: string
+}
+// Matches NOTIFICATION_LIMIT in backend/accounts.py.
+const activityLimit = 300
+const updatesKey = "sidebar-updates"
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 export async function checksum(value: BufferSource) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", value))]
@@ -121,10 +133,46 @@ export function DataProvider({ children, liveCulture }: { children: ReactNode; l
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
   function notify(message: string | null, tone: Notice["tone"] = "info") {
-    setNotice(message ? { id: Date.now(), message, tone } : null)
+    const id = Date.now()
+    setNotice(message ? { id, message, tone } : null)
+    // Progress messages ("…") are replaced by their outcome, which is the one worth keeping.
+    if (!message || message.endsWith("…")) return
+    const page = location.hash.slice(1).split("/")[0] || "workspace"
+    setActivity((old) =>
+      [{ id, message, tone, at: new Date(id).toISOString(), page }, ...old].slice(0, activityLimit),
+    )
+    // ponytail: fire-and-forget; an entry made while the API is down stays only in this visit.
+    if (!liveCulture) accountApi("notifications", "POST", { message, tone, page }).catch(() => {})
+    if (page !== "activity") flag("activity")
+  }
+  function clearActivity() {
+    setActivity([])
+    if (!liveCulture) accountApi("notifications", "DELETE").catch(() =>
+      notify("Could not clear notifications in the database", "error"),
+    )
   }
   const [updates, setUpdates] = useState<string[]>([])
+  // Saved only after the account's copy loads, so start-up cannot overwrite it.
+  const [stateLoaded, setStateLoaded] = useState(false)
+  useEffect(() => {
+    // Merge: entries raised before the load finished are kept.
+    if (liveCulture) return
+    accountApi<ActivityEntry[]>("notifications")
+      .then((saved) => setActivity((old) => [...old, ...saved].slice(0, activityLimit)))
+      .catch(() => {})
+    accountApi<Record<string, unknown>>("account/state")
+      .then((state) => {
+        const saved = state[updatesKey]
+        if (Array.isArray(saved)) setUpdates((old) => [...new Set([...saved, ...old])])
+      })
+      .catch(() => {})
+      .finally(() => setStateLoaded(true))
+  }, [])
+  useEffect(() => {
+    if (stateLoaded && !liveCulture) accountApi(`account/state/${updatesKey}`, "PUT", updates).catch(() => {})
+  }, [updates, stateLoaded])
   function flag(...views: string[]) {
     setUpdates((old) => [...new Set([...old, ...views])])
   }
@@ -225,10 +273,10 @@ export function DataProvider({ children, liveCulture }: { children: ReactNode; l
       throw new Error("Inputs changed during analysis. Run again.")
     }
     // Each data type feeds the pages listed under "Active inputs & connections".
-    if (files.some((file) => file.kind === "culture")) flag("guard", "pilot")
+    // Research Report lists checkpoint reports, which only culture data changes.
+    if (files.some((file) => file.kind === "culture")) flag("guard", "pilot", "report")
     if (files.some((file) => file.kind === "markers")) flag("evo2")
     if (refit && !planError) flag("plan")
-    flag("report")
     if (planError)
       notify(`Data applied, but CulturePlan refit failed: ${planError}`, "error")
     else
@@ -320,7 +368,7 @@ export function DataProvider({ children, liveCulture }: { children: ReactNode; l
     if (activeInputs.current !== inputs || sequence !== planSequence.current)
       return
     notify("CulturePlan fit finished · conditions re-ranked", "success")
-    flag("plan", "report")
+    flag("plan")
     const { result: plan, ...prediction } = response
     const id = await checksum(
       new TextEncoder().encode(
@@ -368,6 +416,8 @@ export function DataProvider({ children, liveCulture }: { children: ReactNode; l
         apply,
         notice,
         notify,
+        activity,
+        clearActivity,
         updates,
         flag,
         unflag,

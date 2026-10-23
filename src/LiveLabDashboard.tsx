@@ -28,7 +28,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
   const [message, setMessage] = useState("")
   const [settings, setSettings] = useState<LiveAnalysisSettings>({
     horizon: 24,
-    target_million: 1000,
+    target_million: 50000,
   })
   const analytics = useLiveAnalytics(
     snapshot,

@@ -110,6 +110,8 @@ export default function LiveCulturePlan(props: LiveModuleProps) {
             : plan.status === "observed_target_reached" ||
                 plan.status === "estimated_target_reached"
               ? `Estimasi target tercapai pada ${plan.observed_hour?.toFixed(3)} h. Ini estimasi ViaMass yang belum dikalibrasi, bukan hasil RBC matang.`
+              : plan.status === "beyond_phase"
+                ? "ETA melewati transisi diferensiasi pada 72 h. ETA ditahan karena laju ekspansi tidak dapat diteruskan ke fase berikutnya."
               : plan.status === "non_growing"
                 ? "Laju perubahan estimasi sel tidak positif. ETA target tidak dihitung."
                 : estimatedTimePassed

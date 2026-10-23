@@ -46,6 +46,12 @@ See [local walkthrough and free asset credits](public/VIRTUAL_LAB.md), [BIOSTAT 
 and [PoC routes](docs/VIRTUAL_LAB_POC_WORKSPACE.md). Run one Python API worker; sessions are local, in memory and lost on restart.
 No physical device, remote database, NVIDIA, hosted LLM, paid assets or cloud resources are called by this simulation.
 Stage A–E documents describe the historical FLEX2 implementation; new sessions default to BIOSTAT schema 4.
+## Demo account
+
+The workspace needs a sign-in, so it needs the Python API and `DATABASE_URL`.
+`backend/schema.sql` seeds one demo account (username `researcher`); its password is
+shared internally. Change the password on the Account page of any deployment that
+others can reach. The profile, notifications and sidebar flags are saved per account.
 
 ## Updating the live site (hemoforge.my.id)
 

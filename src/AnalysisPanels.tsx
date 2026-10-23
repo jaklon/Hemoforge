@@ -878,144 +878,16 @@ export function ExperimentPlanner({
 
 export { default as MarkerScreen } from "./MarkerScreen"
 
-const mvpKeys = [
-  "lactate_mmol_l",
-  "ammonia_mmol_l",
-  "glucose_mmol_l",
-  "glutamine_mmol_l",
-  "ph",
+// The four metabolites share mmol/L on the left axis; pH gets its own axis on the right.
+const mvpSeries = [
+  { key: "lactate_mmol_l", color: "#c2410c" },
+  { key: "ammonia_mmol_l", color: "#7c3aed" },
+  { key: "glucose_mmol_l", color: "#2563eb" },
+  { key: "glutamine_mmol_l", color: "#0d8279" },
+  { key: "ph", color: "#64748b", right: true },
 ]
 
-// Small multiples: each variable keeps its own y-scale so pH and mmol/L stay readable.
 // Axes span the whole run, so replay reveals points without rescaling the lines.
-function MvpChart({
-  rows,
-
-  channelKey,
-
-  hour,
-
-  end,
-}: {
-  rows: CultureRow[]
-
-  channelKey: string
-
-  hour: number
-
-  end: number
-}) {
-  const box = useRef<HTMLDivElement>(null)
-
-  const [height, setHeight] = useState(150)
-
-  useEffect(() => {
-    if (!box.current) return
-
-    const observer = new ResizeObserver(([entry]) =>
-      setHeight(Math.max(130, entry.contentRect.height)),
-    )
-
-    observer.observe(box.current)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const channel = channels.find((item) => item.key === channelKey)!
-
-  const label = channelKey === "ph" ? "pH medium" : channel.label
-
-  const all = rows.filter((row) => row.channels[channelKey] != null)
-
-  const values = all.filter((row) => row.hour <= hour)
-
-  const value = (row: CultureRow) => row.channels[channelKey]!
-
-  return (
-    <figure>
-      <figcaption>
-        {label}
-        <small>
-          {values.length
-            ? `${value(values.at(-1)!).toPrecision(3)} ${channel.unit}`
-            : "No data"}
-        </small>
-      </figcaption>
-      <div className="mvp-chart-box" ref={box}>
-        <InteractivePlot
-          compact
-          height={height}
-          title={`${label} through ${hour}h`}
-          xExtent={[0, end]}
-          // Full-run values fix the y-axis, so replay reveals points without rescaling.
-          values={all.map(value)}
-          fromZero={false}
-          yLabel={channel.unit || "pH"}
-          points={values.map((row, index) => {
-            const previous = values[index - 1]
-
-            return {
-              x: row.hour,
-
-              y: value(row),
-
-              lines: [
-                `${label} · ${plotNumber(row.hour)}h`,
-
-                `${plotNumber(value(row))} ${channel.unit}`,
-
-                ...(previous
-                  ? [
-                      `${value(row) >= value(previous) ? "+" : ""}${plotNumber(
-                        value(row) - value(previous),
-                      )} vs ${plotNumber(previous.hour)}h`,
-                    ]
-                  : []),
-              ],
-            }
-          })}
-        >
-          {({ x, y, top, bottom }) => (
-            <>
-              {hour < end && (
-                <rect
-                  x={x(hour)}
-                  y={top}
-                  width={Math.max(0, x(end) - x(hour))}
-                  height={bottom - top}
-                  fill="var(--guard-future)"
-                />
-              )}
-              <polyline
-                points={values
-                  .map((row) => `${x(row.hour)},${y(value(row))}`)
-                  .join(" ")}
-                fill="none"
-                stroke="#0d8279"
-                strokeWidth="2"
-              />
-              {values.map((row) => (
-                <circle
-                  key={row.hour}
-                  cx={x(row.hour)}
-                  cy={y(value(row))}
-                  r="3"
-                  fill="#0d8279"
-                />
-              ))}
-              {!all.length && (
-                <text x={x(end / 2)} y={(top + bottom) / 2} textAnchor="middle">
-                  Not measured yet
-                </text>
-              )}
-            </>
-          )}
-        </InteractivePlot>
-      </div>
-    </figure>
-  )
-}
-
 export function MvpCharts({
   rowsOverride,
   replicate,
@@ -1033,221 +905,122 @@ export function MvpCharts({
 
   const end = Math.max(replayEndHour, rows.at(-1)?.hour ?? 0, 1)
 
-  return (
-    <div className="mvp-charts">
-      {mvpKeys.map((key) => (
-        <MvpChart key={key} rows={rows} channelKey={key} hour={hour} end={end} />
-      ))}
-    </div>
-  )
-}
+  const series = mvpSeries.map((item) => {
+    const channel = channels.find((c) => c.key === item.key)!
 
-export function ChannelPanel({
-  rowsOverride,
-  replicate,
+    const all = rows.filter((row) => row.channels[item.key] != null)
 
-  hour,
+    return {
+      ...item,
+      label: item.key === "ph" ? "pH medium" : channel.label,
+      unit: channel.unit,
+      all,
+      values: all.filter((row) => row.hour <= hour),
+      value: (row: CultureRow) => row.channels[item.key]!,
+    }
+  })
 
-  onImport,
-}: {
-  rowsOverride?: CultureRow[]
-  replicate: number
+  const left = series.filter((item) => !item.right)
 
-  hour: number
-
-  onImport?: () => void
-}) {
-  const { batchMeasurements, batchId } = useCultureData()
-
-  const [selected, setSelected] = useState(channels[0].key)
-
-  const rows = (rowsOverride ?? batchMeasurements(replicate)).filter(
-    (sample) => sample.hour <= hour,
-  )
-
-  const available = (key: string) =>
-    rows.filter((row) => row.channels[key] != null)
-
-  const sampledChannels = channels.filter(
-    (channel) => available(channel.key).length,
-  )
-
-  const activeKey = available(selected).length
-    ? selected
-    : (sampledChannels[0]?.key ?? selected)
-
-  const values = available(activeKey)
-
-  const channel = channels.find((item) => item.key === activeKey)!
-
-  const minimum = values.length
-    ? Math.min(...values.map((row) => row.channels[activeKey]!))
-    : 0
-
-  const maximum = values.length
-    ? Math.max(...values.map((row) => row.channels[activeKey]!))
-    : 1
-
-  const padding = Math.max(
-    (maximum - minimum) * 0.15,
-
-    Math.abs(maximum) * 0.03,
-
-    0.05,
-  )
-
-  const low = minimum - padding
-
-  const high = maximum + padding
-
-  const x = (t: number) => 60 + (t / Math.max(hour, 1)) * 500
-
-  const y = (v: number) => 177 - ((v - low) / (high - low)) * 130
-
-  if (!sampledChannels.length)
-    return (
-      <Panel
-        title="Environment & metabolites"
-        caption={`${batchId(replicate)} · through ${hour}h`}
-        action={<Badge>No data</Badge>}
-      >
-        <div className="guard-sensor-empty">
-          <div className="guard-sensor-symbol">—</div>
-          <h3>No environment samples at this cutoff</h3>
-          <p>
-            Import pH, temperature, oxygen, or metabolite values to inspect
-            their trends alongside cell growth.
-          </p>
-          {onImport && (
-            <Button icon="data" onClick={onImport}>
-              Add environment data
-            </Button>
-          )}
-        </div>
-        <Details title="Available environment columns">
-          <p>
-            {channels.map((channel) => channel.key).join(", ")}. Values must
-            come from source measurements; missing channels remain unmeasured.
-          </p>
-        </Details>
-      </Panel>
-    )
+  const ph = series.find((item) => item.right)!
 
   return (
-    <Panel
-      title="Environment & metabolites"
-      caption={`${batchId(replicate)} · original sample times only`}
-      action={
-        <Badge>
-          {channels.some((c) => available(c.key).length)
-            ? "Sampled values"
-            : "No data"}
-        </Badge>
-      }
-    >
-      <div className="channel-grid">
-        {sampledChannels.map((item) => {
-          const sample = available(item.key).at(-1)
+    <>
+          <InteractivePlot
+            controls={<h3>MVP variables</h3>}
+            logScale={false}
+            help={false}
+            title={`Metabolites and pH through ${hour}h`}
+            xExtent={[0, end]}
+            values={left.flatMap((item) => item.all.map(item.value))}
+            fromZero={false}
+            yLabel="Metabolites (mmol/L)"
+            y2={{ values: ph.all.map(ph.value), label: "pH" }}
+            points={series.flatMap((item) =>
+              item.values.map((row, index) => {
+                const previous = item.values[index - 1]
 
-          return (
-            <div key={item.key}>
-              <span>{item.label}</span>
-              <strong>
-                {sample ? sample.channels[item.key]!.toPrecision(4) : "—"}
-              </strong>
-              <small>
-                {sample ? `${item.unit} · sampled ${sample.hour}h` : "No data"}
-              </small>
-            </div>
-          )
-        })}
+                return {
+                  x: row.hour,
+
+                  y: item.value(row),
+
+                  right: item.right,
+
+                  lines: [
+                    `${item.label} · ${plotNumber(row.hour)}h`,
+
+                    `${plotNumber(item.value(row))} ${item.unit}`,
+
+                    ...(previous
+                      ? [
+                          `${item.value(row) >= item.value(previous) ? "+" : ""}${plotNumber(
+                            item.value(row) - item.value(previous),
+                          )} vs ${plotNumber(previous.hour)}h`,
+                        ]
+                      : []),
+                  ],
+                }
+              }),
+            )}
+          >
+            {({ x, y, y2, top, bottom }) => (
+              <>
+                {hour < end && (
+                  <rect
+                    x={x(hour)}
+                    y={top}
+                    width={Math.max(0, x(end) - x(hour))}
+                    height={bottom - top}
+                    fill="var(--guard-future)"
+                  />
+                )}
+                {series.map((item) => {
+                  const toY = item.right ? y2 : y
+
+                  return (
+                    <g key={item.key} fill={item.color} stroke={item.color}>
+                      <polyline
+                        points={item.values
+                          .map((row) => `${x(row.hour)},${toY(item.value(row))}`)
+                          .join(" ")}
+                        fill="none"
+                        strokeWidth="2"
+                        strokeDasharray={item.right ? "5 3" : undefined}
+                      />
+                      {item.values.map((row) => (
+                        <circle
+                          key={row.hour}
+                          cx={x(row.hour)}
+                          cy={toY(item.value(row))}
+                          r="2.5"
+                          stroke="none"
+                        />
+                      ))}
+                    </g>
+                  )
+                })}
+                {!series.some((item) => item.all.length) && (
+                  <text x={x(end / 2)} y={(top + bottom) / 2} textAnchor="middle">
+                    Not measured yet
+                  </text>
+                )}
+              </>
+            )}
+          </InteractivePlot>
+      <div className="guard-legend mvp-legend" aria-label="Chart series">
+        {series.map((item) => (
+          <span key={item.key}>
+            <i style={{ borderTop: `2px ${item.right ? "dashed" : "solid"} ${item.color}` }} />
+            {item.label}
+            <small>
+              {item.values.length
+                ? `${item.value(item.values.at(-1)!).toPrecision(3)} ${item.unit}`
+                : "No data"}
+            </small>
+          </span>
+        ))}
       </div>
-      <label className="channel-picker">
-        Trend to inspect
-        <select
-          value={activeKey}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          {sampledChannels.map((item) => (
-            <option value={item.key} key={item.key}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {values.length ? (
-        <svg
-          className="channel-chart"
-          viewBox="0 0 600 215"
-          role="img"
-          aria-label={`${channel.label} at original measurement times, through ${hour}h`}
-        >
-          <text x="60" y="22">
-            {channel.label} {channel.unit}
-          </text>
-          {[0, 0.5, 1].map((f) => (
-            <g key={f}>
-              <line
-                x1="60"
-                x2="560"
-                y1={y(low + (high - low) * f)}
-                y2={y(low + (high - low) * f)}
-                stroke="#e6ebf0"
-              />
-              <text x="50" y={y(low + (high - low) * f) + 4} textAnchor="end">
-                {(low + (high - low) * f).toPrecision(3)}
-              </text>
-            </g>
-          ))}
-          <polyline
-            points={values
-
-              .map((p) => `${x(p.hour)},${y(p.channels[activeKey]!)}`)
-
-              .join(" ")}
-            fill="none"
-            stroke="#0d8279"
-            strokeWidth="2"
-          />
-          {values.map((p) => (
-            <circle
-              key={p.hour}
-              cx={x(p.hour)}
-              cy={y(p.channels[activeKey]!)}
-              r="3"
-              fill="#0d8279"
-            >
-              <title>
-                {p.hour}h · {p.channels[activeKey]} {channel.unit}
-              </title>
-            </circle>
-          ))}
-          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-            <text key={f} x={x(hour * f)} y="203" textAnchor="middle">
-              {(hour * f).toFixed(1)}h
-            </text>
-          ))}
-        </svg>
-      ) : (
-        <p className="panel-note">
-          No {channel.label.toLowerCase()} data at this time. Add its column to
-          your culture file.
-        </p>
-      )}
-      <Details title="Measurement context">
-        <p>
-          Values are laboratory samples, not a continuous sensor stream.
-          Unmeasured channels:{" "}
-          {channels
-
-            .filter((channel) => !sampledChannels.includes(channel))
-
-            .map((channel) => channel.label)
-
-            .join(", ") || "none"}
-          . No contamination or leak diagnosis is inferred.
-        </p>
-      </Details>
-    </Panel>
+    </>
   )
 }

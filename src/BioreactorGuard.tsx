@@ -17,7 +17,7 @@ import MonitoringControls from "./MonitoringControls"
 
 import InteractivePlot from "./InteractivePlot"
 
-import { ChannelPanel, MvpCharts } from "./AnalysisPanels"
+import { MvpCharts } from "./AnalysisPanels"
 
 import { csv, downloadFile } from "./workspace-utils"
 
@@ -204,6 +204,7 @@ function GrowthChart({
   return (
     <>
       <InteractivePlot
+        help={false}
         controls={
           <>
             <fieldset className="guard-segmented">
@@ -238,11 +239,23 @@ function GrowthChart({
         title={`Observed growth for ${selected.id}`}
         xExtent={[start, end]}
         values={allPoints.map((point) => point.value)}
-        points={hoverPoints}
+        points={[
+          ...hoverPoints,
+          ...markers.map((item) => ({
+            x: item.hour,
+            y: 0,
+            marker: true,
+            lines: [
+              `⚠ ${guardEventInfo(item, monitoring).title}`,
+              `${selected.id} · ${number(item.hour)}h`,
+              "Click to review",
+            ],
+          })),
+        ]}
         yLabel={
           view.scale === "count"
-            ? "Cell count · ×10⁶ cells"
-            : "Fold change · first valid sample = 1×"
+            ? "Cell count (×10⁶ cells)"
+            : "Fold change (first valid sample = 1×)"
         }
       >
         {({ x, y, top, bottom }) => (
@@ -595,7 +608,7 @@ export default function BioreactorGuard({
               {urgent
                 ? `Start with ${urgent.id}. It has the most urgent warning.`
                 : live
-                  ? "Monitoring released FLEX2 samples. The 3D window controls time and sampling."
+                  ? "Monitoring virtual PAT signals and estimated cell counts. Monitor 01 controls culture time."
                 : hour < replayEndHour
                   ? "Press Play or Next to step through the culture samples."
                   : "Every sample so far is within your monitoring rules."}
@@ -848,10 +861,13 @@ export default function BioreactorGuard({
           />
           </div>
           <div className="guard-mvp">
-            <h3>MVP variables</h3>
             <MvpCharts replicate={replicate} hour={hour} rowsOverride={sensorRows} />
           </div>
           </div>
+          <p className="guard-plot-help">
+            Scroll to zoom · Ctrl+scroll: time only · Shift+scroll: Y only ·
+            Drag to pan · Hover a point for values
+          </p>
         </Panel>
       </section>
       <div className="guard-main-grid">
@@ -1023,14 +1039,6 @@ export default function BioreactorGuard({
             </div>
           </div>
         </Panel>
-      </div>
-      <div className="guard-secondary-grid" id="guard-environment">
-        <ChannelPanel
-          rowsOverride={sensorRows}
-          replicate={replicate}
-          hour={hour}
-          onImport={() => navigate("data")}
-        />
       </div>
       <div ref={settingsRef} id="guard-settings">
         <MonitoringControls />
