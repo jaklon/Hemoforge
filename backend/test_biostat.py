@@ -138,6 +138,15 @@ class BiostatTests(unittest.TestCase):
         self.assertAlmostEqual(c.state[4], lactate / 2)
         self.assertEqual(result["retention_fraction"], 0.98)
 
+    def test_horizons_and_target_eta_do_not_cross_the_assumed_phase_boundary(self):
+        s = BiostatSession(); advance(s, 60)
+        self.assertIsNone(analyze(s)["forecast"])
+        snap = s.snapshot()
+        shorter = live_analytics(snap, AnalyticsRequest(source_hash=snap["measurements_sha256"], horizon=12, target_million=1_000_000))
+        self.assertEqual(shorter["status"], "ready")
+        self.assertEqual(shorter["target_plan"]["status"], "beyond_phase")
+        self.assertIsNone(shorter["target_plan"]["target_hour"])
+
     def test_transfer_applies_once_after_rendering_and_requires_new_evidence(self):
         s = BiostatSession(); s.controller = True; advance(s, 3)
         request = decision(s); record = queue_intervention(s, request, 168)

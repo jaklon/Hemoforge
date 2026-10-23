@@ -174,6 +174,7 @@ export default function LivePilot(props: LiveModuleProps) {
             </div>
           </div>
           <ForecastChart
+            observedLabel="ViaMass cell estimate"
             key={forecast!.requestId}
             result={result}
             samples={analysis!.training_samples}

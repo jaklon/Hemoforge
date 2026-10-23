@@ -57,9 +57,11 @@ class BiostatCulture(Culture):
             do_error = self.setpoints["dissolved_oxygen"] - self.do
             temp_error = self.setpoints["temperature"] - self.temperature
             rpm = max(80, min(220, 100 + do_error * 3))
-            oxygen = max(21, min(80, 21 + do_error * 2))
+            # O2 fraction of a virtual O2/N2 blend; nitrogen can lower the DO supply.
+            oxygen = max(1, min(80, 21 + do_error * 2))
             self.outputs = {"stirrer_rpm": round(rpm, 2), "oxygen_percent": round(oxygen, 2),
-                            "base_output_percent": round(max(-100, min(100, ph_error * 300)), 2),
+                            "base_output_percent": round(max(0, min(100, ph_error * 300)), 2),
+                            "acid_output_percent": round(max(0, min(100, -ph_error * 300)), 2),
                             "thermal_output_percent": round(max(-100, min(100, temp_error * 50)), 2)}
             oxygen_factor = self.do / (5 + self.do)
             temp_factor = math.exp(-((self.temperature - 37) / 3) ** 2)
@@ -203,8 +205,12 @@ class BiostatSession(Session):
 
     def snapshot(self):
         snapshot = super().snapshot()
+        snapshot.pop("protocol")  # No manual assay/aliquot timing in schema 4.
         snapshot.update(schema_version=4, model_version=VERSION,
             device_profile=PROFILE, sensor_readings=self.sensor_readings,
+            uncertainty_model={"core": {"ph_sd": 0.005, "do_sd_percentage_points": 0.3, "temperature_sd_c": 0.02},
+                "trace": {"relative_sd": 0.02}, "viamass": {"relative_sd": 0.025},
+                "calibration_validated": False, "biological_uncertainty_quantified": False},
             sensor_schedule={key: {"interval_hours": v[0], "delay_hours": v[1], "max_age_hours": v[2]}
                              for key, v in SCHEDULE.items()},
             pending_sensor_count=len(self.pending_readings), sensor_faults=sorted(self.faults),

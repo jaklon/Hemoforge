@@ -65,6 +65,7 @@ Trace uses an illustrative closed dialysis loop with no net withdrawal in this m
 - Local CPU growth analytics uses a rolling 24 h window with at least 2 h between fitting points, >=3 points and >=6 h span.
   Material transfers, user setpoint changes and phase changes start a new segment; routine AUTO corrections do not reset it.
   Growth forecasts/ETA are withheld during differentiation, sensor faults/staleness, active actions or insufficient data.
+  Horizons/target ETAs cannot cross the assumed 72 h phase boundary.
 - Independent-experiment GP remains withheld: samples from one reactor are not independent DOE replicates.
   RareMatch still requires genotype/phenotype data, not process telemetry. No clinical product release is simulated.
 

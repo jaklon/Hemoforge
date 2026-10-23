@@ -50,7 +50,7 @@ telemetry does not automatically invalidate a still-fresh reviewed source. Anoth
 
 Pilot/Plan fit only published estimated counts in a rolling 24 h window, spaced >=2 h. Material user events (setpoint,
 transfer, phase) define fit segments; routine AUTO actuator changes do not reset fitting. >=3 points and >=6 h span
-are required. QC/staleness/active interventions/differentiation withhold predictions, and target-reached status is labelled
+are required. QC/staleness/active interventions/differentiation withhold predictions. Forecast horizons and target ETAs cannot cross the assumed 72 h phase boundary; target-reached status is labelled
 `estimated_target_reached`. The forecast distribution remains an uncalibrated teaching extrapolation. GP DOE stays
 withheld without independent controlled experiments. Three-hour checkpoint reports use publication-time availability.
 
@@ -69,3 +69,10 @@ rolling/stage-aware forecasting, nonideal mass balances, intervention idempotenc
 Guard volume/source gates and material segmentation. Legacy tests explicitly select their compatibility profile.
 
 Scientific/device references and the step-by-step local walkthrough are in public/VIRTUAL_LAB.md.
+
+Research workspace sign-in and the latest main chart layout are preserved. PoC routes do not mount the account loader,
+and live DataProvider instances do not read or write account notifications/state. This keeps the local simulation independent
+of database credentials; control still requires the original controller capability or explicitly paired Guard operator.
+
+Virtual noise metadata records per-device core/Trace/ViaMass settings and explicitly states that calibration and biological
+uncertainty are unvalidated. Schema 4 omits the legacy manual-assay protocol rather than exporting FLEX2 timing.

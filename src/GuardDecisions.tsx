@@ -164,9 +164,10 @@ amount: number }) =>
       {latest && (
         <p className="vl-decision-source">
           Dasar keputusan: <b>{latest.sample_id}</b> ·{" "}
-          {latest.collected_at_hour.toFixed(3)} h · glukosa{" "}
+          {latest.collected_at_hour.toFixed(3)} h · konteks kimia saat rilis estimasi · glukosa{" "}
           {latest.channels.glucose_mmol_l} mmol/L · laktat{" "}
           {latest.channels.lactate_mmol_l} mmol/L
+          {snapshot.device_profile && <small className="biostat-decision-provenance"><br />Sumber konteks: {latest.source_sensor_ids?.join(", ")}. Waktu sensor asli dan pembacaan terkini tersedia di panel sumber dan Dashboard.</small>}
         </p>
       )}
       <div className="vl-decision-inputs">

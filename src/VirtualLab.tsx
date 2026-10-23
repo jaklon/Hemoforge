@@ -305,19 +305,15 @@ export default function VirtualLab() {
           )}
           {id && (
             <>
-              <button
+              <a
                 className="vl-primary"
                 data-testid="open-live-guard"
-                onClick={() =>
-                  window.open(
-                    pocMonitorHash(id),
-                    `hemoforge-monitor-${id}`,
-                    "popup=yes,width=1440,height=1000",
-                  )
-                }
+                href={pocMonitorHash(id)}
+                target="_blank"
+                rel="noopener"
               >
                 Buka dashboard di monitor 2 ↗
-              </button>
+              </a>
               <p className="vl-footnote">
                 Pindahkan jendela baru ke monitor kedua dan biarkan kedua
                 jendela terlihat. Menyembunyikan tab 3D menjeda kultur.

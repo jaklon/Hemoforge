@@ -7,9 +7,11 @@ import { plotNumber } from "./plot-navigation"
 export default function ForecastChart({
   result,
   samples,
+  observedLabel = "Measured",
 }: {
   result: CultureForecast
   samples: Measurement[]
+  observedLabel?: string
 }) {
   const [paths, setPaths] = useState(true)
   const [interval, setInterval] = useState("95")
@@ -23,7 +25,7 @@ export default function ForecastChart({
       x: sample.hour,
       y: sample.count!,
       lines: [
-        `Measured · ${plotNumber(sample.hour)}h`,
+        `${observedLabel} · ${plotNumber(sample.hour)}h`,
         `${plotNumber(sample.count!)} ×10⁶ cells`,
       ],
     })),
@@ -153,7 +155,7 @@ export default function ForecastChart({
       <div className="guard-legend forecast-legend">
         <span>
           <i className="legend-measured" />
-          Measured
+          {observedLabel}
         </span>
         <span>
           <i className="legend-median" />

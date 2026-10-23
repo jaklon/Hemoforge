@@ -39,7 +39,7 @@ export default function LiveProcessDashboard({
 
   const latest = snapshot.measurements.at(-1)
 
-  const stale = latest && snapshot.culture_hours - latest.collected_at_hour > 24
+  const stale = latest && snapshot.culture_hours - latest.collected_at_hour > (snapshot.device_profile ? 3 : 24)
 
   return (
     <>
@@ -56,17 +56,17 @@ export default function LiveProcessDashboard({
           available signals / estimates
         </span>
         <span>
-          <strong>{snapshot.measurements.length}</strong> released samples
+          <strong>{snapshot.measurements.length}</strong> {snapshot.device_profile ? "released cell estimates" : "released samples"}
         </span>
         <span>
           <strong>
             {
-              snapshot.assays.filter(
+              (snapshot.sensor_readings ?? snapshot.assays).filter(
                 (item) => item.quality.status === "rejected",
               ).length
             }
           </strong>{" "}
-          QC rejected
+          sensor QC rejected
         </span>
         <span>
           <strong>{applied.length}</strong> applied decisions

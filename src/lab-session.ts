@@ -130,7 +130,7 @@ setpoints: Record<string, number> }[]
   reason: string
   analysis_progress: number
   assay_stage: "idle" | "aspiration" | "chemistry" | "cell_count" | "quality_review" | "complete"
-  protocol: {
+  protocol?: {
     animation_seconds: number
     culture_minutes: number
     analyzed_volume_ml: number
@@ -150,7 +150,13 @@ setpoints: Record<string, number> }[]
     max_volume_ml: number
     decision_max_age_hours: number
   }
-  uncertainty_model: MeasurementUncertainty
+  uncertainty_model: MeasurementUncertainty | {
+    core: { ph_sd: number; do_sd_percentage_points: number; temperature_sd_c: number }
+    trace: { relative_sd: number }
+    viamass: { relative_sd: number }
+    calibration_validated: false
+    biological_uncertainty_quantified: false
+  }
   sample: SampleMetadata | null
   assays: CompletedAssay[]
   measurements: Flex2Measurement[]
