@@ -1087,3 +1087,8 @@ button.dash-card-head { width: 100%; padding: 0; border: 0; background: none; fo
 .stage-status { padding: 10px 18px 18px; color: #526174; font-size: var(--text-caption); }
 .stage-status p + p { margin-top: 8px; color: var(--muted); font-size: var(--text-xs); }
 .pilot-report-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.report-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.report-inspector { position: sticky; top: 76px; }
+@media (max-width: 1000px) { .report-layout { grid-template-columns: minmax(0, 1fr); } .report-inspector { position: static; } }
+.report-timeline button[aria-pressed="true"] { box-shadow: inset 3px 0 0 #2584be; }
+.report-layout .report-filters .search-field { flex-basis: 100%; max-width: none; }

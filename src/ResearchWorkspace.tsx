@@ -305,6 +305,81 @@ function ReplayControls({
   )
 }
 
+type CheckpointReport = ReturnType<ReturnType<typeof useCultureData>["checkpointReports"]>[number]
+
+/** One checkpoint report, read in ErythroPilot and inspected on Research Report. */
+function ReportDetail({
+  report,
+  evidence,
+  children,
+}: {
+  report: CheckpointReport
+  evidence: string
+  children?: ReactNode
+}) {
+  return (
+    <div className="report-detail">
+      <div className="report-reading">
+        <span>Last available count</span>
+        <strong>
+          {report.last_count?.toFixed(2) ?? "—"}
+          <small>×10⁶ cells</small>
+        </strong>
+        <p>
+          Sampled at {report.last_measurement_hour}h · not at the reporting time
+        </p>
+      </div>
+      <dl>
+        <div>
+          <dt>Data window</dt>
+          <dd>
+            ({report.data_window.from_hour}h, {report.checkpoint_hour}h]
+          </dd>
+        </div>
+        <div>
+          <dt>New samples</dt>
+          <dd>{report.new_measurements}</dd>
+        </div>
+        <div>
+          <dt>Change since prior report</dt>
+          <dd>
+            {report.change_since_previous === null
+              ? "— · no new sample"
+              : `${
+                  report.change_since_previous > 0 ? "+" : ""
+                }${report.change_since_previous.toFixed(2)} ×10⁶ cells`}
+          </dd>
+        </div>
+        <div>
+          <dt>Open warnings</dt>
+          <dd>{report.open_warnings.length}</dd>
+        </div>
+        <div>
+          <dt>Execution / evidence</dt>
+          <dd>Succeeded / {evidence}</dd>
+        </div>
+      </dl>
+      <p>{report.summary}</p>
+      {report.open_warnings.map((event) => (
+        <div className="notice warning-notice" key={event.id}>
+          <Icon name="alert" />
+          <div>
+            <strong>
+              {event.hour}h · {event.rule}
+            </strong>
+            <p>{event.reason}</p>
+          </div>
+        </div>
+      ))}
+      <div className="analyst-review">
+        <strong>Analyst follow-up</strong>
+        <p>{report.recommendation}</p>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function Pilot({
   replayControls,
 
@@ -324,7 +399,7 @@ function Pilot({
 
   setReplicate: (n: number) => void
 
-  navigate: (view: View) => void
+  navigate: (view: View, detail?: string) => void
 }) {
   const {
     batches,
@@ -443,7 +518,11 @@ function Pilot({
       {replayControls}
       <CheckpointRoadmap hour={hour} />
       <div className="pilot-insights">
-        <TrendHealth hour={hour} replicate={replicate} warnings={state.events.length} />
+        <TrendHealth
+          hour={hour}
+          replicate={replicate}
+          warnings={state.events.length}
+        />
         <StageEstimate hour={hour} />
       </div>
       <section className="pilot-section" aria-label="Growth simulation">
@@ -452,77 +531,28 @@ function Pilot({
       <div className="pilot-latest">
         <Panel
           title={
-            selected ? `Latest report · ${selected.checkpoint_hour}h` : "Latest report"
+            selected
+              ? `Latest report · ${selected.checkpoint_hour}h`
+              : "Latest report"
           }
           action={selected && <Status status={selected.status} />}
         >
           {selected ? (
-            <div className="report-detail">
-              <div className="report-reading">
-                <span>Last available count</span>
-                <strong>
-                  {selected.last_count?.toFixed(2) ?? "—"}
-                  <small>×10⁶ cells</small>
-                </strong>
-                <p>
-                  Sampled at {selected.last_measurement_hour}h · not at the
-                  reporting time
-                </p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Data window</dt>
-                  <dd>
-                    ({selected.data_window.from_hour}h,{" "}
-                    {selected.checkpoint_hour}h]
-                  </dd>
-                </div>
-                <div>
-                  <dt>New samples</dt>
-                  <dd>{selected.new_measurements}</dd>
-                </div>
-                <div>
-                  <dt>Change since prior report</dt>
-                  <dd>
-                    {selected.change_since_previous === null
-                      ? "— · no new sample"
-                      : `${
-                          selected.change_since_previous > 0 ? "+" : ""
-                        }${selected.change_since_previous.toFixed(2)} ×10⁶ cells`}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Open warnings</dt>
-                  <dd>{selected.open_warnings.length}</dd>
-                </div>
-                <div>
-                  <dt>Execution / evidence</dt>
-                  <dd>Succeeded / {source.evidence}</dd>
-                </div>
-              </dl>
-              <p>{selected.summary}</p>
-              {selected.open_warnings.map((event) => (
-                <div className="notice warning-notice" key={event.id}>
-                  <Icon name="alert" />
-                  <div>
-                    <strong>
-                      {event.hour}h · {event.rule}
-                    </strong>
-                    <p>{event.reason}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="analyst-review">
-                <strong>Analyst follow-up</strong>
-                <p>{selected.recommendation}</p>
-              </div>
+            <ReportDetail report={selected} evidence={source.evidence}>
               <div className="pilot-report-actions">
-                <Button onClick={() => navigate("guard")}>Review in Guard</Button>
-                <Button icon="report" onClick={() => navigate("report")}>
+                <Button onClick={() => navigate("guard")}>
+                  Review in Guard
+                </Button>
+                <Button
+                  icon="report"
+                  onClick={() =>
+                    navigate("report", String(selected.checkpoint_hour))
+                  }
+                >
                   Review report
                 </Button>
               </div>
-            </div>
+            </ReportDetail>
           ) : (
             <p className="panel-note">Reports appear as replay advances.</p>
           )}
@@ -682,11 +712,19 @@ const reportPage = 10
 function ResearchReport({
   hour,
   replicate,
+  focusHour,
+  // Checkpoint to open first, from #report/<hour> (ErythroPilot's Review report).
 }: {
   hour: number
   replicate: number
+  focusHour: number | null
 }) {
-  const { batchId, checkpointReports, reportInterval } = useCultureData()
+  const { batchId, checkpointReports, reportInterval, source } =
+    useCultureData()
+
+  const [activeHour, setActiveHour] = useState(focusHour)
+
+  useEffect(() => setActiveHour(focusHour), [focusHour])
 
   const all = checkpointReports(replicate, hour)
 
@@ -710,6 +748,9 @@ function ResearchReport({
   )
 
   const reports = newestFirst ? [...matches].reverse() : matches
+
+  const selected =
+    all.find((report) => report.checkpoint_hour === activeHour) ?? all.at(-1)
 
   // ponytail: no real batch start clock, so the run is anchored to now minus replay hours.
   const startedAt = Date.now() - hour * 3_600_000
@@ -735,102 +776,134 @@ function ResearchReport({
         description={`Reports the AI made every ${reportInterval}h for ${batchId(replicate)}.`}
         action={<Badge>{all.length} reports</Badge>}
       />
-      <Panel title="Past reports" caption="Click a report to download it">
-        <div className="report-filters">
-          <label className="search-field">
-            <span className="sr-only">Search reports</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6" />
-              <path d="m20 20-4.5-4.5" />
-            </svg>
-            <input
-              type="search"
-              placeholder="Search by hour or text, e.g. 48h"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setShown(reportPage)
-              }}
-            />
-          </label>
-          <label>
-            Status
-            <select
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value)
-                setShown(reportPage)
-              }}
-            >
-              <option value="all">All</option>
-              <option value="normal">Normal</option>
-              <option value="warning">Warning</option>
-              <option value="needs_review">Needs review</option>
-            </select>
-          </label>
-          <label>
-            Sort
-            <select
-              value={newestFirst ? "newest" : "oldest"}
-              onChange={(event) => setNewestFirst(event.target.value === "newest")}
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </label>
-          <span role="status">
-            {matches.length === all.length
-              ? `${all.length} reports`
-              : `${matches.length} of ${all.length} match`}
-          </span>
-        </div>
-        <div className="report-timeline">
-          {reports.length ? (
-            reports.slice(0, shown).map((report) => (
-              <button
-                key={report.checkpoint_hour}
-                onClick={() => download(report)}
-                aria-label={`Download ${report.checkpoint_hour}h report`}
+      <div className="report-layout">
+        <Panel title="Past reports" caption="Select a report to inspect it">
+          <div className="report-filters">
+            <label className="search-field">
+              <span className="sr-only">Search reports</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6" />
+                <path d="m20 20-4.5-4.5" />
+              </svg>
+              <input
+                type="search"
+                placeholder="Search by hour or text, e.g. 48h"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setShown(reportPage)
+                }}
+              />
+            </label>
+            <label>
+              Status
+              <select
+                value={status}
+                onChange={(event) => {
+                  setStatus(event.target.value)
+                  setShown(reportPage)
+                }}
               >
-                <span className="checkpoint-time">
-                  {report.checkpoint_hour}h
-                </span>
-                <span>
-                  <strong>
-                    {madeAt(report.checkpoint_hour).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </strong>
-                  <small>{report.summary}</small>
-                </span>
-                <Status status={report.status} />
-                <Icon name="download" />
-              </button>
-            ))
-          ) : all.length ? (
-            <div className="empty-state">
-              <strong>No matching reports</strong>
-              <p>Change the search or status filter.</p>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <strong>No reports yet</strong>
-              <p>
-                Advance replay to {reportInterval}h to generate the first
-                report.
-              </p>
+                <option value="all">All</option>
+                <option value="normal">Normal</option>
+                <option value="warning">Warning</option>
+                <option value="needs_review">Needs review</option>
+              </select>
+            </label>
+            <label>
+              Sort
+              <select
+                value={newestFirst ? "newest" : "oldest"}
+                onChange={(event) =>
+                  setNewestFirst(event.target.value === "newest")
+                }
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </label>
+            <span role="status">
+              {matches.length === all.length
+                ? `${all.length} reports`
+                : `${matches.length} of ${all.length} match`}
+            </span>
+          </div>
+          <div className="report-timeline">
+            {reports.length ? (
+              reports.slice(0, shown).map((report) => (
+                <button
+                  key={report.checkpoint_hour}
+                  className={report === selected ? "active" : ""}
+                  aria-pressed={report === selected}
+                  onClick={() => setActiveHour(report.checkpoint_hour)}
+                >
+                  <span className="checkpoint-time">
+                    {report.checkpoint_hour}h
+                  </span>
+                  <span>
+                    <strong>
+                      {madeAt(report.checkpoint_hour).toLocaleString(
+                        undefined,
+                        {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        },
+                      )}
+                    </strong>
+                    <small>{report.summary}</small>
+                  </span>
+                  <Status status={report.status} />
+                  <Icon name="arrow" />
+                </button>
+              ))
+            ) : all.length ? (
+              <div className="empty-state">
+                <strong>No matching reports</strong>
+                <p>Change the search or status filter.</p>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No reports yet</strong>
+                <p>
+                  Advance replay to {reportInterval}h to generate the first
+                  report.
+                </p>
+              </div>
+            )}
+          </div>
+          {reports.length > shown && (
+            <div className="report-more">
+              <Button onClick={() => setShown(shown + reportPage)}>
+                Show {Math.min(reportPage, reports.length - shown)} more
+              </Button>
             </div>
           )}
-        </div>
-        {reports.length > shown && (
-          <div className="report-more">
-            <Button onClick={() => setShown(shown + reportPage)}>
-              Show {Math.min(reportPage, reports.length - shown)} more
-            </Button>
-          </div>
-        )}
-      </Panel>
+        </Panel>
+        <Panel
+          title={
+            selected ? `Report · ${selected.checkpoint_hour}h` : "Report detail"
+          }
+          caption={
+            selected
+              ? `Made ${madeAt(selected.checkpoint_hour).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+              : undefined
+          }
+          className="report-inspector"
+          action={
+            selected && (
+              <Button icon="download" onClick={() => download(selected)}>
+                Download
+              </Button>
+            )
+          }
+        >
+          {selected ? (
+            <ReportDetail report={selected} evidence={source.evidence} />
+          ) : (
+            <p className="panel-note">Select a report to inspect it.</p>
+          )}
+        </Panel>
+      </div>
     </>
   )
 }
@@ -1002,9 +1075,7 @@ function ResearchWorkspaceContent() {
 
       setMethodSection(location.hash.slice(1).split("/")[1] ?? "")
 
-      setView(
-        pages.some((item) => item.id === next) ? next as View : "guard",
-      )
+      setView(pages.some((item) => item.id === next) ? next as View : "guard")
 
       setMenuOpen(false)
 
@@ -1030,14 +1101,17 @@ function ResearchWorkspaceContent() {
     setChecks([false, false, false])
   }, [workspaceData.inputs.markers])
 
-  function navigate(next: View) {
+  // detail is the second hash segment: a Methods section or a report checkpoint hour.
+  function navigate(next: View, detail = "") {
     setView(next)
+
+    setMethodSection(detail)
 
     setPlaying(false)
 
     setMenuOpen(false)
 
-    location.hash = next
+    location.hash = detail ? `${next}/${detail}` : next
 
     window.scrollTo({ top: 0, behavior: "instant" })
 
@@ -1107,8 +1181,12 @@ function ResearchWorkspaceContent() {
             type="button"
             className="sidebar-pin"
             tabIndex={sidebarCollapsed ? -1 : undefined}
-            aria-label={sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"}
-            title={sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"}
+            aria-label={
+              sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"
+            }
+            title={
+              sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"
+            }
             aria-pressed={sidebarPinned}
             aria-controls="research-navigation"
             onClick={() => setSidebarPinned(!sidebarPinned)}
@@ -1116,7 +1194,9 @@ function ResearchWorkspaceContent() {
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
               <path d="M9 4.5v15" />
-              <path d={sidebarPinned ? "m15.5 10-2 2 2 2" : "m13.5 10 2 2-2 2"} />
+              <path
+                d={sidebarPinned ? "m15.5 10-2 2 2 2" : "m13.5 10 2 2-2 2"}
+              />
             </svg>
           </button>
         </div>
@@ -1165,7 +1245,11 @@ function ResearchWorkspaceContent() {
         <nav className="nav-signout" aria-label="Account">
           <a
             href="#account"
-            title={sidebarCollapsed ? `${profile.name} · ${profile.company}` : "Account settings"}
+            title={
+              sidebarCollapsed
+                ? `${profile.name} · ${profile.company}`
+                : "Account settings"
+            }
             aria-current={view === "account" ? "page" : undefined}
             className={`nav-user${view === "account" ? " active" : ""}`}
             onClick={(e) => {
@@ -1361,7 +1445,11 @@ function ResearchWorkspaceContent() {
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />
         ) : (
-          <ResearchReport hour={hour} replicate={replicate} />
+          <ResearchReport
+            hour={hour}
+            replicate={replicate}
+            focusHour={Number(methodSection) || null}
+          />
         )}
       </main>
       <div className="toast-region" role="status" aria-live="polite">
