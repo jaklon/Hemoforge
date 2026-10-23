@@ -46,6 +46,7 @@ import {
 const MethodsPage = lazy(() => import("./MethodsPage"))
 
 import AccountPage, { initials, useProfile } from "./AccountPage"
+import { accountApi, signOut } from "./account"
 import ActivityLog from "./ActivityLog"
 
 import { CheckpointRoadmap, StageEstimate, TrendHealth } from "./PilotInsights"
@@ -1014,7 +1015,7 @@ const serviceLabels = {
   disabled: "off",
 } as const
 
-/** Top-bar health: the Python API, the model server it talks to, and the bioreactor machine. */
+/** Top-bar health: the Python API, the model server it talks to, the database, and the bioreactor machine. */
 
 function ServiceStatus({
   backend,
@@ -1024,6 +1025,18 @@ function ServiceStatus({
   const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">(
     "checking",
   )
+  const [database, setDatabase] = useState<"checking" | "online" | "offline">("checking")
+
+  useEffect(() => {
+    if (backend !== "online") return
+    const check = () =>
+      accountApi("health/db")
+        .then(() => setDatabase("online"))
+        .catch(() => setDatabase("offline"))
+    void check()
+    const timer = setInterval(check, 60_000)
+    return () => clearInterval(timer)
+  }, [backend])
 
   useEffect(() => {
     if (backend !== "online") return
@@ -1059,6 +1072,8 @@ function ServiceStatus({
     ["Backend", backend],
 
     ["LLM", backend === "online" ? llm : backend],
+
+    ["Database", backend === "online" ? database : backend],
 
     // ponytail: hardcoded until a real machine feed exists; derive from its heartbeat then.
 
@@ -1381,7 +1396,6 @@ function ResearchWorkspaceContent() {
             </div>
           ))}
         </nav>
-        {/* No accounts yet: signing out just returns to the landing page. */}
         <nav className="nav-signout" aria-label="Account">
           <a
             href="#account"
@@ -1413,6 +1427,7 @@ function ResearchWorkspaceContent() {
               e.preventDefault()
 
               location.hash = ""
+              void signOut()
             }}
           >
             <Icon name="logout" />

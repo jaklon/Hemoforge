@@ -38,6 +38,7 @@ import {
 import type { ExperimentRow, ScenarioTable } from "./workspace-data"
 import { analyzeMeasurements, type Measurement } from "./culture-monitoring"
 import { defaultGuardView, type GuardView } from "./guard-insights"
+import { accountApi } from "./account"
 export interface SimulationResult {
   batchId: string
   sourceHash: string
@@ -82,7 +83,7 @@ interface WorkspaceContextValue {
   apply: (files: InputFile[]) => Promise<void>
   notice: Notice | null
   notify: (message: string | null, tone?: Notice["tone"]) => void
-  // Every finished notification, newest first, kept in this browser.
+  // Every finished notification, newest first, saved to the signed-in account.
   activity: ActivityEntry[]
   clearActivity: () => void
   // Sidebar pages with results the user has not opened yet.
@@ -107,16 +108,9 @@ export interface ActivityEntry extends Notice {
   // Workspace page open when it happened.
   page: string
 }
-const activityKey = "activity-log-v1"
-// ponytail: capped local list; move to the backend when logs must survive across devices.
+// Matches NOTIFICATION_LIMIT in backend/accounts.py.
 const activityLimit = 300
-function loadActivity(): ActivityEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(activityKey) ?? "[]")
-  } catch {
-    return []
-  }
-}
+const updatesKey = "sidebar-updates"
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
 export async function checksum(value: BufferSource) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", value))]
@@ -139,7 +133,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [backendStatus, setBackendStatus] =
     useState<"checking" | "online" | "offline">("checking")
   const [notice, setNotice] = useState<Notice | null>(null)
-  const [activity, setActivity] = useState(loadActivity)
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
   function notify(message: string | null, tone: Notice["tone"] = "info") {
     const id = Date.now()
     setNotice(message ? { id, message, tone } : null)
@@ -149,19 +143,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setActivity((old) =>
       [{ id, message, tone, at: new Date(id).toISOString(), page }, ...old].slice(0, activityLimit),
     )
+    // ponytail: fire-and-forget; an entry made while the API is down stays only in this visit.
+    accountApi("notifications", "POST", { message, tone, page }).catch(() => {})
     if (page !== "activity") flag("activity")
   }
   function clearActivity() {
     setActivity([])
+    accountApi("notifications", "DELETE").catch(() =>
+      notify("Could not clear notifications in the database", "error"),
+    )
   }
-  useEffect(() => {
-    try {
-      localStorage.setItem(activityKey, JSON.stringify(activity))
-    } catch {
-      // Storage blocked: the log still works for this visit.
-    }
-  }, [activity])
   const [updates, setUpdates] = useState<string[]>([])
+  // Saved only after the account's copy loads, so start-up cannot overwrite it.
+  const [stateLoaded, setStateLoaded] = useState(false)
+  useEffect(() => {
+    // Merge: entries raised before the load finished are kept.
+    accountApi<ActivityEntry[]>("notifications")
+      .then((saved) => setActivity((old) => [...old, ...saved].slice(0, activityLimit)))
+      .catch(() => {})
+    accountApi<Record<string, unknown>>("account/state")
+      .then((state) => {
+        const saved = state[updatesKey]
+        if (Array.isArray(saved)) setUpdates((old) => [...new Set([...saved, ...old])])
+      })
+      .catch(() => {})
+      .finally(() => setStateLoaded(true))
+  }, [])
+  useEffect(() => {
+    if (stateLoaded) accountApi(`account/state/${updatesKey}`, "PUT", updates).catch(() => {})
+  }, [updates, stateLoaded])
   function flag(...views: string[]) {
     setUpdates((old) => [...new Set([...old, ...views])])
   }

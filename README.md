@@ -34,6 +34,13 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
+## Demo account
+
+The workspace needs a sign-in, so it needs the Python API and `DATABASE_URL`.
+`backend/schema.sql` seeds one demo account (username `researcher`); its password is
+shared internally. Change the password on the Account page of any deployment that
+others can reach. The profile, notifications and sidebar flags are saved per account.
+
 ## Updating the live site (hemoforge.my.id)
 
 Push to `main`, then from Windows:

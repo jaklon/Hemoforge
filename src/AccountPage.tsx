@@ -1,52 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { Badge, Icon, PageTitle, Panel } from "./workspace-ui"
 import { useWorkspace } from "./workspace-context"
+import { changePassword as savePassword, initials, saveProfile as storeProfile, useProfile, type Profile } from "./account"
 
-// No account backend yet: the profile lives in this browser only, and passwords are
-// checked but never stored. Wire both to the auth service once sign-in exists.
-const storageKey = "account-profile-v1"
-const changed = "account-profile-changed"
-
-// Dummy identity shown until real accounts exist.
-const defaultProfile = {
-  username: "researcher",
-  name: "Demo Researcher",
-  email: "researcher@example.com",
-  company: "Sanguis Biofactory Lab",
-  role: "Bioprocess scientist",
-}
-
-export type Profile = typeof defaultProfile
-
-function loadProfile(): Profile {
-  try {
-    return { ...defaultProfile, ...JSON.parse(localStorage.getItem(storageKey) ?? "{}") }
-  } catch {
-    return defaultProfile
-  }
-}
-
-/** The signed-in profile, updated when the Account page saves. */
-export function useProfile() {
-  const [profile, setProfile] = useState(loadProfile)
-  useEffect(() => {
-    const sync = () => setProfile(loadProfile())
-    addEventListener(changed, sync)
-    return () => removeEventListener(changed, sync)
-  }, [])
-  return profile
-}
-
-export const initials = (profile: Profile) =>
-  (profile.name || profile.username)
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("")
+export { initials, useProfile, type Profile } from "./account"
 
 const profileFields: { key: keyof Profile; label: string; type: string; autoComplete: string; hint?: string }[] = [
   { key: "name", label: "Full name", type: "text", autoComplete: "name" },
-  { key: "username", label: "Username", type: "text", autoComplete: "username", hint: "Shown in exports and audit notes." },
+  { key: "username", label: "Username", type: "text", autoComplete: "username", hint: "Used to sign in, and shown in exports and audit notes." },
   { key: "email", label: "Email", type: "email", autoComplete: "email" },
   { key: "role", label: "Role", type: "text", autoComplete: "organization-title" },
   { key: "company", label: "Company / institution", type: "text", autoComplete: "organization" },
@@ -65,21 +26,33 @@ export default function AccountPage() {
     { ok: !!password.next && password.next !== password.current, label: "Different from the current password" },
   ]
 
-  function saveProfile(event: FormEvent) {
+  const [busy, setBusy] = useState(false)
+
+  async function saveProfile(event: FormEvent) {
     event.preventDefault()
+    setBusy(true)
     try {
-      localStorage.setItem(storageKey, JSON.stringify(profile))
-      dispatchEvent(new Event(changed))
+      setProfile(await storeProfile(profile))
       notify("Profile saved", "success")
-    } catch {
-      notify("Could not save the profile in this browser", "error")
+    } catch (error) {
+      notify(`Could not save the profile · ${(error as Error).message}`, "error")
+    } finally {
+      setBusy(false)
     }
   }
 
-  function changePassword(event: FormEvent) {
+  async function changePassword(event: FormEvent) {
     event.preventDefault()
-    setPassword({ current: "", next: "", confirm: "" })
-    notify("Password changes apply once account sign-in is enabled", "info")
+    setBusy(true)
+    try {
+      await savePassword(password.current, password.next)
+      setPassword({ current: "", next: "", confirm: "" })
+      notify("Password updated", "success")
+    } catch (error) {
+      notify(`Could not update the password · ${(error as Error).message}`, "error")
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -96,7 +69,7 @@ export default function AccountPage() {
           </p>
           <p>{saved.company}</p>
         </div>
-        <Badge tone="warning">Demo account · saved in this browser</Badge>
+        <Badge tone="success">Signed in · saved to the database</Badge>
       </section>
       <div className="account-grid">
         <Panel title="Profile" caption="How you appear across the workspace and in exports.">
@@ -120,7 +93,7 @@ export default function AccountPage() {
               <button type="button" className="button" disabled={!dirty} onClick={() => setProfile(saved)}>
                 Discard
               </button>
-              <button type="submit" className="button primary" disabled={!dirty}>
+              <button type="submit" className="button primary" disabled={!dirty || busy}>
                 Save profile
               </button>
             </footer>
@@ -170,7 +143,7 @@ export default function AccountPage() {
               ))}
             </ul>
             <footer>
-              <button type="submit" className="button primary" disabled={!rules.every((rule) => rule.ok)}>
+              <button type="submit" className="button primary" disabled={busy || !rules.every((rule) => rule.ok)}>
                 Update password
               </button>
             </footer>
