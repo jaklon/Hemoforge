@@ -27,6 +27,9 @@ export default function VirtualLab() {
   const [station, setStation] =
     useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
   const [graphicsError, setGraphicsError] = useState("")
+  const [assetState, setAssetState] = useState<"loading" | "blender" | "fallback">("loading")
+  const [renderStats, setRenderStats] = useState({ fps: 0, quality: "high" as "high" | "balanced" })
+  const onPerformance = useCallback((fps: number, quality: "high" | "balanced") => setRenderStats({ fps, quality }), [])
   const [setpoints, setSetpoints] = useState({
     ph_setpoint: 7.3,
     do_setpoint: 40,
@@ -110,11 +113,11 @@ export default function VirtualLab() {
       }
       const seconds = clock.current.frame(
         delta,
-        !!latest.current?.running && document.visibilityState === "visible",
+        ready && !!latest.current?.running && document.visibilityState === "visible",
       )
       if (seconds) command("advance", { seconds })
     },
-    [command, latest],
+    [command, latest, ready],
   )
   useEffect(() => {
     const hidden = () => {
@@ -175,6 +178,9 @@ export default function VirtualLab() {
           <BiostatScene
             station={station}
             snapshot={snapshot}
+            connected={ready}
+            onAssetState={setAssetState}
+            onPerformance={onPerformance}
             onFrame={onFrame}
             onInteract={() => {
               if (canRun) command(snapshot?.running ? "pause" : "play")
@@ -186,7 +192,7 @@ export default function VirtualLab() {
               CELL CULTURE / SINGLE-USE STR 50
             </span>
             <span className="vl-scene-evidence">
-              VIRTUAL SENSOR FEED · FREE PROCEDURAL ASSETS
+              {assetState === "blender" ? "BLENDER MODEL · ORIGINAL CC0 MATERIALS" : assetState === "loading" ? "LOADING BLENDER MODEL…" : "PROCEDURAL FALLBACK · MODEL UNAVAILABLE"}
             </span>
           </div>
           <div className="vl-scene-caption">
@@ -206,6 +212,9 @@ export default function VirtualLab() {
             </span>
             <small>
               Illustrative cutaway · geometry is not a certified device replica
+            </small>
+            <small aria-live="off">
+              {renderStats.fps > 0 ? `${renderStats.fps} FPS · ${renderStats.quality === "high" ? "High" : "Balanced"} quality` : "Measuring render performance…"}
             </small>
           </div>
           <div className="vl-station-nav" aria-label="Posisi kamera">

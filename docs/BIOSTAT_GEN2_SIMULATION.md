@@ -56,7 +56,8 @@ withheld without independent controlled experiments. Three-hour checkpoint repor
 
 ## Scene, assets and validation
 
-`BiostatScene.tsx` uses Three.js procedural geometry: bag-holder cutaway, impellers, optical probe representations,
+`BiostatScene.tsx` loads an original Blender GLB for the bag-holder cutaway and impellers, with a procedural fallback.
+Three.js adds optical probe representations,
 gas sparger, instanced bubbles/cell markers, controller tower, peristaltic rotors, Trace dialysis/return paths, ViaMass
 probe/electronics/display, optional retention skid, gloved hands and selectable camera views. Screen PVs come from
 released sensor receipts; actuator displays use controller outputs. Flow and rotation freeze with the culture clock.
@@ -76,3 +77,22 @@ of database credentials; control still requires the original controller capabili
 
 Virtual noise metadata records per-device core/Trace/ViaMass settings and explicitly states that calibration and biological
 uncertainty are unvalidated. Schema 4 omits the legacy manual-assay protocol rather than exporting FLEX2 timing.
+## Blender vessel upgrade
+
+Monitor 01 loads the locally authored CC0 model at
+`/virtual-lab/biostat/biostat-gen2.glb`. Editable source, original generated
+stainless texture, rebuild instructions, and the runtime node contract are in
+`assets/blender/README.md`. The model is illustrative, not vendor CAD.
+
+The named impeller and liquid nodes bind to controller RPM and recorded volume.
+Motion integrates valid rendered seconds; changing RPM does not jump the shaft
+angle. Pause, hidden tabs, disconnect, and stalls do not advance process motion.
+Sensor readings, QC, estimates, culture kinetics, and intervention semantics
+remain in the existing simulation; none are baked into the asset. A labeled
+procedural fallback remains available if the GLB cannot load.
+
+Rendering uses local environment reflections, material-merged geometry,
+instanced particles, capped pixel ratio and an automatic lower-resolution mode
+below 32 measured FPS. The visible FPS meter reports the current device, not a
+promised performance on all browsers. No new runtime dependency or paid asset
+is required.

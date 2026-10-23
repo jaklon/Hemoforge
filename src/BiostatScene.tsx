@@ -1,18 +1,23 @@
 import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
 import type { LabSnapshot } from "./lab-session"
 import { lastSensor, sensorUsable } from "./biostat-data"
+import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
 
 interface Props {
   station: "overview" | "bioreactor" | "trace" | "viamass"
   snapshot: LabSnapshot | null
+  connected: boolean
+  onAssetState: (state: "loading" | "blender" | "fallback") => void
+  onPerformance: (fps: number, quality: "high" | "balanced") => void
   onFrame: (delta: number) => void
   onInteract: () => void
   onError: (message: string) => void
 }
 
-// Original procedural geometry + existing CC0 Kenney room props. No remote assets.
+// Original Blender CC0 hero asset + procedural fallback and CC0 room props.
 export default function BiostatScene(props: Props) {
   const host = useRef<HTMLDivElement>(null)
   const current = useRef(props)
@@ -28,11 +33,11 @@ export default function BiostatScene(props: Props) {
       )
       return
     }
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6))
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.15
+    renderer.toneMappingExposure = 1.05
     renderer.domElement.setAttribute("role", "img")
     renderer.domElement.setAttribute(
       "aria-label",
@@ -40,13 +45,20 @@ export default function BiostatScene(props: Props) {
     )
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color("#d4e1e5")
-    scene.fog = new THREE.Fog("#d4e1e5", 14, 32)
+    scene.background = new THREE.Color("#e0e7e7")
+    scene.fog = new THREE.Fog("#e0e7e7", 14, 32)
+    // Locally generated studio reflections: no HDRI download or external request.
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const roomEnvironment = new RoomEnvironment()
+    const environment = pmrem.fromScene(roomEnvironment, 0.04)
+    scene.environment = environment.texture
+    roomEnvironment.dispose()
+    pmrem.dispose()
     const camera = new THREE.PerspectiveCamera(48, 1, 0.05, 40)
     camera.position.set(1, 2.65, 8)
     scene.add(camera)
-    scene.add(new THREE.HemisphereLight(0xf1faff, 0x71818d, 2.4))
-    const key = new THREE.DirectionalLight(0xfff8e8, 3.3)
+    scene.add(new THREE.HemisphereLight(0xf1faff, 0x71818d, 1.3))
+    const key = new THREE.DirectionalLight(0xfff8e8, 2.6)
     key.position.set(-3, 7, 5)
     key.castShadow = true
     key.shadow.mapSize.set(1024, 1024)
@@ -131,7 +143,7 @@ export default function BiostatScene(props: Props) {
       return box(parent, [width, height, 0.025], xyz, face.material)
     }
     box(scene, [15, 0.1, 16], [0, -0.06, 0], mat("#afc4cb", 0.1, 0.65))
-    const grid = new THREE.GridHelper(16, 24, 0x7d9aa5, 0xa2bac3)
+    const grid = new THREE.GridHelper(16, 16, 0xa5b8bc, 0xa5b8bc)
     grid.position.y = 0.003
     scene.add(grid)
     box(scene, [15, 4.5, 0.15], [0, 2.25, -4.2], white)
@@ -174,15 +186,17 @@ export default function BiostatScene(props: Props) {
     const reactor = new THREE.Group()
     reactor.position.set(-1.6, 0, -0.9)
     scene.add(reactor)
-    cyl(reactor, 0.8, 0.16, [0, 0.35, 0], steel)
+    const fallback = new THREE.Group()
+    reactor.add(fallback)
+    cyl(fallback, 0.8, 0.16, [0, 0.35, 0], steel)
     for (const x of [-0.55, 0.55])
       for (const z of [-0.4, 0.4]) {
-        cyl(reactor, 0.055, 0.3, [x, 0.18, z], steel)
-        const wheel = cyl(reactor, 0.09, 0.06, [x, 0.075, z], dark)
+        cyl(fallback, 0.055, 0.3, [x, 0.18, z], steel)
+        const wheel = cyl(fallback, 0.09, 0.06, [x, 0.075, z], dark)
         wheel.rotation.z = Math.PI / 2
       }
     const shell = mesh(
-      reactor,
+      fallback,
       new THREE.CylinderGeometry(
         0.75,
         0.75,
@@ -205,7 +219,7 @@ export default function BiostatScene(props: Props) {
       side: THREE.DoubleSide,
       depthWrite: false,
     })
-    cyl(reactor, 0.655, 1.48, [0, 1.2, 0], bagMat)
+    cyl(fallback, 0.655, 1.48, [0, 1.2, 0], bagMat)
     const liquidMat = new THREE.MeshPhysicalMaterial({
       color: "#b96855",
       roughness: 0.23,
@@ -214,21 +228,22 @@ export default function BiostatScene(props: Props) {
       side: THREE.DoubleSide,
       depthWrite: false,
     })
-    const liquid = cyl(reactor, 0.625, 1.0, [0, 0.98, 0], liquidMat)
+    let liquid: THREE.Object3D = cyl(fallback, 0.625, 1.0, [0, 0.98, 0], liquidMat)
+    let blenderLoaded = false
     for (const y of [0.45, 1.95]) {
       const ring = mesh(
-        reactor,
+        fallback,
         new THREE.TorusGeometry(0.73, 0.045, 10, 64),
         steel,
         [0, y, 0],
       )
       ring.rotation.x = Math.PI / 2
     }
-    for (const x of [-0.7, 0.7]) cyl(reactor, 0.035, 1.55, [x, 1.2, 0.08], dark)
-    cyl(reactor, 0.7, 0.11, [0, 2, 0], steel)
-    cyl(reactor, 0.14, 0.4, [0, 2.25, 0], dark)
-    const impellers = new THREE.Group()
-    reactor.add(impellers)
+    for (const x of [-0.7, 0.7]) cyl(fallback, 0.035, 1.55, [x, 1.2, 0.08], dark)
+    cyl(fallback, 0.7, 0.11, [0, 2, 0], steel)
+    cyl(fallback, 0.14, 0.4, [0, 2.25, 0], dark)
+    let impellers: THREE.Object3D = new THREE.Group()
+    fallback.add(impellers)
     cyl(impellers, 0.024, 1.65, [0, 1.2, 0], steel)
     for (const y of [0.7, 1.22])
       for (let i = 0; i < 3; i++) {
@@ -240,7 +255,7 @@ export default function BiostatScene(props: Props) {
         impellers.add(blade)
       }
     const sparger = mesh(
-      reactor,
+      fallback,
       new THREE.TorusGeometry(0.35, 0.018, 8, 48),
       blue,
       [0, 0.52, 0],
@@ -248,21 +263,21 @@ export default function BiostatScene(props: Props) {
     sparger.rotation.x = Math.PI / 2
     for (const [i, x] of [-0.42, -0.2, 0.28].entries()) {
       cyl(
-        reactor,
+        fallback,
         0.025,
         0.8,
         [x, 1.7, 0.1],
         i === 0 ? teal : i === 1 ? blue : amber,
       )
-      cyl(reactor, 0.055, 0.16, [x, 2.12, 0.1], dark)
+      cyl(fallback, 0.055, 0.16, [x, 2.12, 0.1], dark)
     }
-    const viaProbe = cyl(reactor, 0.09, 0.26, [0.58, 0.8, 0.29], amber)
+    const viaProbe = cyl(fallback, 0.09, 0.26, [0.58, 0.8, 0.29], amber)
     viaProbe.rotation.z = Math.PI / 2
-    plaque(reactor, "ViaMass / pF per cm", [0.32, 0.62, 0.65], 0.72, 0.13)
-    plaque(reactor, "STR 50 / GEN 2", [0, 1.97, 0.75], 0.95, 0.16)
+    plaque(fallback, "ViaMass / pF per cm", [0.32, 0.62, 0.65], 0.72, 0.13)
+    plaque(fallback, "STR 50 / GEN 2", [0, 1.97, 0.75], 0.95, 0.16)
     for (let i = 0; i < 6; i++) {
       const y = 0.62 + i * 0.2
-      box(reactor, [0.06, 0.012, 0.02], [-0.59, y, 0.32], white)
+      box(fallback, [0.06, 0.012, 0.02], [-0.59, y, 0.32], white)
     }
     const bubbleMat = new THREE.MeshStandardMaterial({
       color: "#adf2ff",
@@ -428,7 +443,7 @@ export default function BiostatScene(props: Props) {
     }
     plaque(scene, "AIR / O2 / N2", [-3.4, 0.8, -1.68], 0.9, 0.14)
     // A ViaMass electronics box and lead, distinct from the glucose/lactate fluid circuit.
-    box(reactor, [0.27, 0.34, 0.2], [0.82, 1.14, 0.12], dark)
+    box(fallback, [0.27, 0.34, 0.2], [0.82, 1.14, 0.12], dark)
     const viaScreen = surface()
     box(reactor, [0.52, 0.28, 0.025], [0.82, 1.16, 0.24], viaScreen.material)
     plaque(reactor, "VIAMASS", [0.82, 0.94, 0.23], 0.45, 0.1)
@@ -504,6 +519,36 @@ export default function BiostatScene(props: Props) {
       })
     }
     const loader = new GLTFLoader()
+    current.current.onAssetState("loading")
+    loader.load(
+      "/virtual-lab/biostat/biostat-gen2.glb",
+      ({ scene: model }) => {
+        if (disposed) { disposeObject(model); return }
+        const shaft = model.getObjectByName("HF_Impeller")
+        const fluid = model.getObjectByName("HF_Liquid")
+        if (!shaft || !fluid) {
+          disposeObject(model)
+          current.current.onAssetState("fallback")
+          return
+        }
+        model.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            const materials = Array.isArray(object.material) ? object.material : [object.material]
+            object.castShadow = materials.every(m => !m.transparent)
+            object.receiveShadow = true
+          }
+        })
+        reactor.add(model)
+        fallback.visible = false
+        // Rebind to exported transform nodes, not baked Blender animation.
+        impellers = shaft
+        liquid = fluid
+        blenderLoaded = true
+        current.current.onAssetState("blender")
+      },
+      undefined,
+      () => { if (!disposed) current.current.onAssetState("fallback") },
+    )
     for (const [name, x, z, scale] of [
       ["bookcaseClosedWide", 4.4, -3.2, 1.5],
       ["chairDesk", 4.7, -0.9, 1.2],
@@ -587,6 +632,7 @@ moved: boolean } | null = null,
       elapsed = 0,
       lastPaint = 0,
       previousStation = props.station
+    let angle = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
     function screen(
       face: ReturnType<typeof surface>,
       title: string,
@@ -608,7 +654,7 @@ moved: boolean } | null = null,
       if (disposed) return
       const delta = Math.max(0, (now - last) / 1000)
       last = now
-      const { station, snapshot: s } = current.current
+      const { station, snapshot: s, connected } = current.current
       if (station !== previousStation) {
         yaw = pitch = 0
         previousStation = station
@@ -623,22 +669,23 @@ moved: boolean } | null = null,
         goal.set(-0.1, 1.45, 1.4)
         goalLook.set(-1.2, 0.95, -0.55)
       } else {
-        goal.set(-1.6, 1.85, 2.35)
-        goalLook.set(-1.55, 1.3, -0.9)
+        goal.set(-1.3, 1.8, Math.max(2.8, 1.5 / camera.aspect))
+        goalLook.set(-1.55, 1.25, -0.9)
       }
       const ease = Math.min(1, delta * 3.5)
       camera.position.lerp(goal, ease)
       look.lerp(goalLook, ease)
       camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
       const running =
-        !!s?.running && document.visibilityState === "visible" && !contextLost
-      if (running) elapsed += Math.min(delta, 0.25)
+        !!s?.running && connected && document.visibilityState === "visible" && !contextLost
+      const motionSeconds = renderedSeconds(delta, running)
+      elapsed += motionSeconds
       const rpm = s?.controller?.outputs.stirrer_rpm ?? 100
-      impellers.rotation.y = (elapsed * rpm * Math.PI) / 90
-      const fillFraction = (s?.working_volume_ml ?? 12500) / 50000
-      const height = 0.35 + fillFraction * 0.95
+      angle = stirrerAngle(angle, rpm, motionSeconds)
+      impellers.rotation.y = angle
+      const height = liquidHeight(s?.working_volume_ml ?? 12500)
       liquid.scale.y = height
-      liquid.position.y = 0.48 + height / 2
+      if (!blenderLoaded) liquid.position.y = 0.48 + height / 2
       for (let i = 0; i < 100; i++) {
         const f = (elapsed * 0.38 + i / 100) % 1,
           angle = i * 2.399 + elapsed * 0.3
@@ -691,7 +738,7 @@ moved: boolean } | null = null,
       arrow.visible =
         !!s && !s.active_intervention && s.culture_hours < s.end_hour
       arrow.position.y = 2.6 + Math.sin(now / 400) * 0.035
-      if (now - lastPaint > 250) {
+      if (document.visibilityState === "visible" && now - lastPaint > 500) {
         lastPaint = now
         const core = s ? lastSensor(s, "core") : null,
           traceReading = s ? lastSensor(s, "trace") : null
@@ -745,9 +792,24 @@ moved: boolean } | null = null,
           !!s?.sensor_faults?.includes("viamass"),
         )
       }
-      if (!contextLost) {
+      if (!contextLost && document.visibilityState === "visible") {
         renderer.render(scene, camera)
         current.current.onFrame(delta)
+        frames++
+        if (now - measuredAt >= 2000) {
+          const fps = frames * 1000 / (now - measuredAt)
+          if (fps < 32 && quality === "high") {
+            quality = "balanced"
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 1))
+            resize()
+          }
+          current.current.onPerformance(Math.round(fps), quality)
+          frames = 0
+          measuredAt = now
+        }
+      } else {
+        frames = 0
+        measuredAt = now
       }
       animation = requestAnimationFrame(frame)
     }
@@ -761,6 +823,7 @@ moved: boolean } | null = null,
       renderer.domElement.removeEventListener("pointerup", up)
       renderer.domElement.removeEventListener("webglcontextlost", lost)
       disposeObject(scene)
+      environment.dispose()
       renderer.dispose()
       renderer.domElement.remove()
     }

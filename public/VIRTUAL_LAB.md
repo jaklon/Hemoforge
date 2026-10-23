@@ -89,3 +89,17 @@ They are illustrative cutaways, not certified CAD replicas or Sartorius firmware
 - Gallego-Murillo et al. 2022, Expansion and differentiation of ex vivo cultured erythroblasts in scalable stirred bioreactors: https://doi.org/10.1002/bit.28193
 
 See docs/BIOSTAT_GEN2_SIMULATION.md for the implementation contract. Stage A–E documents preserve the historical FLEX2 design.
+# Blender model in Monitor 01
+
+The BIOSTAT vessel now loads an original CC0 Blender model with a brushed steel
+holder, polymer bag, impellers, connectors and instrument housing. Its source is
+`assets/blender/hemoforge-biostat-gen2.blend`; rebuild and license details are in
+`assets/blender/README.md`. Trace, room props and hands retain their existing
+visuals in this first asset upgrade.
+
+Select **BIOSTAT STR** in the camera controls for the vessel view. The model
+badge confirms **BLENDER MODEL** after loading. A labeled procedural fallback
+appears if the GLB is unavailable. The legend shows measured FPS and current
+render quality. Lower-resolution Balanced mode is selected automatically if
+rendering falls below 32 FPS. RPM controls the shaft speed; recorded volume
+controls the liquid level. Pause/hidden tabs/disconnect stop process animation.

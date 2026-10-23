@@ -33,6 +33,7 @@ knowledge/*.local.json
 /.streamlit/secrets.toml
 .DS_Store
 Thumbs.db
+*.blend[1-9]
 *.pem
 *.key
 /.figma/design-context/

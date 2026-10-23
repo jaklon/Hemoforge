@@ -1,0 +1,12 @@
+HemoForge BIOSTAT-inspired teaching model
+
+Original geometry and generated textures: HemoForge project contributors.
+Dedicated under CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Includes no downloaded vendor CAD, image textures, logos, or paid assets.
+Visual reference: Sartorius 2017 Biostat STR product announcement.
+This is an illustrative Gen 2 cutaway, not a verified manufacturer replica.
+Product names and trademarks remain with their respective owners.
+
+Editable source and repeatable builder: assets/blender/ in the HemoForge repo.
