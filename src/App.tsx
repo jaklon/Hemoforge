@@ -21,7 +21,7 @@ export default function App() {
     scrollTo(0, 0)
   }, [current])
 
-  const enter = () => (location.hash = "guard")
+  const enter = () => (location.hash = "data")
   if (current === "landing") return <Landing onEnter={enter} />
   if (current === "business") return <WorkWithUs onEnter={enter} />
 

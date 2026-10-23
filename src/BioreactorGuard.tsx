@@ -237,7 +237,19 @@ function GrowthChart({
         title={`Observed growth for ${selected.id}`}
         xExtent={[start, end]}
         values={allPoints.map((point) => point.value)}
-        points={hoverPoints}
+        points={[
+          ...hoverPoints,
+          ...markers.map((item) => ({
+            x: item.hour,
+            y: 0,
+            marker: true,
+            lines: [
+              `⚠ ${guardEventInfo(item, monitoring).title}`,
+              `${selected.id} · ${number(item.hour)}h`,
+              "Click to review",
+            ],
+          })),
+        ]}
         yLabel={
           view.scale === "count"
             ? "Cell count · ×10⁶ cells"

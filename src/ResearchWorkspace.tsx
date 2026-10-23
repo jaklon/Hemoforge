@@ -44,7 +44,7 @@ import {
 } from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
-import AboutPage from "./AboutPage"
+import AccountPage from "./AccountPage"
 
 import {
   analyzeMeasurements,
@@ -57,7 +57,7 @@ import {
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
 
-type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "about"
+type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2" | "workflow" | "report" | "bot" | "methods" | "account"
 
 interface NavigationItem {
   id: View
@@ -84,6 +84,13 @@ const navigation: NavigationItem[] = [
   // to show it again. Without a nav entry, #workflow falls back to Guard.
   // Legacy marker screen ("match") stays in code but is no longer navigable.
   {
+    id: "dashboard",
+    name: "Dashboard",
+    purpose: "Process variables & control",
+    icon: "dashboard",
+    group: "Workspace",
+  },
+  {
     id: "evo2",
     name: "RareMatch",
     purpose: "Screen sequence variants",
@@ -98,13 +105,6 @@ const navigation: NavigationItem[] = [
     icon: "plan",
     group: "Workspace",
     role: "Plan",
-  },
-  {
-    id: "dashboard",
-    name: "Dashboard",
-    purpose: "Process variables & control",
-    icon: "dashboard",
-    group: "Workspace",
   },
   {
     id: "guard",
@@ -144,14 +144,18 @@ const navigation: NavigationItem[] = [
     icon: "report",
     group: "Assist & Reference",
   },
-  {
-    id: "about",
-    name: "About Us",
-    purpose: "Project & team",
-    icon: "team",
-    group: "About",
-  },
 ]
+
+// Reached from the account links under the navigation, not a navigation group.
+const accountPage: NavigationItem = {
+  id: "account",
+  name: "Account",
+  purpose: "Profile & password",
+  icon: "team",
+  group: "Account",
+}
+
+const pages = [...navigation, accountPage]
 
 const processStages = navigation.filter((item) => item.role)
 
@@ -741,6 +745,8 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
   )
 }
 
+const reportPage = 10
+
 function ResearchReport({
   hour,
   replicate,
@@ -750,7 +756,28 @@ function ResearchReport({
 }) {
   const { batchId, checkpointReports, reportInterval } = useCultureData()
 
-  const reports = [...checkpointReports(replicate, hour)].reverse()
+  const all = checkpointReports(replicate, hour)
+
+  const [query, setQuery] = useState("")
+
+  const [status, setStatus] = useState("all")
+
+  const [newestFirst, setNewestFirst] = useState(true)
+
+  const [shown, setShown] = useState(reportPage)
+
+  const needle = query.trim().toLowerCase()
+
+  const matches = all.filter(
+    (report) =>
+      (status === "all" || report.status === status) &&
+      (!needle ||
+        `${report.checkpoint_hour}h ${report.summary} ${report.recommendation}`
+          .toLowerCase()
+          .includes(needle)),
+  )
+
+  const reports = newestFirst ? [...matches].reverse() : matches
 
   // ponytail: no real batch start clock, so the run is anchored to now minus replay hours.
   const startedAt = Date.now() - hour * 3_600_000
@@ -774,12 +801,56 @@ function ResearchReport({
       <PageTitle
         title="Research Report"
         description={`Reports the AI made every ${reportInterval}h for ${batchId(replicate)}.`}
-        action={<Badge>{reports.length} reports</Badge>}
+        action={<Badge>{all.length} reports</Badge>}
       />
-      <Panel title="Past reports" caption="Newest first · click to download">
+      <Panel title="Past reports" caption="Click a report to download it">
+        <div className="report-filters">
+          <label>
+            <span className="sr-only">Search reports</span>
+            <input
+              type="search"
+              placeholder="Search hour or text…"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setShown(reportPage)
+              }}
+            />
+          </label>
+          <label>
+            Status
+            <select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value)
+                setShown(reportPage)
+              }}
+            >
+              <option value="all">All</option>
+              <option value="normal">Normal</option>
+              <option value="warning">Warning</option>
+              <option value="needs_review">Needs review</option>
+            </select>
+          </label>
+          <label>
+            Sort
+            <select
+              value={newestFirst ? "newest" : "oldest"}
+              onChange={(event) => setNewestFirst(event.target.value === "newest")}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+          <span role="status">
+            {matches.length === all.length
+              ? `${all.length} reports`
+              : `${matches.length} of ${all.length} match`}
+          </span>
+        </div>
         <div className="report-timeline">
           {reports.length ? (
-            reports.map((report) => (
+            reports.slice(0, shown).map((report) => (
               <button
                 key={report.checkpoint_hour}
                 onClick={() => download(report)}
@@ -797,9 +868,15 @@ function ResearchReport({
                   </strong>
                   <small>{report.summary}</small>
                 </span>
+                <Status status={report.status} />
                 <Icon name="download" />
               </button>
             ))
+          ) : all.length ? (
+            <div className="empty-state">
+              <strong>No matching reports</strong>
+              <p>Change the search or status filter.</p>
+            </div>
           ) : (
             <div className="empty-state">
               <strong>No reports yet</strong>
@@ -810,6 +887,13 @@ function ResearchReport({
             </div>
           )}
         </div>
+        {reports.length > shown && (
+          <div className="report-more">
+            <Button onClick={() => setShown(shown + reportPage)}>
+              Show {Math.min(reportPage, reports.length - shown)} more
+            </Button>
+          </div>
+        )}
       </Panel>
     </>
   )
@@ -817,12 +901,12 @@ function ResearchReport({
 
 const serviceLabels = {
   checking: "checking…",
-  online: "live",
+  online: "connected",
   offline: "offline",
   disabled: "off",
 } as const
 
-/** Top-bar health: the Python API and the model server it talks to. */
+/** Top-bar health: the Python API, the model server it talks to, and the bioreactor machine. */
 function ServiceStatus({
   backend,
 }: {
@@ -853,6 +937,8 @@ function ServiceStatus({
   const services = [
     ["Backend", backend],
     ["LLM", backend === "online" ? llm : backend],
+    // ponytail: hardcoded until a real machine feed exists; derive from its heartbeat then.
+    ["Machine", "online"],
   ] as const
   return (
     <span className="service-status" role="status">
@@ -893,7 +979,7 @@ function ResearchWorkspaceContent() {
   }, [notice])
 
   const [view, setView] = useState<View>(() =>
-    navigation.some((item) => item.id === location.hash.slice(1).split("/")[0])
+    pages.some((item) => item.id === location.hash.slice(1).split("/")[0])
       ? location.hash.slice(1).split("/")[0] as View
       : "guard",
   )
@@ -950,7 +1036,7 @@ function ResearchWorkspaceContent() {
 
   const bot = useHemoBot(botContext)
 
-  const current = navigation.find((item) => item.id === view)!
+  const current = pages.find((item) => item.id === view)!
 
   useEffect(() => {
     document.title = `${current.name} · HemoForge`
@@ -979,7 +1065,7 @@ function ResearchWorkspaceContent() {
       setMethodSection(location.hash.slice(1).split("/")[1] ?? "")
 
       setView(
-        navigation.some((item) => item.id === next) ? next as View : "guard",
+        pages.some((item) => item.id === next) ? next as View : "guard",
       )
 
       setMenuOpen(false)
@@ -1057,12 +1143,12 @@ function ResearchWorkspaceContent() {
       >
         <a
           className="brand"
-          href="#about"
-          aria-label="HemoForge · About Us"
+          href="#dashboard"
+          aria-label="HemoForge · Dashboard"
           onClick={(e) => {
             e.preventDefault()
 
-            navigate("about")
+            navigate("dashboard")
           }}
         >
           <img
@@ -1136,6 +1222,19 @@ function ResearchWorkspaceContent() {
         {/* No accounts yet: signing out just returns to the landing page. */}
         <nav className="nav-signout" aria-label="Account">
           <a
+            href="#account"
+            title={sidebarCollapsed ? "Account" : undefined}
+            aria-current={view === "account" ? "page" : undefined}
+            className={view === "account" ? "active" : ""}
+            onClick={(e) => {
+              e.preventDefault()
+              navigate("account")
+            }}
+          >
+            <Icon name="team" />
+            <strong>Account</strong>
+          </a>
+          <a
             href="#"
             title={sidebarCollapsed ? "Sign out" : undefined}
             onClick={(e) => {
@@ -1156,11 +1255,11 @@ function ResearchWorkspaceContent() {
         </div>
         <a
           className="mobile-brand"
-          href="#about"
-          aria-label="HemoForge · About Us"
+          href="#dashboard"
+          aria-label="HemoForge · Dashboard"
           onClick={(event) => {
             event.preventDefault()
-            navigate("about")
+            navigate("dashboard")
           }}
         >
           <img
@@ -1292,8 +1391,8 @@ function ResearchWorkspaceContent() {
             setChecks={setChecks}
             onEditData={() => navigate("data")}
           />
-        ) : view === "about" ? (
-          <AboutPage />
+        ) : view === "account" ? (
+          <AccountPage />
         ) : view === "methods" ? (
           <Suspense
             fallback={

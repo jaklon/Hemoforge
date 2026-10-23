@@ -47,15 +47,15 @@ const limits = (
 ): Limits => ({ warnLow, warnHigh, actLow, actHigh, doseLow, doseHigh, auto: true })
 
 export const processVariables: ProcessVariable[] = [
-  { id: "lactate", name: "Laktat", unit: "mM", digits: 1, start: 1.2, drift: 0.13, noise: 0.15, highAction: exchangeAction, fresh: 0, limits: limits(null, 15, null, 20, 0, 40) },
-  { id: "ammonia", name: "Amonia", unit: "mM", digits: 2, start: 0.2, drift: 0.022, noise: 0.03, highAction: exchangeAction, fresh: 0, limits: limits(null, 2, null, 3, 0, 40) },
-  { id: "glucose", name: "Glukosa", unit: "g/L", digits: 2, start: 4.5, drift: -0.032, noise: 0.04, lowAction: "Glucose feed bolus", fresh: 4.5, limits: limits(2, null, 1.5, null, 2, 0) },
-  { id: "glutamine", name: "Glutamin", unit: "mM", digits: 2, start: 4, drift: -0.028, noise: 0.03, lowAction: "Glutamine feed bolus", fresh: 4, limits: limits(1, null, 0.5, null, 2, 0) },
-  { id: "ph", name: "pH Medium", unit: "pH", digits: 2, start: 7.25, drift: -0.004, noise: 0.012, lowAction: "Base addition (NaHCO₃)", highAction: "CO₂ sparge", limits: limits(7.0, 7.4, 6.9, 7.5, 0.18, 0.1) },
-  { id: "osmolality", name: "Osmolalitas Medium", unit: "mOsm/kg", digits: 0, start: 300, drift: 0.35, noise: 1.2, highAction: exchangeAction, fresh: 300, limits: limits(null, 340, null, 360, 0, 40) },
+  { id: "lactate", name: "Lactate", unit: "mM", digits: 1, start: 1.2, drift: 0.13, noise: 0.15, highAction: exchangeAction, fresh: 0, limits: limits(null, 15, null, 20, 0, 40) },
+  { id: "ammonia", name: "Ammonia", unit: "mM", digits: 2, start: 0.2, drift: 0.022, noise: 0.03, highAction: exchangeAction, fresh: 0, limits: limits(null, 2, null, 3, 0, 40) },
+  { id: "glucose", name: "Glucose", unit: "g/L", digits: 2, start: 4.5, drift: -0.032, noise: 0.04, lowAction: "Glucose feed bolus", fresh: 4.5, limits: limits(2, null, 1.5, null, 2, 0) },
+  { id: "glutamine", name: "Glutamine", unit: "mM", digits: 2, start: 4, drift: -0.028, noise: 0.03, lowAction: "Glutamine feed bolus", fresh: 4, limits: limits(1, null, 0.5, null, 2, 0) },
+  { id: "ph", name: "Medium pH", unit: "pH", digits: 2, start: 7.25, drift: -0.004, noise: 0.012, lowAction: "Base addition (NaHCO₃)", highAction: "CO₂ sparge", limits: limits(7.0, 7.4, 6.9, 7.5, 0.18, 0.1) },
+  { id: "osmolality", name: "Medium osmolality", unit: "mOsm/kg", digits: 0, start: 300, drift: 0.35, noise: 1.2, highAction: exchangeAction, fresh: 300, limits: limits(null, 340, null, 360, 0, 40) },
   { id: "do", name: "Dissolved oxygen", unit: "% air sat.", digits: 0, start: 45, drift: -0.18, noise: 0.8, lowAction: "Raise O₂ sparge", limits: limits(30, null, 20, null, 18, 0) },
   { id: "co2", name: "CO₂", unit: "mmHg", digits: 0, start: 38, drift: 0.4, noise: 1.2, highAction: "Increase gas stripping", limits: limits(null, 80, null, 100, 0, 30) },
-  { id: "temp", name: "Suhu", unit: "°C", digits: 1, start: 37, drift: -0.012, noise: 0.06, lowAction: "Heater on", highAction: "Cooling jacket", limits: limits(36.5, 37.5, 36, 38, 0.8, 0.8) },
+  { id: "temp", name: "Temperature", unit: "°C", digits: 1, start: 37, drift: -0.012, noise: 0.06, lowAction: "Heater on", highAction: "Cooling jacket", limits: limits(36.5, 37.5, 36, 38, 0.8, 0.8) },
 ]
 
 export interface Sample {

@@ -13,6 +13,8 @@ import {
 export interface PlotCoordinates {
   x: (value: number) => number
   y: (value: number) => number
+  // Right axis; equals y when the plot has no second axis.
+  y2: (value: number) => number
   top: number
   bottom: number
   left: number
@@ -23,6 +25,10 @@ export interface PlotPoint {
   x: number
   y: number
   lines: string[]
+  // Plotted against the right axis.
+  right?: boolean
+  // Event marker drawn along the top edge: hover target sits there and y is ignored.
+  marker?: boolean
 }
 
 export default function InteractivePlot({
@@ -35,6 +41,9 @@ export default function InteractivePlot({
   fromZero = true,
   compact = false,
   height = 302,
+  y2,
+  xView,
+  onXView,
   children,
 }: {
   title: string
@@ -50,6 +59,12 @@ export default function InteractivePlot({
   // Small multiples: no toolbar or footer, same hover, zoom and pan.
   compact?: boolean
   height?: number
+  // Second quantity with its own unit, drawn on a right-hand axis that pans and zooms with the left.
+  y2?: { values: number[]; label: string }
+  // Controlled time range shared with other charts; null = the whole xExtent. Zoom, pan
+  // and reset report through onXView instead of keeping the time range locally.
+  xView?: Range | null
+  onXView?: (next: Range | null) => void
   children: (coordinates: PlotCoordinates) => ReactNode
 }) {
   const svg = useRef<SVGSVGElement>(null)
@@ -72,10 +87,17 @@ export default function InteractivePlot({
   const extentKey = `${xExtent.join(",")}:${yExtent.join(",")}:${logarithmic}`
   const extentRef = useRef(extentKey)
   // New observations or axis transforms fit the data again; resizing preserves the view.
-  const current =
+  const local =
     extentRef.current === extentKey && view
       ? { x: boundRange(view.x, xExtent), y: boundRange(view.y, yExtent) }
       : { x: xExtent, y: yExtent }
+  const current = onXView
+    ? { ...local, x: xView ? boundRange(xView, xExtent) : xExtent }
+    : local
+  function move(next: { x: Range; y: Range } | null) {
+    setView(next)
+    onXView?.(next && next.x)
+  }
   useEffect(() => {
     extentRef.current = extentKey
     setView(null)
@@ -89,7 +111,7 @@ export default function InteractivePlot({
     return () => observer.disconnect()
   }, [])
   const left = compact ? 48 : 66,
-    right = width - (compact ? 12 : 22),
+    right = width - (y2 ? (compact ? 40 : 52) : compact ? 12 : 22),
     top = compact ? 22 : 30,
     bottom = height - 42
   const transform = (value: number) => (logarithmic ? Math.log10(value) : value)
@@ -101,12 +123,26 @@ export default function InteractivePlot({
     bottom -
     ((transform(value) - current.y[0]) / (current.y[1] - current.y[0])) *
       (bottom - top)
+  // The right axis shows the same fraction of its extent as the left axis does.
+  const y2Extent = valueExtent(y2?.values ?? [], false, false)
+  const y2Scale = (y2Extent[1] - y2Extent[0]) / (yExtent[1] - yExtent[0])
+  const y2View: Range = [
+    y2Extent[0] + (current.y[0] - yExtent[0]) * y2Scale,
+    y2Extent[0] + (current.y[1] - yExtent[0]) * y2Scale,
+  ]
+  const yRight = y2
+    ? (value: number) =>
+        bottom -
+        ((value - y2View[0]) / (y2View[1] - y2View[0])) * (bottom - top)
+    : y
+  const yOf = (point: PlotPoint) =>
+    point.marker ? top + 8 : (point.right ? yRight : y)(point.y)
   function zoom(
     factor: number,
     anchor = { x: 0.5, y: 0.5 },
     axes: "both" | "x" | "y" = "both",
   ) {
-    setView({
+    move({
       x:
         axes === "y"
           ? current.x
@@ -118,7 +154,7 @@ export default function InteractivePlot({
     })
   }
   function pan(dx: number, dy: number) {
-    setView({
+    move({
       x: panRange(current.x, xExtent, dx),
       y: panRange(current.y, yExtent, dy),
     })
@@ -173,7 +209,11 @@ export default function InteractivePlot({
     let nearest: PlotPoint | null = null
     let best = 24
     for (const point of points) {
-      const distance = Math.hypot(x(point.x) - px, y(point.y) - py)
+      // Markers span the plot height, so anywhere on their line counts; a sample sitting
+      // right on the line still wins by the small penalty.
+      const distance = point.marker
+        ? Math.abs(x(point.x) - px) + (py > top + 16 ? 4 : 0)
+        : Math.hypot(x(point.x) - px, yOf(point) - py)
       if (distance < best) [nearest, best] = [point, distance]
     }
     setHover(nearest)
@@ -198,7 +238,7 @@ export default function InteractivePlot({
           </select>
         </label>
         <div className="plot-buttons">
-          <Button icon="home" onClick={() => setView(null)}>
+          <Button icon="home" onClick={() => move(null)}>
             Home
           </Button>
         </div>
@@ -213,7 +253,7 @@ export default function InteractivePlot({
         role="group"
         aria-label={title}
         aria-describedby={`${id}-help ${id}-range`}
-        onDoubleClick={() => setView(null)}
+        onDoubleClick={() => move(null)}
         onBlur={(event) => delete event.currentTarget.dataset.pointer}
         onKeyDown={(event) => {
           delete event.currentTarget.dataset.pointer
@@ -237,7 +277,7 @@ export default function InteractivePlot({
           if (event.key === "ArrowDown") pan(0, -0.2)
           if (event.key === "+" || event.key === "=") zoom(0.7)
           if (event.key === "-") zoom(1 / 0.7)
-          if (event.key === "Home" || event.key === "Escape") setView(null)
+          if (event.key === "Home" || event.key === "Escape") move(null)
         }}
         onPointerDown={(event) => {
           // Clickable marks inside the chart keep their own click.
@@ -313,8 +353,20 @@ export default function InteractivePlot({
           )
         })}
         <g clipPath={`url(#${id}-clip)`}>
-          {children({ x, y, top, bottom, left, right })}
+          {children({ x, y, y2: yRight, top, bottom, left, right })}
         </g>
+        {y2 && (
+          <>
+            <text x={width - 4} y="16" textAnchor="end" className="axis-title">
+              {y2.label}
+            </text>
+            {niceTicks(y2View, 6).map((value) => (
+              <text key={value} x={right + 8} y={yRight(value) + 4}>
+                {plotNumber(value)}
+              </text>
+            ))}
+          </>
+        )}
         {niceTicks(current.x, width < 500 ? 4 : 7).map((value) => (
           <text key={value} x={x(value)} y={height - 21} textAnchor="middle">
             {plotNumber(value)}h
@@ -326,7 +378,7 @@ export default function InteractivePlot({
         {hover && hover.x >= current.x[0] && hover.x <= current.x[1] && (
           <PlotTooltip
             x={x(hover.x)}
-            y={y(hover.y)}
+            y={yOf(hover)}
             lines={hover.lines}
             left={left}
             right={right}

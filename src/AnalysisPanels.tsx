@@ -878,144 +878,16 @@ export function ExperimentPlanner({
 
 export { default as MarkerScreen } from "./MarkerScreen"
 
-const mvpKeys = [
-  "lactate_mmol_l",
-  "ammonia_mmol_l",
-  "glucose_mmol_l",
-  "glutamine_mmol_l",
-  "ph",
+// The four metabolites share mmol/L on the left axis; pH gets its own axis on the right.
+const mvpSeries = [
+  { key: "lactate_mmol_l", color: "#c2410c" },
+  { key: "ammonia_mmol_l", color: "#7c3aed" },
+  { key: "glucose_mmol_l", color: "#2563eb" },
+  { key: "glutamine_mmol_l", color: "#0d8279" },
+  { key: "ph", color: "#64748b", right: true },
 ]
 
-// Small multiples: each variable keeps its own y-scale so pH and mmol/L stay readable.
 // Axes span the whole run, so replay reveals points without rescaling the lines.
-function MvpChart({
-  rows,
-
-  channelKey,
-
-  hour,
-
-  end,
-}: {
-  rows: CultureRow[]
-
-  channelKey: string
-
-  hour: number
-
-  end: number
-}) {
-  const box = useRef<HTMLDivElement>(null)
-
-  const [height, setHeight] = useState(150)
-
-  useEffect(() => {
-    if (!box.current) return
-
-    const observer = new ResizeObserver(([entry]) =>
-      setHeight(Math.max(130, entry.contentRect.height)),
-    )
-
-    observer.observe(box.current)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const channel = channels.find((item) => item.key === channelKey)!
-
-  const label = channelKey === "ph" ? "pH medium" : channel.label
-
-  const all = rows.filter((row) => row.channels[channelKey] != null)
-
-  const values = all.filter((row) => row.hour <= hour)
-
-  const value = (row: CultureRow) => row.channels[channelKey]!
-
-  return (
-    <figure>
-      <figcaption>
-        {label}
-        <small>
-          {values.length
-            ? `${value(values.at(-1)!).toPrecision(3)} ${channel.unit}`
-            : "No data"}
-        </small>
-      </figcaption>
-      <div className="mvp-chart-box" ref={box}>
-        <InteractivePlot
-          compact
-          height={height}
-          title={`${label} through ${hour}h`}
-          xExtent={[0, end]}
-          // Full-run values fix the y-axis, so replay reveals points without rescaling.
-          values={all.map(value)}
-          fromZero={false}
-          yLabel={channel.unit || "pH"}
-          points={values.map((row, index) => {
-            const previous = values[index - 1]
-
-            return {
-              x: row.hour,
-
-              y: value(row),
-
-              lines: [
-                `${label} · ${plotNumber(row.hour)}h`,
-
-                `${plotNumber(value(row))} ${channel.unit}`,
-
-                ...(previous
-                  ? [
-                      `${value(row) >= value(previous) ? "+" : ""}${plotNumber(
-                        value(row) - value(previous),
-                      )} vs ${plotNumber(previous.hour)}h`,
-                    ]
-                  : []),
-              ],
-            }
-          })}
-        >
-          {({ x, y, top, bottom }) => (
-            <>
-              {hour < end && (
-                <rect
-                  x={x(hour)}
-                  y={top}
-                  width={Math.max(0, x(end) - x(hour))}
-                  height={bottom - top}
-                  fill="var(--guard-future)"
-                />
-              )}
-              <polyline
-                points={values
-                  .map((row) => `${x(row.hour)},${y(value(row))}`)
-                  .join(" ")}
-                fill="none"
-                stroke="#0d8279"
-                strokeWidth="2"
-              />
-              {values.map((row) => (
-                <circle
-                  key={row.hour}
-                  cx={x(row.hour)}
-                  cy={y(value(row))}
-                  r="3"
-                  fill="#0d8279"
-                />
-              ))}
-              {!all.length && (
-                <text x={x(end / 2)} y={(top + bottom) / 2} textAnchor="middle">
-                  Not measured yet
-                </text>
-              )}
-            </>
-          )}
-        </InteractivePlot>
-      </div>
-    </figure>
-  )
-}
-
 export function MvpCharts({
   replicate,
 
@@ -1027,15 +899,145 @@ export function MvpCharts({
 }) {
   const { batchMeasurements, replayEndHour } = useCultureData()
 
+  const box = useRef<HTMLDivElement>(null)
+
+  const [height, setHeight] = useState(260)
+
+  useEffect(() => {
+    if (!box.current) return
+
+    const observer = new ResizeObserver(([entry]) =>
+      setHeight(Math.max(220, entry.contentRect.height)),
+    )
+
+    observer.observe(box.current)
+
+    return () => observer.disconnect()
+  }, [])
+
   const rows = batchMeasurements(replicate)
 
   const end = Math.max(replayEndHour, 1)
 
+  const series = mvpSeries.map((item) => {
+    const channel = channels.find((c) => c.key === item.key)!
+
+    const all = rows.filter((row) => row.channels[item.key] != null)
+
+    return {
+      ...item,
+      label: item.key === "ph" ? "pH medium" : channel.label,
+      unit: channel.unit,
+      all,
+      values: all.filter((row) => row.hour <= hour),
+      value: (row: CultureRow) => row.channels[item.key]!,
+    }
+  })
+
+  const left = series.filter((item) => !item.right)
+
+  const ph = series.find((item) => item.right)!
+
   return (
     <div className="mvp-charts">
-      {mvpKeys.map((key) => (
-        <MvpChart key={key} rows={rows} channelKey={key} hour={hour} end={end} />
-      ))}
+      <figure>
+        <figcaption className="mvp-legend">
+          {series.map((item) => (
+            <span key={item.key}>
+              <i style={{ borderTop: `2px ${item.right ? "dashed" : "solid"} ${item.color}` }} />
+              {item.label}
+              <small>
+                {item.values.length
+                  ? `${item.value(item.values.at(-1)!).toPrecision(3)} ${item.unit}`
+                  : "No data"}
+              </small>
+            </span>
+          ))}
+        </figcaption>
+        <div className="mvp-chart-box" ref={box}>
+          <InteractivePlot
+            compact
+            height={height}
+            title={`Metabolites and pH through ${hour}h`}
+            xExtent={[0, end]}
+            values={left.flatMap((item) => item.all.map(item.value))}
+            fromZero={false}
+            yLabel="mmol/L"
+            y2={{ values: ph.all.map(ph.value), label: "pH" }}
+            points={series.flatMap((item) =>
+              item.values.map((row, index) => {
+                const previous = item.values[index - 1]
+
+                return {
+                  x: row.hour,
+
+                  y: item.value(row),
+
+                  right: item.right,
+
+                  lines: [
+                    `${item.label} · ${plotNumber(row.hour)}h`,
+
+                    `${plotNumber(item.value(row))} ${item.unit}`,
+
+                    ...(previous
+                      ? [
+                          `${item.value(row) >= item.value(previous) ? "+" : ""}${plotNumber(
+                            item.value(row) - item.value(previous),
+                          )} vs ${plotNumber(previous.hour)}h`,
+                        ]
+                      : []),
+                  ],
+                }
+              }),
+            )}
+          >
+            {({ x, y, y2, top, bottom }) => (
+              <>
+                {hour < end && (
+                  <rect
+                    x={x(hour)}
+                    y={top}
+                    width={Math.max(0, x(end) - x(hour))}
+                    height={bottom - top}
+                    fill="var(--guard-future)"
+                  />
+                )}
+                {series.map((item) => {
+                  const toY = item.right ? y2 : y
+
+                  return (
+                    <g key={item.key} fill={item.color} stroke={item.color}>
+                      <polyline
+                        points={item.values
+                          .map((row) => `${x(row.hour)},${toY(item.value(row))}`)
+                          .join(" ")}
+                        fill="none"
+                        strokeWidth="2"
+                        strokeDasharray={item.right ? "5 3" : undefined}
+                      />
+                      {item.values.map((row) => (
+                        <circle
+                          key={row.hour}
+                          cx={x(row.hour)}
+                          cy={toY(item.value(row))}
+                          r="2.5"
+                          stroke="none"
+                        />
+                      ))}
+                    </g>
+                  )
+                })}
+                {!series.some((item) => item.all.length) && (
+                  <text x={x(end / 2)} y={(top + bottom) / 2} textAnchor="middle">
+                    Not measured yet
+                  </text>
+                )}
+              </>
+            )}
+          </InteractivePlot>
+        </div>
+      </figure>
     </div>
   )
 }
