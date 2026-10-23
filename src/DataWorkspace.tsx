@@ -11,6 +11,7 @@ import {
 } from "./workspace-data"
 import { Button, Panel, Badge, PageTitle, Icon, Details } from "./workspace-ui"
 import { downloadFile } from "./workspace-utils"
+import DocumentScan from "./DocumentScan"
 const kindNames: Record<DataKind, string> = {
   culture: "Culture measurements",
   experiments: "Experiment results",
@@ -246,7 +247,7 @@ export default function DataWorkspace({
       />
       <Panel
         title="1 · Upload files"
-        caption="CSV, TSV, or JSON · up to 2 MB and 10,000 rows per file · one file per data type"
+        caption="CSV, TSV, or JSON · up to 2 MB and 10,000 rows per file · one file per data type · or scan images and PDFs below"
       >
         <div
           className={`upload-zone${dragging ? " is-dragging" : ""}`}
@@ -347,6 +348,11 @@ export default function DataWorkspace({
             ))}
           </ul>
         )}
+        <DocumentScan
+          kindNames={kindNames}
+          disabled={busy || running}
+          onTable={(file) => void readFiles([file])}
+        />
       </Panel>
       <Panel
         title="2 · Check and edit"

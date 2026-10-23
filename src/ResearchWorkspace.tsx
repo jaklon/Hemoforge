@@ -44,7 +44,8 @@ import {
 } from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
-import AccountPage from "./AccountPage"
+import AccountPage, { initials, useProfile } from "./AccountPage"
+import { CheckpointRoadmap, StageEstimate, TrendHealth } from "./PilotInsights"
 
 import {
   analyzeMeasurements,
@@ -355,19 +356,8 @@ function Pilot({
     [replicate, hour, source, reportInterval, monitoring],
   )
 
-  const [page, setPage] = useState(0)
-
-  const [activeHour, setActiveHour] = useState<number | null>(null)
-
-  const maxPage = Math.max(0, Math.ceil(reports.length / 8) - 1)
-
-  const safePage = Math.min(page, maxPage)
-
-  const shown = [...reports].reverse().slice(safePage * 8, safePage * 8 + 8)
-
-  const selected =
-    reports.find((report) => report.checkpoint_hour === activeHour) ??
-    reports.at(-1)
+  // Past reports live on the Research Report page; Pilot reads the latest one.
+  const selected = reports.at(-1)
 
   const state = analyzeMeasurements(batchMeasurements(replicate), hour)
 
@@ -397,7 +387,7 @@ function Pilot({
     <div className="pilot-workspace">
       <PageTitle
         title="ErythroPilot"
-        description="Simulate growth and review checkpoint reports."
+        description="Interpret Guard data: trend health, stage evidence, and the 21-day plan."
         action={
           <Button
             icon="download"
@@ -426,10 +416,6 @@ function Pilot({
             value={replicate}
             onChange={(e) => {
               setReplicate(Number(e.target.value))
-
-              setPage(0)
-
-              setActiveHour(null)
             }}
           >
             {batchIndexes.map((n) => (
@@ -455,77 +441,18 @@ function Pilot({
         </dl>
       </div>
       {replayControls}
+      <CheckpointRoadmap hour={hour} />
+      <div className="pilot-insights">
+        <TrendHealth hour={hour} replicate={replicate} warnings={state.events.length} />
+        <StageEstimate hour={hour} />
+      </div>
       <section className="pilot-section" aria-label="Growth simulation">
         <SimulationPanel replicate={replicate} hour={hour} />
       </section>
-      <div className="pilot-grid">
-        <Panel
-          title="Checkpoint reports"
-          caption={`${reports.length} checkpoints reached · 8 per page`}
-          action={<Badge>Every {reportInterval}h</Badge>}
-        >
-          <div className="report-timeline">
-            {shown.length ? (
-              shown.map((report) => (
-                <button
-                  key={report.checkpoint_hour}
-                  className={
-                    selected?.checkpoint_hour === report.checkpoint_hour
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() => setActiveHour(report.checkpoint_hour)}
-                >
-                  <span className="checkpoint-time">
-                    {report.checkpoint_hour}h
-                  </span>
-                  <span>
-                    <strong>
-                      {report.new_measurements
-                        ? "New source sample"
-                        : "No new measurements"}
-                    </strong>
-                    <small>
-                      Last sample {report.last_measurement_hour}h ·{" "}
-                      {report.open_warnings.length} warnings
-                    </small>
-                  </span>
-                  <Icon name="arrow" />
-                </button>
-              ))
-            ) : (
-              <div className="empty-state">
-                <strong>No checkpoints reached</strong>
-                <p>
-                  Advance replay to {reportInterval}h to generate the first
-                  report.
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="pagination">
-            <Button
-              disabled={safePage === 0}
-              onClick={() => setPage(safePage - 1)}
-            >
-              Newer
-            </Button>
-            <span>
-              {reports.length
-                ? `Page ${safePage + 1} of ${maxPage + 1}`
-                : "No reports"}
-            </span>
-            <Button
-              disabled={safePage === maxPage}
-              onClick={() => setPage(safePage + 1)}
-            >
-              Earlier
-            </Button>
-          </div>
-        </Panel>
+      <div className="pilot-latest">
         <Panel
           title={
-            selected ? `Report · ${selected.checkpoint_hour}h` : "Report detail"
+            selected ? `Latest report · ${selected.checkpoint_hour}h` : "Latest report"
           }
           action={selected && <Status status={selected.status} />}
         >
@@ -805,11 +732,15 @@ function ResearchReport({
       />
       <Panel title="Past reports" caption="Click a report to download it">
         <div className="report-filters">
-          <label>
+          <label className="search-field">
             <span className="sr-only">Search reports</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6" />
+              <path d="m20 20-4.5-4.5" />
+            </svg>
             <input
               type="search"
-              placeholder="Search hour or text…"
+              placeholder="Search by hour or text, e.g. 48h"
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value)
@@ -957,6 +888,8 @@ function ResearchWorkspaceContent() {
 
   const workspaceData = useWorkspace()
   const { notice, notify } = workspaceData
+
+  const profile = useProfile()
 
   const noticeProgress = notice?.message.endsWith("…")
   // Errors stay longer so they can be read.
@@ -1223,16 +1156,22 @@ function ResearchWorkspaceContent() {
         <nav className="nav-signout" aria-label="Account">
           <a
             href="#account"
-            title={sidebarCollapsed ? "Account" : undefined}
+            title={sidebarCollapsed ? `Logged in as ${profile.name} · ${profile.company}` : "Account settings"}
             aria-current={view === "account" ? "page" : undefined}
-            className={view === "account" ? "active" : ""}
+            className={`nav-user${view === "account" ? " active" : ""}`}
             onClick={(e) => {
               e.preventDefault()
               navigate("account")
             }}
           >
-            <Icon name="team" />
-            <strong>Account</strong>
+            <span className="nav-avatar" aria-hidden="true">
+              {initials(profile)}
+            </span>
+            <strong>
+              <small>Logged in as</small>
+              {profile.name || profile.username}
+              <small>{profile.company}</small>
+            </strong>
           </a>
           <a
             href="#"

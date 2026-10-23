@@ -16,7 +16,7 @@ import MonitoringControls from "./MonitoringControls"
 
 import InteractivePlot from "./InteractivePlot"
 
-import { ChannelPanel, MvpCharts } from "./AnalysisPanels"
+import { MvpCharts } from "./AnalysisPanels"
 
 import { csv, downloadFile } from "./workspace-utils"
 
@@ -1028,13 +1028,6 @@ export default function BioreactorGuard({
             </div>
           </div>
         </Panel>
-      </div>
-      <div className="guard-secondary-grid" id="guard-environment">
-        <ChannelPanel
-          replicate={replicate}
-          hour={hour}
-          onImport={() => navigate("data")}
-        />
       </div>
       <div ref={settingsRef} id="guard-settings">
         <MonitoringControls />
