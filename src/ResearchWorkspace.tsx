@@ -1083,7 +1083,7 @@ function ServiceStatus({
   return (
     <span className="service-status" role="status">
       {services.map(([name, state]) => (
-        <span key={name}>
+        <span key={name} className={`service-pill is-${state}`}>
           <span className={`status-dot is-${state}`} />
           {name} {serviceLabels[state]}
         </span>

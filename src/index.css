@@ -144,16 +144,24 @@ code { overflow-wrap: anywhere; }
 .breadcrumb strong { color: #334155; font-weight: 550; }
 .header-actions { display: flex; align-items: center; gap: 18px; }
 .replay-indicator { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--text-caption); }
-.service-status { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: var(--text-caption); white-space: nowrap; }
-.service-status > span { display: inline-flex; align-items: center; gap: 7px; }
-.status-dot.is-online { background: #1f9d55; box-shadow: 0 0 0 3px rgb(31 157 85 / .15); }
-.status-dot.is-offline { background: #c53030; }
+.service-status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--text-caption); white-space: nowrap; }
+.service-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: #f4f7fa; line-height: 1.4; }
+.service-pill.is-online { color: #17693c; background: #ebf7f0; border-color: #c4e6d2; }
+.service-pill.is-offline { color: #a12828; background: #fdf0f0; border-color: #f1caca; }
+.status-dot.is-online { background: #1f9d55; }
+.status-dot.is-offline { background: #c53030; animation: status-blink 10s ease-in-out infinite; }
 .status-dot.is-disabled { background: #8f9caf; }
+/* Ten .5s blinks, then 5s still. */
+@keyframes status-blink {
+  0%, 5%, 10%, 15%, 20%, 25%, 30%, 35%, 40%, 45%, 50%, 100% { opacity: 1; }
+  2.5%, 7.5%, 12.5%, 17.5%, 22.5%, 27.5%, 32.5%, 37.5%, 42.5%, 47.5% { opacity: .15; }
+}
 .mobile-brand, .menu-toggle { display: none; }
 .mobile-brand { color: var(--navy); text-decoration: none; align-items: center; gap: 8px; white-space: nowrap; }
 .mobile-brand .brand-mark { width: 30px; height: 30px; }
 .mobile-brand:hover { color: var(--red); }
-@media (max-width: 420px) { .topbar .service-status { flex-direction: column; align-items: flex-start; gap: 2px; font-size: var(--text-xs); } }
+@media (max-width: 900px) { .topbar .service-status { flex-wrap: wrap; justify-content: flex-end; gap: 4px; } }
+@media (max-width: 420px) { .topbar .service-status { flex-direction: column; align-items: flex-start; gap: 2px; font-size: var(--text-xs); } .topbar .service-pill { padding: 0 7px 0 6px; } }
 .workspace { margin-left: var(--sidebar-width); padding: 22px 28px 24px; max-width: 1880px; }
 .demo-notice { background: #eaf0f6; border-radius: 6px; color: #44566d; display: flex; gap: 10px; align-items: center; padding: 11px 14px; margin-bottom: 18px; font-size: var(--text-caption); }
 .demo-notice > span { flex: 1; }
