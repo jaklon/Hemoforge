@@ -2,9 +2,19 @@ import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 
 import siteConfiguration from './.figma/make/site.json'
 
+
+// Short commit shown under the sidebar logo. Builds without .git (Docker) can pass COMMIT_SHA.
+function commitVersion() {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return process.env.COMMIT_SHA?.slice(0, 7) || 'dev'
+  }
+}
 
 // Vite config — https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -12,6 +22,7 @@ export default defineConfig(({ mode }) => {
   const emitSourcemaps = mode === 'development'
 
   return {
+    define: { __APP_COMMIT__: JSON.stringify(commitVersion()) },
     base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,

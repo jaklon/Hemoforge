@@ -44,7 +44,9 @@ import {
 } from "react"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
+
 import AccountPage, { initials, useProfile } from "./AccountPage"
+
 import { CheckpointRoadmap, StageEstimate, TrendHealth } from "./PilotInsights"
 
 import {
@@ -62,97 +64,163 @@ type View = "data" | "dashboard" | "guard" | "pilot" | "plan" | "match" | "evo2"
 
 interface NavigationItem {
   id: View
+
   name: string
+
   purpose: string
+
   icon: string
+
   group: string
+
   // Process-map role; items with a role are ranked stages in array order.
+
   role?: string
 }
 
 // Ordered start to finish along the HemoForge process map.
+
 const navigation: NavigationItem[] = [
   {
     id: "data",
+
     name: "Data & Runs",
+
     purpose: "Import, validate & run",
+
     icon: "data",
+
     group: "Data",
+
     role: "Import",
   },
+
   // Workflow & Datasets page is hidden but kept: re-add
+
   // { id: "workflow", name: "Workflow & Datasets", purpose: "Trace the evidence", icon: "data", group: "Data" },
+
   // to show it again. Without a nav entry, #workflow falls back to Guard.
+
   // Legacy marker screen ("match") stays in code but is no longer navigable.
+
   {
     id: "dashboard",
+
     name: "Dashboard",
+
     purpose: "Process variables & control",
+
     icon: "dashboard",
+
     group: "Workspace",
   },
+
   {
     id: "evo2",
+
     name: "RareMatch",
+
     purpose: "Screen sequence variants",
+
     icon: "dna",
+
     group: "Workspace",
+
     role: "Select",
   },
+
   {
     id: "plan",
+
     name: "CulturePlan",
+
     purpose: "Plan experiments",
+
     icon: "plan",
+
     group: "Workspace",
+
     role: "Plan",
   },
+
   {
     id: "guard",
+
     name: "Bioreactor Guard",
+
     purpose: "Observe culture",
+
     icon: "guard",
+
     group: "Workspace",
+
     role: "Observe",
   },
+
   {
     id: "pilot",
+
     name: "ErythroPilot",
+
     purpose: "Interpret & summarize",
+
     icon: "pilot",
+
     group: "Workspace",
+
     role: "Interpret",
   },
+
   {
     id: "report",
+
     name: "Research Report",
+
     purpose: "Review & export",
+
     icon: "report",
+
     group: "Output",
+
     role: "Report",
   },
+
   {
     id: "bot",
+
     name: "HemoBot",
+
     purpose: "Analyze research evidence",
+
     icon: "pilot",
+
     group: "Assist & Reference",
   },
+
   {
     id: "methods",
+
     name: "Methods & References",
+
     purpose: "Equations & sources",
+
     icon: "report",
+
     group: "Assist & Reference",
   },
 ]
 
 // Reached from the account links under the navigation, not a navigation group.
+
 const accountPage: NavigationItem = {
   id: "account",
+
   name: "Account",
+
   purpose: "Profile & password",
+
   icon: "team",
+
   group: "Account",
 }
 
@@ -308,13 +376,18 @@ function ReplayControls({
 type CheckpointReport = ReturnType<ReturnType<typeof useCultureData>["checkpointReports"]>[number]
 
 /** One checkpoint report, read in ErythroPilot and inspected on Research Report. */
+
 function ReportDetail({
   report,
+
   evidence,
+
   children,
 }: {
   report: CheckpointReport
+
   evidence: string
+
   children?: ReactNode
 }) {
   return (
@@ -432,6 +505,7 @@ function Pilot({
   )
 
   // Past reports live on the Research Report page; Pilot reads the latest one.
+
   const selected = reports.at(-1)
 
   const state = analyzeMeasurements(batchMeasurements(replicate), hour)
@@ -711,12 +785,17 @@ const reportPage = 10
 
 function ResearchReport({
   hour,
+
   replicate,
+
   focusHour,
+
   // Checkpoint to open first, from #report/<hour> (ErythroPilot's Review report).
 }: {
   hour: number
+
   replicate: number
+
   focusHour: number | null
 }) {
   const { batchId, checkpointReports, reportInterval, source } =
@@ -743,7 +822,9 @@ function ResearchReport({
       (status === "all" || report.status === status) &&
       (!needle ||
         `${report.checkpoint_hour}h ${report.summary} ${report.recommendation}`
+
           .toLowerCase()
+
           .includes(needle)),
   )
 
@@ -753,6 +834,7 @@ function ResearchReport({
     all.find((report) => report.checkpoint_hour === activeHour) ?? all.at(-1)
 
   // ponytail: no real batch start clock, so the run is anchored to now minus replay hours.
+
   const startedAt = Date.now() - hour * 3_600_000
 
   const madeAt = (h: number) => new Date(startedAt + h * 3_600_000)
@@ -764,7 +846,9 @@ function ResearchReport({
 
     downloadFile(
       `hemoforge-report-${report.batch_id}-${report.checkpoint_hour}h.html`,
+
       html,
+
       "text/html;charset=utf-8",
     )
   }
@@ -791,6 +875,7 @@ function ResearchReport({
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value)
+
                   setShown(reportPage)
                 }}
               />
@@ -801,6 +886,7 @@ function ResearchReport({
                 value={status}
                 onChange={(event) => {
                   setStatus(event.target.value)
+
                   setShown(reportPage)
                 }}
               >
@@ -844,8 +930,10 @@ function ResearchReport({
                     <strong>
                       {madeAt(report.checkpoint_hour).toLocaleString(
                         undefined,
+
                         {
                           dateStyle: "medium",
+
                           timeStyle: "short",
                         },
                       )}
@@ -910,12 +998,16 @@ function ResearchReport({
 
 const serviceLabels = {
   checking: "checking…",
+
   online: "connected",
+
   offline: "offline",
+
   disabled: "off",
 } as const
 
 /** Top-bar health: the Python API, the model server it talks to, and the bioreactor machine. */
+
 function ServiceStatus({
   backend,
 }: {
@@ -924,31 +1016,47 @@ function ServiceStatus({
   const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">(
     "checking",
   )
+
   useEffect(() => {
     if (backend !== "online") return
+
     let controller: AbortController | undefined
+
     const check = () => {
       controller?.abort()
+
       controller = new AbortController()
+
       botStatus(controller.signal)
+
         .then((status) => setLlm(status.llm_status))
+
         .catch((error) => {
           if (error?.name !== "AbortError") setLlm("offline")
         })
     }
+
     check()
+
     const timer = setInterval(check, 60_000)
+
     return () => {
       clearInterval(timer)
+
       controller?.abort()
     }
   }, [backend])
+
   const services = [
     ["Backend", backend],
+
     ["LLM", backend === "online" ? llm : backend],
+
     // ponytail: hardcoded until a real machine feed exists; derive from its heartbeat then.
+
     ["Machine", "online"],
   ] as const
+
   return (
     <span className="service-status" role="status">
       {services.map(([name, state]) => (
@@ -965,27 +1073,35 @@ function ResearchWorkspaceContent() {
   const { batches, batchIndexes, replayEndHour, source } = useCultureData()
 
   const workspaceData = useWorkspace()
+
   const { notice, notify } = workspaceData
 
   const profile = useProfile()
 
   const noticeProgress = notice?.message.endsWith("…")
+
   // Errors stay longer so they can be read.
+
   const noticeMs = notice?.tone === "error" ? 8000 : 5000
 
   // The notice clears when its exit animation ends (see onAnimationEnd).
+
   const [leavingId, setLeavingId] = useState<number | null>(null)
+
   const noticeLeaving = notice !== null && leavingId === notice.id
 
   function dismissNotice() {
     if (!notice) return
+
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) notify(null)
     else setLeavingId(notice.id)
   }
 
   useEffect(() => {
     if (!notice || noticeProgress) return
+
     const timer = setTimeout(dismissNotice, noticeMs)
+
     return () => clearTimeout(timer)
   }, [notice])
 
@@ -996,6 +1112,7 @@ function ResearchWorkspaceContent() {
   )
 
   // Opening a page counts as seeing its new results.
+
   useEffect(() => {
     if (workspaceData.updates.includes(view)) workspaceData.unflag(view)
   }, [view, workspaceData.updates])
@@ -1013,6 +1130,7 @@ function ResearchWorkspaceContent() {
   const [sidebarFocused, setSidebarFocused] = useState(false)
 
   // Desktop sidebar rests as an icon rail; hover/focus floats it open over the page, the pin docks it.
+
   const sidebarCollapsed = !sidebarPinned && !sidebarHovered && !sidebarFocused
 
   const [hour, setHour] = useState(120)
@@ -1102,6 +1220,7 @@ function ResearchWorkspaceContent() {
   }, [workspaceData.inputs.markers])
 
   // detail is the second hash segment: a Methods section or a report checkpoint hour.
+
   function navigate(next: View, detail = "") {
     setView(next)
 
@@ -1153,55 +1272,34 @@ function ResearchWorkspaceContent() {
             setSidebarFocused(false)
         }}
       >
-        <div className="sidebar-head">
-          <a
-            className="brand"
-            href="#dashboard"
-            aria-label="HemoForge · Dashboard"
-            onClick={(e) => {
-              e.preventDefault()
+        <a
+          className="brand"
+          href="#dashboard"
+          aria-label="HemoForge · Dashboard"
+          onClick={(e) => {
+            e.preventDefault()
 
-              navigate("dashboard")
-            }}
-          >
-            <img
-              className="brand-mark"
-              src="/favicon.svg"
-              width="40"
-              height="40"
-              alt=""
-            />
-            <span>
-              <strong>
-                Hemo<span>Forge</span>
-              </strong>
-            </span>
-          </a>
-          <button
-            type="button"
-            className="sidebar-pin"
-            tabIndex={sidebarCollapsed ? -1 : undefined}
-            aria-label={
-              sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"
-            }
-            title={
-              sidebarPinned ? "Collapse sidebar to icons" : "Keep sidebar open"
-            }
-            aria-pressed={sidebarPinned}
-            aria-controls="research-navigation"
-            onClick={() => setSidebarPinned(!sidebarPinned)}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-              <path d="M9 4.5v15" />
-              <path
-                d={sidebarPinned ? "m15.5 10-2 2 2 2" : "m13.5 10 2 2-2 2"}
-              />
-            </svg>
-          </button>
-        </div>
+            navigate("dashboard")
+          }}
+        >
+          <img
+            className="brand-mark"
+            src="/favicon.svg"
+            width="40"
+            height="40"
+            alt=""
+          />
+          <span>
+            <strong>
+              Hemo<span>Forge</span>
+            </strong>
+            <small className="brand-version" title="Build commit">
+              v{__APP_COMMIT__}
+            </small>
+          </span>
+        </a>
         <nav aria-label="Research modules">
-          {navigationGroups.map((group) => (
+          {navigationGroups.map((group, i) => (
             <div
               className="nav-group"
               key={group}
@@ -1210,9 +1308,43 @@ function ResearchWorkspaceContent() {
             >
               <div className="nav-group-label">
                 <span aria-hidden="true">{group}</span>
+                {i === 0 && (
+                  <button
+                    type="button"
+                    className="sidebar-pin"
+                    tabIndex={sidebarCollapsed ? -1 : undefined}
+                    aria-label={
+                      sidebarPinned
+                        ? "Collapse sidebar to icons"
+                        : "Keep sidebar open"
+                    }
+                    title={
+                      sidebarPinned
+                        ? "Collapse sidebar to icons"
+                        : "Keep sidebar open"
+                    }
+                    aria-pressed={sidebarPinned}
+                    aria-controls="research-navigation"
+                    onClick={() => setSidebarPinned(!sidebarPinned)}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+                      <path d="M9 4.5v15" />
+                      <path
+                        d={
+                          sidebarPinned
+                            ? "m15.5 10-2 2 2 2"
+                            : "m13.5 10 2 2-2 2"
+                        }
+                      />
+                    </svg>
+                  </button>
+                )}
               </div>
               {navigation
+
                 .filter((item) => item.group === group)
+
                 .map((item) => (
                   <a
                     href={`#${item.id}`}
@@ -1254,6 +1386,7 @@ function ResearchWorkspaceContent() {
             className={`nav-user${view === "account" ? " active" : ""}`}
             onClick={(e) => {
               e.preventDefault()
+
               navigate("account")
             }}
           >
@@ -1270,6 +1403,7 @@ function ResearchWorkspaceContent() {
             title={sidebarCollapsed ? "Sign out" : undefined}
             onClick={(e) => {
               e.preventDefault()
+
               location.hash = ""
             }}
           >
@@ -1290,6 +1424,7 @@ function ResearchWorkspaceContent() {
           aria-label="HemoForge · Dashboard"
           onClick={(event) => {
             event.preventDefault()
+
             navigate("dashboard")
           }}
         >

@@ -76,6 +76,7 @@ code { overflow-wrap: anywhere; }
 .brand-mark { display: block; flex: none; width: 40px; height: 40px; }
 .brand strong, .mobile-brand strong { display: block; font-weight: 600; line-height: 1.25; letter-spacing: .1em; text-transform: uppercase; }
 .brand strong { font-size: 1rem; }
+.brand-version { display: block; margin-top: 1px; color: #8e9cb3; font: 500 var(--text-xs)/1.2 "JetBrains Mono Variable", "JetBrains Mono", "Cascadia Mono", Consolas, monospace; letter-spacing: .02em; }
 .mobile-brand strong { font-size: .8125rem; letter-spacing: .08em; }
 .workspace-context { margin: 0 8px 25px; padding-top: 19px; border-top: 1px solid #293448; }
 .workspace-context span, .workspace-context strong, .workspace-context small { display: block; }
@@ -93,9 +94,8 @@ code { overflow-wrap: anywhere; }
 .sidebar nav strong { font-size: var(--text-md); font-weight: 550; }
 .sidebar nav small { color: #b0bdd1; font-size: var(--text-xs); margin-top: 3px; }
 .nav-group-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
-.sidebar-head { position: relative; }
-.sidebar-pin { position: absolute; top: 4px; right: 0; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #8e9cb3; cursor: pointer; transition: background .15s, color .15s, border-color .15s, opacity .15s; }
-.sidebar-pin svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-pin { display: grid; flex: none; place-items: center; width: 28px; height: 28px; margin: -6px -6px -6px 0; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #8e9cb3; cursor: pointer; transition: background .15s, color .15s, border-color .15s, opacity .15s; }
+.sidebar-pin svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-pin:hover { background: #1b263a; border-color: #2c3a52; color: #fff; }
 .sidebar-pin:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Collapsible sidebar: unpinned, the page keeps only a narrow rail; hovering widens the sidebar
@@ -223,7 +223,7 @@ textarea { display: block; width: 100%; min-height: 110px; resize: none; padding
 .context-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 22px; padding: 12px 16px; background: #eaf0f6; margin-bottom: 20px; border-radius: 6px; font-size: var(--text-caption); color: #526174; }
 .context-strip label { display: flex; align-items: center; gap: 9px; }
 .pilot-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.6fr); gap: 18px; margin-bottom: 20px; align-items: start; }
-.report-timeline { padding: 0 16px; }
+.report-timeline { padding: 0; }
 .report-timeline button { display: flex; width: 100%; align-items: center; gap: 13px; padding: 13px 3px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: #44566a; text-align: left; }
 .report-timeline button:hover, .report-timeline button.active { background: #f4f7fa; }
 .report-timeline button > span:nth-child(2) { flex: 1; }
@@ -232,13 +232,14 @@ textarea { display: block; width: 100%; min-height: 110px; resize: none; padding
 .report-timeline button .icon { width: 13px; }
 .report-timeline button small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .report-timeline button > span:nth-child(2) { min-width: 0; }
-.report-timeline button { padding-block: 9px; }
-.report-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); }
+.report-timeline button { padding: 9px 18px; }
+.report-timeline .empty-state { padding: 22px 18px; }
+.report-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: var(--text-caption); }
 .report-filters label { display: inline-flex; align-items: center; gap: 6px; }
 .report-filters .search-field { position: relative; flex: 1 1 260px; max-width: 380px; }
 .search-field svg { position: absolute; left: 11px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); fill: none; stroke: #8795a8; stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 .search-field input { padding-left: 34px; min-height: 36px; font-size: var(--text-caption); }
-.report-filters select { min-height: 32px; }
+.report-filters select { min-height: 36px; }
 .report-filters [role="status"] { margin-left: auto; }
 .report-more { display: flex; justify-content: center; padding: 12px; }
 .account-hero { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 20px 22px; margin-bottom: 18px; background: #fff; border: 1px solid var(--line); border-radius: 7px; }
@@ -1090,5 +1091,6 @@ button.dash-card-head { width: 100%; padding: 0; border: 0; background: none; fo
 .report-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
 .report-inspector { position: sticky; top: 76px; }
 @media (max-width: 1000px) { .report-layout { grid-template-columns: minmax(0, 1fr); } .report-inspector { position: static; } }
-.report-timeline button[aria-pressed="true"] { box-shadow: inset 3px 0 0 #2584be; }
+.report-timeline button[aria-pressed="true"] { background: #eef5fb; box-shadow: inset 3px 0 0 #2584be; }
+.report-timeline button[aria-pressed="true"] .checkpoint-time, .report-timeline button[aria-pressed="true"] strong { color: #1d5f86; font-weight: 600; }
 .report-layout .report-filters .search-field { flex-basis: 100%; max-width: none; }
