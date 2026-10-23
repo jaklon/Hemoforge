@@ -69,8 +69,11 @@ export async function loadAccount() {
   }
 }
 
-export async function signIn(username: string, password: string) {
-  set(await accountApi<Profile>("auth/login", "POST", { username, password }))
+/** `beforeEnter` runs after the credentials check out but before the workspace replaces the sign-in page. */
+export async function signIn(username: string, password: string, beforeEnter?: () => Promise<void>) {
+  const profile = await accountApi<Profile>("auth/login", "POST", { username, password })
+  await beforeEnter?.()
+  set(profile)
 }
 
 export async function signOut() {

@@ -250,9 +250,48 @@ textarea { display: block; width: 100%; min-height: 110px; resize: none; padding
 .account-avatar { width: 60px; height: 60px; font-size: 1.25rem; }
 .account-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 900px) { .account-grid { grid-template-columns: minmax(0, 1fr); } }
-.signin { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: #f4f7fa; }
-.signin-card { width: min(100%, 400px); background: #fff; border: 1px solid var(--line); border-radius: 7px; }
-.signin-card h1 { margin: 10px 0 4px; font-size: var(--text-section); color: var(--navy); }
+.signin { position: relative; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; overflow: hidden; isolation: isolate; background: radial-gradient(120% 90% at 50% 110%, #1b2540 0%, #0b1120 55%, #070b16 100%); }
+.signin-backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.signin-glow { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(80px); opacity: .45; animation: signin-drift 18s ease-in-out infinite alternate; }
+.signin-glow.is-red { top: -25vmax; left: -15vmax; background: radial-gradient(circle, #b4232b, transparent 65%); }
+.signin-glow.is-teal { bottom: -30vmax; right: -20vmax; background: radial-gradient(circle, #0d9488, transparent 65%); animation-delay: -9s; animation-direction: alternate-reverse; }
+.signin-grid { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.13) 1px, transparent 1px); background-size: 26px 26px; mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%); animation: signin-fade 1.4s ease both; }
+.signin-cell { position: absolute; bottom: -90px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(180,35,43,.18) 0 32%, rgba(214,58,66,.55) 48%, rgba(120,18,26,.35) 70%, transparent 72%); box-shadow: 0 0 24px rgba(180,35,43,.25); animation: signin-rise linear infinite; }
+.signin-pulse { position: absolute; left: 0; right: 0; top: 50%; width: 100%; height: 120px; transform: translateY(-50%); overflow: visible; }
+.signin-pulse path { fill: none; stroke: #e0444d; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-dasharray: 1400; stroke-dashoffset: 1400; filter: drop-shadow(0 0 6px #e0444d); opacity: .35; animation: signin-trace 4.5s cubic-bezier(.6, 0, .3, 1) .3s infinite; }
+.signin-card { position: relative; width: min(100%, 400px); background: rgba(255,255,255,.96); border: 1px solid rgba(255,255,255,.6); border-radius: 12px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04); backdrop-filter: blur(12px); animation: signin-card-in .8s cubic-bezier(.22, 1, .36, 1) both; }
+.signin-card > * { animation: signin-rise-in .6s cubic-bezier(.22, 1, .36, 1) both; }
+.signin-card > :nth-child(2) { animation-delay: .12s; }
+.signin-card > :nth-child(3) { animation-delay: .2s; }
+.signin-card > :last-child { animation-delay: .28s; }
+.signin-card.is-shaking { animation: signin-shake .45s cubic-bezier(.36, .07, .19, .97) both; }
+.signin-card.is-shaking > * { animation: none; }
+.signin-mark { width: 44px; height: 44px; margin-top: 14px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(145deg, #c9303a, #8f1820); box-shadow: 0 8px 20px -6px rgba(180,35,43,.7); animation: signin-heartbeat 2.4s ease-in-out 1s infinite; }
+.signin-mark svg { width: 28px; height: 28px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.signin-mark-beat { stroke-dasharray: 40; stroke-dashoffset: 40; animation: signin-draw .9s ease .5s forwards; }
+.signin-card h1 { margin: 12px 0 4px; font-size: var(--text-section); color: var(--navy); }
+.signin-submit { gap: 8px; transition: background .3s, border-color .3s, transform .15s; }
+.signin-submit:active:not(:disabled) { transform: scale(.98); }
+.signin-submit.is-busy:disabled { opacity: 1; cursor: progress; }
+.signin-submit.is-done, .signin-submit.is-done:disabled { background: var(--teal); border-color: var(--teal); }
+.signin-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: signin-spin .7s linear infinite; }
+.signin-check { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; stroke-dashoffset: 20; animation: signin-draw .35s ease forwards; }
+.signin-wipe { position: fixed; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: #f4f7fa; transform: scale(0); pointer-events: none; }
+.signin.is-entering .signin-wipe { animation: signin-wipe .65s cubic-bezier(.7, 0, .3, 1) .45s forwards; }
+.signin.is-entering .signin-card { animation: signin-card-out .5s cubic-bezier(.7, 0, .3, 1) .35s forwards; }
+.signin.is-entering .signin-pulse path { animation: signin-trace 1s cubic-bezier(.6, 0, .3, 1) forwards; opacity: .9; }
+@keyframes signin-drift { to { transform: translate(8vmax, 6vmax) scale(1.15); } }
+@keyframes signin-fade { from { opacity: 0; } }
+@keyframes signin-rise { from { transform: translateY(0) rotate(0); opacity: 0; } 10%, 85% { opacity: 1; } to { transform: translateY(-125vh) rotate(180deg); opacity: 0; } }
+@keyframes signin-trace { 0% { stroke-dashoffset: 1400; } 55% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -1400; } }
+@keyframes signin-card-in { from { opacity: 0; transform: translateY(28px) scale(.96); filter: blur(6px); } }
+@keyframes signin-rise-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes signin-shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
+@keyframes signin-heartbeat { 0%, 30%, 100% { transform: scale(1); } 10% { transform: scale(1.08); } 20% { transform: scale(.98); } }
+@keyframes signin-draw { to { stroke-dashoffset: 0; } }
+@keyframes signin-spin { to { transform: rotate(360deg); } }
+@keyframes signin-card-out { to { opacity: 0; transform: translateY(-14px) scale(.94); filter: blur(4px); } }
+@keyframes signin-wipe { to { transform: scale(400); } }
 .signin-card header p { color: var(--muted); font-size: var(--text-caption); }
 .signin-back { color: var(--muted); font-size: var(--text-caption); text-decoration: none; }
 .signin-back:hover { color: var(--red); }
