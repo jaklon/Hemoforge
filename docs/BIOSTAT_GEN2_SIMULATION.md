@@ -119,3 +119,27 @@ BIOSTAT GLB so the dedicated module can replace it without overlapping meshes.
 Instrument asset tests check neutral roots, display UVs, rotor pivots, size/mesh
 budgets and embedded resources. Presentation tests exercise device identity,
 future releases, fault/stale/invalid/offline data, pause and recovery.
+
+## Blender laboratory environment
+
+An original CC0 room now replaces the initial grid floor, box casework, simple
+gas cylinders and Trace table after independent GLB validation. It is generated
+by `assets/blender/build_lab.py` and editable in `hemoforge-laboratory.blend`.
+The 2.33MB GLB embeds original epoxy and steel textures, with 14 material-merged
+meshes and 38,040 triangles. No remote assets, additional lights or baked
+animations are loaded. The existing procedural room remains a labeled fallback.
+
+Supporting workstations, incubator, centrifuge, balance, gas bank and utility
+equipment are static illustration. Gauge needles and standby labels are not
+sensor values; the room cannot alter kinetics, QC, estimates or decisions.
+Runtime controller screens, Trace pumps, ViaMass indicators and process circuits
+retain their existing simulation bindings. Adaptive rendering and hidden-tab
+pause remain active. Background scenery receives shadows but does not add
+shadow-caster submissions or a separate shadow map.
+
+The `Perluas 3D` layout control uses the same mounted canvas and session;
+`Kembali ke kontrol` or Escape restores the panel. The room overview camera
+adapts to aspect ratio; close-up instrument camera targets remain unchanged.
+An asset contract test checks GLB scene isolation, actual primitive/triangle
+budgets, embedded resources, named room groups and the absence of animations,
+cameras and punctual lights.

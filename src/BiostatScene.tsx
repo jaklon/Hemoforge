@@ -7,7 +7,7 @@ import { lastSensor, sensorUsable } from "./biostat-data"
 import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
 import { instrumentPresentation } from "./biopat-instrument"
 
-export type LabAsset = "biostat" | "trace" | "viamass"
+export type LabAsset = "biostat" | "trace" | "viamass" | "laboratory"
 export type LabAssetState = "loading" | "blender" | "fallback"
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
   onError: (message: string) => void
 }
 
-// Original Blender CC0 hero asset + procedural fallback and CC0 room props.
+// Original Blender CC0 equipment and laboratory, with independent fallbacks.
 export default function BiostatScene(props: Props) {
   const host = useRef<HTMLDivElement>(null)
   const current = useRef(props)
@@ -41,11 +41,11 @@ export default function BiostatScene(props: Props) {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.05
+    renderer.toneMappingExposure = 0.95
     renderer.domElement.setAttribute("role", "img")
     renderer.domElement.setAttribute(
       "aria-label",
-      "BIOSTAT STR Gen 2 cutaway with animated impellers, gas bubbles, Trace tubing, ViaMass probe, live controller screens and gloved hands",
+      "Blender bioprocess laboratory with cabinets, washstation, clean work enclosure, incubator, centrifuge and gas bank; BIOSTAT cutaway, Trace and ViaMass with live virtual readouts",
     )
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
@@ -56,20 +56,23 @@ export default function BiostatScene(props: Props) {
     const roomEnvironment = new RoomEnvironment()
     const environment = pmrem.fromScene(roomEnvironment, 0.04)
     scene.environment = environment.texture
+    scene.environmentIntensity = 0.7
     roomEnvironment.dispose()
     pmrem.dispose()
     const camera = new THREE.PerspectiveCamera(48, 1, 0.05, 40)
     camera.position.set(1, 2.65, 8)
     scene.add(camera)
-    scene.add(new THREE.HemisphereLight(0xf1faff, 0x71818d, 1.3))
-    const key = new THREE.DirectionalLight(0xfff8e8, 2.6)
+    scene.add(new THREE.HemisphereLight(0xf1faff, 0x71818d, 0.95))
+    const key = new THREE.DirectionalLight(0xfff8e8, 2.1)
     key.position.set(-3, 7, 5)
     key.castShadow = true
     key.shadow.mapSize.set(1024, 1024)
     key.shadow.camera.left = key.shadow.camera.bottom = -7
     key.shadow.camera.right = key.shadow.camera.top = 7
+    key.shadow.bias = -0.00015
+    key.shadow.normalBias = 0.025
     scene.add(key)
-    const fill = new THREE.PointLight(0x73dbe8, 12, 10)
+    const fill = new THREE.PointLight(0x73dbe8, 7, 10)
     fill.position.set(0, 3, -2)
     scene.add(fill)
     function mat(color: string, metalness = 0, roughness = 0.5) {
@@ -146,45 +149,47 @@ export default function BiostatScene(props: Props) {
       face.texture.needsUpdate = true
       return box(parent, [width, height, 0.025], xyz, face.material)
     }
-    box(scene, [15, 0.1, 16], [0, -0.06, 0], mat("#afc4cb", 0.1, 0.65))
+    const roomFallback = new THREE.Group()
+    scene.add(roomFallback)
+    box(roomFallback, [15, 0.1, 16], [0, -0.06, 0], mat("#afc4cb", 0.1, 0.65))
     const grid = new THREE.GridHelper(16, 16, 0xa5b8bc, 0xa5b8bc)
     grid.position.y = 0.003
-    scene.add(grid)
-    box(scene, [15, 4.5, 0.15], [0, 2.25, -4.2], white)
-    box(scene, [0.15, 4.5, 13], [-6, 2.25, 0], white)
-    box(scene, [0.15, 4.5, 13], [6, 2.25, 0], white)
+    roomFallback.add(grid)
+    box(roomFallback, [15, 4.5, 0.15], [0, 2.25, -4.2], white)
+    box(roomFallback, [0.15, 4.5, 13], [-6, 2.25, 0], white)
+    box(roomFallback, [0.15, 4.5, 13], [6, 2.25, 0], white)
     for (const x of [-4, 0, 4]) {
-      box(scene, [2.9, 0.07, 0.7], [x, 4.05, -0.5], dark)
-      box(scene, [2.75, 0.02, 0.6], [x, 4, -0.5], mat("#faffff"))
+      box(roomFallback, [2.9, 0.07, 0.7], [x, 4.05, -0.5], dark)
+      box(roomFallback, [2.75, 0.02, 0.6], [x, 4, -0.5], mat("#faffff"))
     }
     for (let i = 0; i < 4; i++) {
-      box(scene, [0.06, 1.5, 1.35], [-5.9, 2.5, -2.5 + i * 1.6], dark)
+      box(roomFallback, [0.06, 1.5, 1.35], [-5.9, 2.5, -2.5 + i * 1.6], dark)
       box(
-        scene,
+        roomFallback,
         [0.07, 1.38, 1.23],
         [-5.85, 2.5, -2.5 + i * 1.6],
         mat("#9dd0e0", 0.1, 0.15),
       )
     }
     plaque(
-      scene,
+      roomFallback,
       "HEMOFORGE  /  BIOPROCESS LAB",
       [-1.6, 3.15, -4.08],
       4.2,
       0.42,
     )
-    plaque(scene, "ONLINE PAT  /  MONITOR 01", [3.15, 3.15, -4.08], 2.4, 0.3)
+    plaque(roomFallback, "ONLINE PAT  /  MONITOR 01", [3.15, 3.15, -4.08], 2.4, 0.3)
     for (const x of [-4.7, 3.7]) {
-      box(scene, [2.6, 0.12, 1.15], [x, 0.95, -2.7], dark)
-      box(scene, [2.5, 0.83, 1.05], [x, 0.46, -2.7], white)
+      box(roomFallback, [2.6, 0.12, 1.15], [x, 0.95, -2.7], dark)
+      box(roomFallback, [2.5, 0.83, 1.05], [x, 0.46, -2.7], white)
       for (let i = -1; i <= 1; i++) {
         box(
-          scene,
+          roomFallback,
           [0.77, 0.68, 0.025],
           [x + i * 0.82, 0.5, -2.16],
           mat("#cadbdc"),
         )
-        box(scene, [0.22, 0.025, 0.04], [x + i * 0.82, 0.7, -2.13], steel)
+        box(roomFallback, [0.22, 0.025, 0.04], [x + i * 0.82, 0.7, -2.13], steel)
       }
     }
     const reactor = new THREE.Group()
@@ -335,8 +340,8 @@ export default function BiostatScene(props: Props) {
     const trace = new THREE.Group()
     trace.position.set(2.05, 1.03, -1.5)
     scene.add(trace)
-    box(scene, [1.65, 0.09, 1.1], [2.05, 0.98, -1.5], dark)
-    for (const x of [1.4, 2.7]) cyl(scene, 0.035, 0.95, [x, 0.48, -1.65], steel)
+    box(roomFallback, [1.65, 0.09, 1.1], [2.05, 0.98, -1.5], dark)
+    for (const x of [1.4, 2.7]) cyl(roomFallback, 0.035, 0.95, [x, 0.48, -1.65], steel)
     const traceFallback = new THREE.Group()
     trace.add(traceFallback)
     box(traceFallback, [1.3, 0.68, 0.74], [0, 0.38, 0], white)
@@ -439,15 +444,15 @@ export default function BiostatScene(props: Props) {
     }
     for (let i = 0; i < 3; i++) {
       cyl(
-        scene,
+        roomFallback,
         0.13,
         1.3,
         [-3.7 + i * 0.32, 0.68, -1.85],
         i === 1 ? dark : steel,
       )
-      cyl(scene, 0.04, 0.15, [-3.7 + i * 0.32, 1.4, -1.85], blue)
+      cyl(roomFallback, 0.04, 0.15, [-3.7 + i * 0.32, 1.4, -1.85], blue)
     }
-    plaque(scene, "AIR / O2 / N2", [-3.4, 0.8, -1.68], 0.9, 0.14)
+    plaque(roomFallback, "AIR / O2 / N2", [-3.4, 0.8, -1.68], 0.9, 0.14)
     // A ViaMass electronics box and lead, distinct from the glucose/lactate fluid circuit.
     const fallbackViaBox = box(fallback, [0.27, 0.34, 0.2], [0.82, 1.14, 0.12], dark)
     const viaScreen = surface()
@@ -545,7 +550,22 @@ export default function BiostatScene(props: Props) {
       for (const material of Array.isArray(node.material) ? node.material : [node.material]) material.dispose()
       node.material = face.material
     }
-    for (const asset of ["biostat", "trace", "viamass"] as const) current.current.onAssetState(asset, "loading")
+    for (const asset of ["biostat", "trace", "viamass", "laboratory"] as const) current.current.onAssetState(asset, "loading")
+    loader.load("/virtual-lab/laboratory/laboratory.glb", ({ scene: model }) => {
+      if (disposed) { disposeObject(model); return }
+      if (!model.getObjectByName("HF_Laboratory") || !model.getObjectByName("HF_Lab_Static")) {
+        disposeObject(model)
+        current.current.onAssetState("laboratory", "fallback")
+        return
+      }
+      prepareModel(model)
+      // Architecture and tiny background props receive shadows without making
+      // a closed ceiling occlude the key light or adding shadow draw calls.
+      model.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = false })
+      scene.add(model)
+      roomFallback.visible = false
+      current.current.onAssetState("laboratory", "blender")
+    }, undefined, () => { if (!disposed) current.current.onAssetState("laboratory", "fallback") })
     loader.load(
       "/virtual-lab/biostat/biostat-gen2.glb",
       ({ scene: model }) => {
@@ -609,28 +629,6 @@ export default function BiostatScene(props: Props) {
       if (legacyHeroVia) legacyHeroVia.visible = false
       current.current.onAssetState("viamass", "blender")
     }, undefined, () => { if (!disposed) current.current.onAssetState("viamass", "fallback") })
-    for (const [name, x, z, scale] of [
-      ["bookcaseClosedWide", 4.4, -3.2, 1.5],
-      ["chairDesk", 4.7, -0.9, 1.2],
-      ["computerScreen", -4.7, -2.6, 0.7],
-    ] as const) {
-      loader.load(
-        `/virtual-lab/kenney/${name}.glb`,
-        ({ scene: object }) => {
-          if (disposed) {
-            disposeObject(object)
-            return
-          }
-          object.position.set(x, name === "computerScreen" ? 1.02 : 0, z)
-          object.scale.setScalar(scale)
-          scene.add(object)
-        },
-        undefined,
-        () => {
-          /* Decorative CC0 props are optional. */
-        },
-      )
-    }
     const resize = () => {
       const r = container.getBoundingClientRect()
       renderer.setSize(r.width, r.height)
@@ -745,8 +743,8 @@ moved: boolean } | null = null,
         previousStation = station
       }
       if (station === "overview") {
-        goal.set(0.6, 2.55, Math.max(6.4, 6 / Math.max(0.55, camera.aspect)))
-        goalLook.set(-0.3, 1.35, -1)
+        goal.set(0.1, 2.7, Math.max(9, 8 / Math.max(0.55, camera.aspect) - 1.5))
+        goalLook.set(0, 1.6, -1.8)
       } else if (station === "trace") {
         goal.set(2.15, 1.9, Math.max(1.4, 1.9 / camera.aspect - 1.2))
         goalLook.set(2.0, 1.5, -1.2)

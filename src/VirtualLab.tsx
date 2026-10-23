@@ -28,7 +28,8 @@ export default function VirtualLab() {
   const [station, setStation] =
     useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
   const [graphicsError, setGraphicsError] = useState("")
-  const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading" })
+  const [expandedScene, setExpandedScene] = useState(false)
+  const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading", laboratory: "loading" })
   const onAssetState = useCallback((asset: LabAsset, state: LabAssetState) => setAssetState(previous => previous[asset] === state ? previous : { ...previous, [asset]: state }), [])
   const [renderStats, setRenderStats] = useState({ fps: 0, quality: "high" as "high" | "balanced" })
   const onPerformance = useCallback((fps: number, quality: "high" | "balanced") => setRenderStats({ fps, quality }), [])
@@ -49,6 +50,12 @@ export default function VirtualLab() {
   useEffect(() => {
     document.title = "BIOSTAT Gen 2 · Monitor 01 · HemoForge"
   }, [])
+  useEffect(() => {
+    if (!expandedScene) return
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setExpandedScene(false) }
+    window.addEventListener("keydown", close)
+    return () => window.removeEventListener("keydown", close)
+  }, [expandedScene])
   useEffect(() => {
     attemptedIntervention.current = null
   }, [connection, id])
@@ -171,13 +178,17 @@ export default function VirtualLab() {
           H<span>HemoForge</span>
         </a>
         <span className="vl-kicker">BIOSTAT STR GEN 2 / MONITOR 01</span>
+        <button className="vl-expand-scene" aria-expanded={expandedScene} aria-controls="biostat-stage" onClick={() => setExpandedScene(value => !value)}>
+          {expandedScene ? "Kembali ke kontrol" : "Perluas 3D"}
+        </button>
         <a className="vl-stage-label" href="#poc">
           PoC & Simulation ↗
         </a>
       </header>
-      <main className="vl-layout">
+      <main className={`vl-layout${expandedScene ? " is-expanded" : ""}`}>
         <section
           className="vl-stage"
+          id="biostat-stage"
           aria-label="Laboratorium BIOSTAT 3D orang pertama"
         >
           <BiostatScene
@@ -197,7 +208,7 @@ export default function VirtualLab() {
               CELL CULTURE / SINGLE-USE STR 50
             </span>
             <span className="vl-scene-evidence">
-              {blenderCount === 3 ? "BLENDER MODELS 3/3 · ORIGINAL CC0 MATERIALS" : fallbackAssets ? `BLENDER ${blenderCount}/3 · FALLBACK: ${fallbackAssets}` : `LOADING BLENDER MODELS ${blenderCount}/3…`}
+              {blenderCount === 4 ? "BLENDER LAB + EQUIPMENT 4/4 · CC0 MATERIALS" : fallbackAssets ? `BLENDER ${blenderCount}/4 · FALLBACK: ${fallbackAssets}` : `LOADING BLENDER MODELS ${blenderCount}/4…`}
             </span>
           </div>
           <div className="vl-scene-caption">
@@ -228,6 +239,7 @@ export default function VirtualLab() {
             <small aria-live="off">
               {renderStats.fps > 0 ? `${renderStats.fps} FPS · ${renderStats.quality === "high" ? "High" : "Balanced"} quality` : "Measuring render performance…"}
             </small>
+            {expandedScene && snapshot && <small>{snapshot.culture_hours.toFixed(3)} h · {ready ? snapshot.running ? "Running" : "Paused" : "Disconnected"}</small>}
           </div>
           <div className="vl-station-nav" aria-label="Posisi kamera">
             {(["overview", "bioreactor", "trace", "viamass"] as const).map(
@@ -255,7 +267,7 @@ export default function VirtualLab() {
             </div>
           )}
         </section>
-        <aside className="vl-control-panel">
+        <aside className="vl-control-panel" hidden={expandedScene}>
           <div className="vl-panel-heading">
             <span className="vl-eyebrow">ONLINE PROCESS MONITORING</span>
             <h2>One culture. Live signals.</h2>

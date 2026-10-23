@@ -1,0 +1,24 @@
+{
+  "license": "CC0-1.0",
+  "author": "HemoForge project contributors",
+  "blender": "5.2.2 LTS",
+  "source": "assets/blender/build_lab.py",
+  "file": "laboratory.glb",
+  "bytes": 2325760,
+  "meshes": 14,
+  "triangles": 38040,
+  "required_nodes": [
+    "HF_Laboratory",
+    "HF_Lab_Static",
+    "HF_Lab_Casework",
+    "HF_Lab_Washstation",
+    "HF_Lab_CleanBench",
+    "HF_Lab_Incubator",
+    "HF_Lab_Centrifuge",
+    "HF_Lab_GasRack",
+    "HF_Lab_TraceTable",
+    "HF_Lab_HVAC"
+  ],
+  "textures": "Original local 512px epoxy and brushed roughness, embedded; no network resources",
+  "runtime_notice": "Static scenery only. No measurement values, baked animation, lights or cameras are exported. Equipment dimensions and layout are illustrative."
+}

@@ -95,12 +95,11 @@ The BIOSTAT vessel now loads an original CC0 Blender model with a brushed steel
 holder, polymer bag, impellers, connectors and instrument housing. Its source is
 `assets/blender/hemoforge-biostat-gen2.blend`; rebuild and license details are in
 `assets/blender/README.md`. Trace and ViaMass also load dedicated original
-Blender models from `/virtual-lab/biopat/`; room props and hands retain their
-existing free visuals. Their editable source is
+Blender models from `/virtual-lab/biopat/`. Their editable source is
 `assets/blender/hemoforge-biopat.blend`.
 
 Select **BIOSTAT STR** in the camera controls for the vessel view. The model
-badge confirms **BLENDER MODELS 3/3** after loading. A labeled procedural fallback
+badge confirms **BLENDER LAB + EQUIPMENT 4/4** after loading. A labeled procedural fallback
 appears if the GLB is unavailable. The legend shows measured FPS and current
 render quality. Lower-resolution Balanced mode is selected automatically if
 rendering falls below 32 FPS. RPM controls the shaft speed; recorded volume
@@ -118,3 +117,20 @@ inspect the red HOLD state and hidden numeric values. Restore the device, run
 until a new passed receipt is released, then pause. The instrument display and
 Monitor 02 must agree on the receipt and values. Missing, future, stale, invalid
 and disconnected data never become new live values on the virtual screens.
+
+The room and supporting equipment load an original CC0 Blender scene from
+`/virtual-lab/laboratory/laboratory.glb`. Editable source:
+`assets/blender/hemoforge-laboratory.blend`. It includes casework, washstation,
+clean work enclosure, centrifuge, balance, incubator, gas bank, trolley, stool,
+ceiling lights and ventilation. Locally generated epoxy and steel textures are
+embedded; the room requires no external material or HDRI request. Supporting
+screens and gauges are static scenery, separate from the live instrument data.
+Hands and process circuits retain their existing free visuals.
+
+Choose **Ruangan**, then **Perluas 3D** for a wider inspection view. Drag to look
+around. **Kembali ke kontrol** or Escape restores the control panel; resizing
+does not reset the session or recreate the canvas. Keep Monitor 01 visible
+alongside Monitor 02 while running. The room adds 14 meshes and 38,040 triangles
+in a self-contained 2.33MB GLB; existing adaptive resolution remains enabled.
+If the room fails to load, its simple procedural fallback remains visible and
+the asset badge identifies `laboratory` as a fallback.

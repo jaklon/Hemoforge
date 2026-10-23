@@ -101,6 +101,42 @@ Device references, used only for visual interpretation:
 - https://shop.sartorius.com/ww/p/biopat-trace/BioPAT_Trace
 - https://www.sartorius.com/download/1223770/biopat-viamass-datasheet-en-b-sll2010-sartorius-pdf-8982--data.pdf
 
+## Laboratory and supporting equipment
+
+`hemoforge-laboratory.blend` is the editable original room scene.
+`build_lab.py` creates it in a separate scene and exports
+`public/virtual-lab/laboratory/laboratory.glb`. Rebuild in Blender's Python
+Console with the same `exec(compile(...), {'__file__': p})` workflow above,
+setting `p` to the absolute path of `build_lab.py`.
+
+The room includes wall joints and coved skirting, observation glazing, a service
+door with lever and kick plate, recessed LED panels and HVAC louvers. Supporting
+equipment includes sage laminate casework, phenolic worktops, a wash basin and
+gooseneck tap, pipettes and reagent bottles, a clean work enclosure, centrifuge,
+balance, tube rack, incubator, secured gas bank, Trace table, trolley and stool.
+The wash basin is an illustrative shallow recess, not a plumbing simulation.
+Equipment dimensions and layout are illustrative; no cleanroom certification
+or real equipment control is implied.
+
+All room geometry is static and merged by material: **14 meshes, 38,040 triangles,
+2.33MB** including embedded textures. The 512px epoxy texture is original seeded
+pixel data generated locally; steel uses the existing original roughness map.
+There are no downloaded materials, HDRIs, extra dependencies, exported lights,
+cameras, or baked animations. Background screens and gauge needles are scenery,
+not readings; only the separate BIOSTAT/Trace/ViaMass interfaces show live data.
+
+Monitor 01 loads the room independently and hides the simple procedural room,
+gas cylinders and Trace table only after validation succeeds. A load failure
+keeps that fallback visible and labels it. Optional Kenney room props are no
+longer loaded by the BIOSTAT scene. The environment adds no shadow map and uses
+the existing local reflection environment, dynamic process shadows and adaptive
+pixel ratio. Renderer resources are disposed on unmount, including late loads.
+
+Choose **Ruangan** and **Perluas 3D** to inspect the room across Monitor 01.
+**Kembali ke kontrol** or Escape restores the control panel. The canvas stays
+mounted during this layout change, preserving process animation and session
+state. Four asset statuses report laboratory/equipment loading independently.
+
 ## License
 
 Original geometry and generated textures in this folder and the exported GLB

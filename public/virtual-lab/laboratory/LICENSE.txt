@@ -1,0 +1,15 @@
+HemoForge bioprocess laboratory
+
+Original geometry, lettering and locally generated textures are dedicated by
+HemoForge project contributors under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+No downloaded models, HDRIs, vendor CAD, logos, paid assets or add-ons.
+The epoxy texture is original seeded 512px pixel data. The steel roughness
+shares the project's original local brushed-roughness.png texture.
+
+Supporting equipment is static illustrative scenery. Its screens and gauges
+do not claim real measurements, certification, calibration or control.
+Live BIOSTAT, Trace and ViaMass readings are separate runtime interfaces.
+
+Editable Blender source and repeatable builder: assets/blender/README.md.
