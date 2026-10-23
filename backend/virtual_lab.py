@@ -5,6 +5,7 @@ external inference, or autonomous background culture timer is used here.
 """
 
 import asyncio
+import copy
 import hashlib
 import json
 import secrets
@@ -16,6 +17,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import Field, ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from backend.models import InputModel
 from backend.culture_simulation import (Culture, MODEL_VERSION, ASSAY_SECONDS, ASSAY_HOURS,
@@ -23,6 +25,7 @@ from backend.culture_simulation import (Culture, MODEL_VERSION, ASSAY_SECONDS, A
                                        INTERVENTION_SECONDS, INTERVENTION_HOURS, MAX_VOLUME_ML)
 from backend.lab_interventions import (PairRequest, InterventionRequest, matches_token,
     active_intervention, queue_intervention, cancel_intervention, DECISION_MAX_AGE_HOURS)
+from backend.lab_analytics import AnalyticsRequest, live_analytics
 
 router = APIRouter(prefix="/api/v1/lab", tags=["Virtual Lab - local synthetic prototype"])
 ORIGINS = {f"http://{host}:{port}" for host in ("localhost", "127.0.0.1") for port in (8000, 8443)}
@@ -318,6 +321,18 @@ async def cancel_decision(request: Request, id: str, intervention_id: str):
         return cancel_intervention(session, intervention_id, "Cancelled by the Guard operator.")
     except ValueError as error:
         raise HTTPException(409, str(error)) from error
+
+
+@router.post("/sessions/{id}/analytics")
+async def analytics(request: Request, id: str, payload: AnalyticsRequest):
+    if not local_client(request) or request.headers.get("x-hemoforge-action") != "virtual-lab":
+        raise HTTPException(403, "Use the local live dashboard.")
+    session = find_session(id)
+    snapshot = copy.deepcopy(session.snapshot())
+    if payload.source_hash != snapshot["measurements_sha256"]:
+        raise HTTPException(409, "Released measurements changed. Refresh the live analysis.")
+    # Read-only computation on a public snapshot. No culture timers or hidden-state access.
+    return await run_in_threadpool(live_analytics, snapshot, payload)
 
 
 @router.websocket("/sessions/{id}/stream")

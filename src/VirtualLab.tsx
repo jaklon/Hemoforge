@@ -158,7 +158,7 @@ export default function VirtualLab() {
     )
     const anchor = document.createElement("a")
     anchor.href = url
-    anchor.download = `${snapshot.batch_id}-stage-d.json`
+    anchor.download = `${snapshot.batch_id}-stage-e.json`
     anchor.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -170,7 +170,7 @@ export default function VirtualLab() {
           H<span>HemoForge</span>
         </a>
         <span className="vl-kicker">VIRTUAL LAB / MONITOR 01</span>
-        <span className="vl-stage-label">STAGE D · CLOSED LOOP</span>
+        <span className="vl-stage-label">STAGE E · LIVE MODULES</span>
       </header>
       <main className="vl-layout">
         <section
@@ -314,7 +314,7 @@ export default function VirtualLab() {
                 rel="noopener"
                 data-testid="open-live-guard"
               >
-                Buka Guard di monitor 2 ↗
+                Buka dashboard di monitor 2 ↗
               </a>
               <div className="vl-clock-controls">
                 <button

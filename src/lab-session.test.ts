@@ -3,6 +3,7 @@ import test from "node:test"
 import {
   AnimationClock,
   labSessionFromHash,
+  liveModuleFromHash,
   liveCultureFile,
   nextLabAction,
   type LabSnapshot,
@@ -101,6 +102,10 @@ test("Guard adapter consumes released observations at collection time and preser
   assert.equal(file.sha256, source.measurements_sha256)
   assert.equal(liveCultureFile({ ...source, measurements: [] }).rows.length, 0)
   assert.equal(
+    liveCultureFile({ ...source, culture_hours: 24.074 }).rows.length,
+    0,
+  )
+  assert.equal(
     liveCultureFile({
       ...source,
       measurements: [
@@ -120,6 +125,11 @@ test("Guard adapter consumes released observations at collection time and preser
 test("session routes and assay actions cannot skip a workflow stage", () => {
   const id = "a".repeat(32)
   assert.equal(labSessionFromHash(`#guard/live/${id}`), id)
+  assert.equal(labSessionFromHash(`#pilot/live/${id}`), id)
+  assert.equal(labSessionFromHash(`#plan/live/${id}`), id)
+  assert.equal(liveModuleFromHash(`#pilot/live/${id}`), "pilot")
+  assert.equal(liveModuleFromHash(`#plan/live/${id}`), "plan")
+  assert.equal(labSessionFromHash("#pilot"), null)
   assert.equal(labSessionFromHash(`#lab/${id}`), id)
   assert.equal(labSessionFromHash("#guard/live/../../secrets"), null)
   assert.equal(nextLabAction("idle"), "collect")

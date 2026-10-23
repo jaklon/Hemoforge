@@ -34,9 +34,9 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
-## Virtual Lab: Stage A–D local prototype
+## Virtual Lab: Stage A–E local prototype
 
-Open `http://127.0.0.1:8443/#lab`, create a session, and open its Guard link in a separate
+Open `http://127.0.0.1:8443/#lab`, create a session, and open its dashboard link in a separate
 window on monitor 2. Collect → load FLEX2 → analyze. The completed synthetic reading feeds
 the existing Bioreactor Guard automatically. Culture time follows rendered 3D animation.
 Stage C adds nutrient/metabolite-dependent culture, sampling volume loss, seeded measurement variation,
@@ -46,6 +46,11 @@ and [Stage C model and assumptions](docs/VIRTUAL_LAB_STAGE_C.md).
 Stage D adds user-confirmed Guard decisions: one-time pairing, feed/medium-exchange actions, rendered pump
 execution, cancellation and a shared decision audit. Measure again with FLEX2 after each applied action.
 See [Stage D intervention contract](docs/VIRTUAL_LAB_STAGE_D.md).
+Stage E connects the same published measurements to live ErythroPilot forecasts/checkpoints and CulturePlan
+viable-cell targets/volume ledger. Switch modules on monitor 2 without changing the session. Forecasting
+requires three post-intervention observations spanning six culture hours; stale readings withhold predictions.
+CulturePlan's independent-experiment GP remains withheld: sequential samples are not DOE replicates.
+See [Stage E live analytics contract](docs/VIRTUAL_LAB_STAGE_E.md).
 Run the Python API with one worker; sessions are local, in memory, and lost on restart.
 No physical device, Supabase, NVIDIA, or LLM is called by this prototype. All bundled assets are free.
 

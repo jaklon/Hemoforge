@@ -1,7 +1,7 @@
-# HemoForge Virtual Lab — Stage D
+# HemoForge Virtual Lab — Stage E
 
 Open http://127.0.0.1:8443/#lab. Choose a scenario/seed under **Pengaturan sesi baru**,
-create a session, then click **Buka Guard di monitor 2**.
+create a session, then click **Buka dashboard di monitor 2 ↗**.
 Move the opened tab into a separate browser window on the second monitor. Keep the 3D window visible.
 
 1. Collect the initial sample at 0 h.
@@ -55,8 +55,33 @@ The virtual assay analyzes 0.275 mL from the removed aliquot; no part is returne
 Analytical SD assumptions: density 2.5%, metabolite channels 2%, pH 0.01 and viability 0.5 percentage points.
 These are synthetic variation settings, not Nova accuracy specifications or biological uncertainty bounds.
 Scenario, seed and matching sample times/volumes reproduce results. Scenarios are not calibrated for BEL-A.
-Temperature, DO, genetic data and other unavailable measurements remain absent. CulturePlan, RareMatch,
-ErythroPilot, real instrument integration and biological validation remain later work. Virtual feed/exchange is available in Stage D.
+Temperature, DO, genetic data and other unavailable measurements remain absent. RareMatch, independent
+experiment GP, real instrument integration and biological validation remain later work.
+
+## Live ErythroPilot and CulturePlan on monitor 2
+
+1. Use **Bioreactor Guard / ErythroPilot / CulturePlan** tabs in the same live dashboard. They share
+   the session, clock, sample IDs and source hash. Normal workspace routes remain separate input workspaces.
+2. Complete an initial valid assay. Run the 3D clock at **1 h / detik**, pause around 6 h, sample/analyze,
+   then repeat around 12 h. Aim for at least three observations spanning six hours in the same intervention segment.
+   FLEX2 takes eight accepted rendered seconds; keep monitor 1 visible throughout.
+3. ErythroPilot fits the existing local Python log-growth engine and shows 128 seeded paths with a selectable
+   12/24/48-hour horizon. The origin is the last sample's collection time, not the current simulation clock.
+   Checkpoints appear every three culture hours and include only results already released at that checkpoint.
+4. CulturePlan uses the same measured trend for a **viable-cell target in millions**, fold expansion, fitted doubling
+   time and estimated target hour. Change **Target sel viabel (juta)** to recompute. The volume ledger follows
+   actual sampling/feed/exchange operations. A declining trend has no target ETA; a target beyond 168 h is labelled.
+5. Apply a Guard action. Old results remain in history, but fitting resets after the completed action. Collect
+   three new samples spanning six hours to fit the new segment. Cancelled actions do not reset fitting.
+6. A sample older than 24 culture hours, disconnected stream, unfinished intervention, invalid settings or
+   insufficient observations withholds the prediction. No demo curve or literature rate fills the gap.
+7. **Unduh analisis & checkpoint** and **Unduh rencana live** export source IDs/hashes, settings, local engine
+   metadata and public derived results. They exclude controller/operator credentials and hidden reactor state.
+
+CulturePlan's GP experiment ranking is deliberately unavailable in this live mode. Serial samples from one reactor
+are not independent experiments with controlled conditions and outcomes. Ammonium is not renamed to ammonia;
+no synthetic DOE replicates are manufactured. This planner does not predict mature RBC yield, enucleation,
+blood group, or clinical production. The growth fit and its intervals are uncalibrated teaching projections.
 
 Sessions live only in one API process, expire after an hour without accepted commands, and disappear on restart.
 This prototype is limited to localhost; do not expose it as a public/multi-user service. The random session ID is
@@ -71,4 +96,5 @@ The bioreactor, analyzer, hands, room, and arrows are procedural temporary geome
 No paid assets were bought. Equipment and hand models can be replaced later while preserving the interaction anchors.
 
 See docs/VIRTUAL_LAB_STAGE_C.md in the repository for equations, units, assumptions, references and tests;
-docs/VIRTUAL_LAB_STAGE_D.md describes pairing, decisions and execution; docs/VIRTUAL_LAB_STAGE_AB.md preserves the original Stage A/B contract.
+docs/VIRTUAL_LAB_STAGE_D.md describes pairing, decisions and execution; docs/VIRTUAL_LAB_STAGE_E.md describes
+live module analytics; docs/VIRTUAL_LAB_STAGE_AB.md preserves the original Stage A/B contract.

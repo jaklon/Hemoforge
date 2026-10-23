@@ -115,11 +115,22 @@ export interface LabSnapshot {
 }
 
 export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed" | "execute"
+export type LiveModule = "guard" | "pilot" | "plan"
 export const sessionPattern = /^[a-f0-9]{32}$/
 
 export function labSessionFromHash(hash: string) {
-  const match = hash.match(/^#(?:lab|guard\/live)\/([a-f0-9]{32})$/)
+  const match = hash.match(
+    /^#(?:lab|(?:guard|pilot|plan)\/live)\/([a-f0-9]{32})$/,
+  )
   return match?.[1] ?? null
+}
+
+export function liveModuleFromHash(hash: string): LiveModule {
+  return hash.startsWith("#pilot/live/")
+    ? "pilot"
+    : hash.startsWith("#plan/live/")
+      ? "plan"
+      : "guard"
 }
 
 export function liveCultureFile(
@@ -127,7 +138,12 @@ export function liveCultureFile(
 ): InputFile & { rows: CultureRow[] } {
   // Only released observations enter Guard. Hidden reactor state never crosses this boundary.
   const rows: CultureRow[] = snapshot.measurements
-    .filter((reading) => reading.quality.status === "passed")
+    .filter(
+      (reading) =>
+        reading.quality.status === "passed" &&
+        reading.available_at_hour <= snapshot.culture_hours &&
+        reading.collected_at_hour <= reading.available_at_hour,
+    )
     .map((reading) => ({
       batch_id: snapshot.batch_id,
       cell_line: "Synthetic teaching culture · uncalibrated",

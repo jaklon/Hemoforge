@@ -1,5 +1,8 @@
 # Stage D — Guard decisions return to the virtual reactor
 
+Historical Stage D increment. [Stage E](VIRTUAL_LAB_STAGE_E.md) adds live ErythroPilot and CulturePlan adapters;
+the intervention contract below still applies.
+
 Extends the [Stage C culture engine](VIRTUAL_LAB_STAGE_C.md) with a user-confirmed intervention loop.
 Model ID `virtual-culture-flex2-v3`; stream schema **3**. Update frontend and backend together.
 The culture equations/noise assumptions are unchanged; the model version changes seeded assay draws.
@@ -7,7 +10,7 @@ The loop is: sample → release FLEX2 → review in Guard → preview/confirm de
 apply medium transfer → collect a new sample to measure the effect.
 
 This is a local, synthetic teaching environment. No real pump, physical reactor, clinical decision,
-external AI inference, paid service or database is controlled. Other HemoForge live adapters remain later work.
+external AI inference, paid service or database is controlled.
 
 ## Actions and finite-volume mixing
 

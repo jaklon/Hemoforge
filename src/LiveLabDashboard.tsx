@@ -1,16 +1,37 @@
 import { useEffect, useMemo, useState } from "react"
 import Guard from "./BioreactorGuard"
 import { DataProvider } from "./workspace-context"
-import { labSessionFromHash, liveCultureFile } from "./lab-session"
+import {
+  labSessionFromHash,
+  liveCultureFile,
+  type LiveModule,
+} from "./lab-session"
 import useLabSession from "./use-lab-session"
 import GuardDecisions from "./GuardDecisions"
+import LivePilot from "./LivePilot"
+import LiveCulturePlan from "./LiveCulturePlan"
+import useLiveAnalytics from "./use-live-analytics"
+import type { LiveAnalysisSettings } from "./lab-live-analytics"
 import "./virtual-lab.css"
 
-export default function LiveGuard() {
+export default function LiveLabDashboard({ module }: { module: LiveModule }) {
   const id = labSessionFromHash(location.hash)
   const { snapshot, connection, error, reconnect } = useLabSession(id)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [message, setMessage] = useState("")
+  const [settings, setSettings] = useState<LiveAnalysisSettings>({
+    horizon: 24,
+    target_million: 1000,
+  })
+  const analytics = useLiveAnalytics(
+    snapshot,
+    settings,
+    connection === "connected",
+  )
+  const navigate = (next: LiveModule) => {
+    setMessage("")
+    location.hash = `${next}/live/${id}`
+  }
   const culture = useMemo(
     () => (snapshot ? liveCultureFile(snapshot) : null),
     [snapshot?.measurements_sha256],
@@ -18,15 +39,21 @@ export default function LiveGuard() {
   const latest = snapshot?.measurements.at(-1)
   const report = snapshot?.assays.at(-1)
   useEffect(() => {
-    document.title = "Live Bioreactor Guard · HemoForge"
-  }, [])
+    document.title = `${
+      module === "guard"
+        ? "Live Bioreactor Guard"
+        : module === "pilot"
+          ? "Live ErythroPilot"
+          : "Live CulturePlan"
+    } · HemoForge`
+  }, [module])
   return (
     <div className="live-guard-shell">
       <header className="vl-header">
         <a className="vl-brand" href="#">
           H<span>HemoForge</span>
         </a>
-        <span className="vl-kicker">LIVE GUARD / MONITOR 02</span>
+        <span className="vl-kicker">LIVE DASHBOARD / MONITOR 02</span>
         <a className="vl-text-link" href="#lab" target="_blank" rel="noopener">
           Open Virtual Lab ↗
         </a>
@@ -57,13 +84,31 @@ export default function LiveGuard() {
           Reconnect
         </button>
       </section>
+      {id && (
+        <nav className="vl-module-nav" aria-label="Modul dashboard live">
+          {([
+            ["guard", "Bioreactor Guard"],
+            ["pilot", "ErythroPilot"],
+            ["plan", "CulturePlan"],
+          ] as const).map(([view, name]) => (
+            <a
+              key={view}
+              href={`#${view}/live/${id}`}
+              aria-current={module === view ? "page" : undefined}
+            >
+              {name}
+            </a>
+          ))}
+        </nav>
+      )}
       <main className="live-guard-main">
         <div className="vl-evidence-note">
-          Stage D · Guard decisions return to the 3D reactor through an
+          Stage E · Guard, ErythroPilot, dan CulturePlan membaca satu sesi FLEX2
+          yang sama. Guard decisions return to the 3D reactor through an
           authorized, animation-driven workflow. Teaching culture and virtual
           FLEX2 with simulated analytical variation. No physical instrument is
-          connected. Only Guard is integrated in this prototype; other modules
-          follow in later stages.
+          connected. RareMatch and independent experiment GP data are not
+          supplied by this reactor simulation.
         </div>
         {snapshot && (
           <p className="vl-assay-context">
@@ -135,24 +180,52 @@ export default function LiveGuard() {
             </span>
           </div>
         )}
-        {snapshot && (
+        {snapshot && module === "guard" && (
           <GuardDecisions
             key={snapshot.session_id}
             snapshot={snapshot}
             connected={connection === "connected"}
           />
         )}
-        {culture && culture.rows.length ? (
+        {snapshot && module !== "guard" ? (
+          module === "pilot" ? (
+            <LivePilot
+              snapshot={snapshot}
+              analysis={analytics.data}
+              settings={settings}
+              setSettings={setSettings}
+              loading={analytics.loading}
+              error={analytics.error}
+              refresh={analytics.refresh}
+              connected={connection === "connected"}
+              openGuard={() => navigate("guard")}
+            />
+          ) : (
+            <LiveCulturePlan
+              snapshot={snapshot}
+              analysis={analytics.data}
+              settings={settings}
+              setSettings={setSettings}
+              loading={analytics.loading}
+              error={analytics.error}
+              refresh={analytics.refresh}
+              connected={connection === "connected"}
+              openGuard={() => navigate("guard")}
+            />
+          )
+        ) : culture && culture.rows.length ? (
           <DataProvider liveCulture={culture}>
             <Guard
               live
               hour={snapshot!.culture_hours}
               replicate={1}
               setReplicate={() => {}}
-              navigate={() =>
-                setMessage(
-                  "Stage D connects Guard decisions to the virtual reactor. Open the regular workspace separately for other modules.",
-                )
+              navigate={(view) =>
+                view === "pilot"
+                  ? navigate(view)
+                  : setMessage(
+                      "Modul ini belum menerima data live. Gunakan workspace terpisah untuk input independen.",
+                    )
               }
               eventNotes={notes}
               setEventNotes={setNotes}
