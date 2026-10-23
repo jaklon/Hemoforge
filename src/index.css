@@ -149,12 +149,12 @@ code { overflow-wrap: anywhere; }
 .service-pill.is-online { color: #17693c; background: #ebf7f0; border-color: #c4e6d2; }
 .service-pill.is-offline { color: #a12828; background: #fdf0f0; border-color: #f1caca; }
 .status-dot.is-online { background: #1f9d55; }
-.status-dot.is-offline { background: #c53030; animation: status-blink 10s ease-in-out infinite; }
+.status-dot.is-offline { background: #c53030; animation: status-blink 6.5s ease-in-out infinite; }
 .status-dot.is-disabled { background: #8f9caf; }
-/* Ten .5s blinks, then 5s still. */
+/* Three .5s blinks, then 5s still. */
 @keyframes status-blink {
-  0%, 5%, 10%, 15%, 20%, 25%, 30%, 35%, 40%, 45%, 50%, 100% { opacity: 1; }
-  2.5%, 7.5%, 12.5%, 17.5%, 22.5%, 27.5%, 32.5%, 37.5%, 42.5%, 47.5% { opacity: .15; }
+  0%, 7.692%, 15.385%, 23.077%, 100% { opacity: 1; }
+  3.846%, 11.538%, 19.231% { opacity: .15; }
 }
 .mobile-brand, .menu-toggle { display: none; }
 .mobile-brand { color: var(--navy); text-decoration: none; align-items: center; gap: 8px; white-space: nowrap; }
