@@ -413,6 +413,7 @@ export default function BioreactorGuard({
   replayControls,
   live = false,
   sensorRows,
+  liveProcessNotice,
 }: {
   hour: number
 
@@ -429,6 +430,7 @@ export default function BioreactorGuard({
   replayControls: ReactNode
   live?: boolean
   sensorRows?: CultureRow[]
+  liveProcessNotice?: {title:string;review:boolean}
 }) {
   const {
     batches,
@@ -584,12 +586,12 @@ export default function BioreactorGuard({
         }
       />
       <div
-        className={`workspace-overview${attention.length ? " has-attention" : ""}`}
+        className={`workspace-overview${attention.length||liveProcessNotice?.review ? " has-attention" : ""}`}
       >
         <div className="workspace-overview-message">
           <Icon
             name={
-              attention.length
+              attention.length||liveProcessNotice?.review
                 ? "alert"
                 : noData.length === batches.length
                   ? "data"
@@ -598,7 +600,7 @@ export default function BioreactorGuard({
           />
           <div>
             <h2>
-              {attention.length
+              {liveProcessNotice ? liveProcessNotice.title : attention.length
                 ? `${attention.length} ${
                     attention.length === 1 ? "batch needs" : "batches need"
                   } review`
@@ -607,7 +609,9 @@ export default function BioreactorGuard({
                   : `All batches look normal at ${number(hour)}h`}
             </h2>
             <p>
-              {urgent
+              {liveProcessNotice
+                ? "Tinjau alarm proses dan tindakan koreksi di panel Keputusan Guard. Status proses menunggu bukti sensor yang valid."
+                : urgent
                 ? `Start with ${urgent.id}. It has the most urgent warning.`
                 : live
                   ? "Monitoring virtual PAT signals and estimated cell counts. Monitor 01 controls culture time."
@@ -623,7 +627,7 @@ export default function BioreactorGuard({
             <dd>{batches.length}</dd>
           </div>
           <div>
-            <dt>Warnings</dt>
+            <dt>{live ? "Growth warnings" : "Warnings"}</dt>
             <dd>
               {batchViews.reduce(
                 (sum, batch) => sum + batch.summary.events.length,
@@ -882,7 +886,7 @@ export default function BioreactorGuard({
           <header>
             <div>
               <h2 id="guard-review-heading" tabIndex={-1}>
-                Review warnings
+                {live ? "Review growth warnings" : "Review warnings"}
               </h2>
               <p>
                 {selected.id} · recorded through {number(hour)}h
@@ -925,7 +929,7 @@ export default function BioreactorGuard({
                 <Icon name={state.latest ? "check" : "data"} />
                 <strong>
                   {state.latest
-                    ? "No warnings recorded"
+                    ? live ? "No growth warnings recorded" : "No warnings recorded"
                     : "No valid samples yet"}
                 </strong>
                 {!state.latest && (

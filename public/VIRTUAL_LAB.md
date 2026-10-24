@@ -252,3 +252,25 @@ three culture minutes. Use **Jeda transfer / Lanjutkan transfer** directly in th
 same paused progress. Presentation mode expands the current canvas automatically
 when the confirmed transfer begins. **Kembali ke kontrol**, other camera presets
 and FPS exploration remain available.
+
+## Disturbance exercises and sound
+
+In Monitor 01 choose **Simulasikan pH turun**, **Simulasikan DO rendah**, or
+**Simulasikan nutrisi menipis**, then start/continue culture. Only one exercise
+can run at a time. Alarms appear after scheduled QC-passed sensor releases,
+with matching notifications in both monitors and a colored beacon in 3D.
+Pausing stops the process; injection does not rewrite past measurements.
+
+Pair Monitor 02 / Guard using the code on Monitor 01. Acknowledge the alarm,
+then use **Pulihkan buffer virtual** for pH or **Pulihkan jalur gas virtual**
+for DO. AUTO base dosing/gas/agitation respond over time; continue culture
+until a new core reading confirms recovery. For nutrients choose **Tinjau feed
+1250 mL di Guard**, preview/confirm the feed and execute it in Monitor 01.
+Wait for the next released Trace result to verify glucose recovery. An
+acknowledgement or corrective command alone never clears an alarm. Missing,
+stale or failed-QC evidence holds its state. Thresholds are PoC assumptions.
+
+**Aktifkan suara lab** adds locally synthesized room ventilation, equipment hum,
+pump/aeration and short alarm tones. It is off initially, has volume/mute,
+and suspends when the page is hidden or offline. Motor and aeration follow
+the running process. No audio download, microphone or paid service is used.

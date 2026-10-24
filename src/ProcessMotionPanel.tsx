@@ -9,7 +9,7 @@ export default function ProcessMotionPanel({ snapshot, connected }: { snapshot: 
     <summary>Jalur proses · {p.status}</summary>
     <dl>
       <div><dt>Pengaduk</dt><dd>{p.available ? `${p.rpm.toFixed(0)} rpm · ${p.running ? "command" : "dijeda"}` : "Tidak tersedia"}</dd></div>
-      <div><dt>Gas → sparger</dt><dd>{p.gasAvailable ? `O₂ ${p.oxygen.toFixed(1)}% / N₂ ${(100-p.oxygen).toFixed(1)}% · ${state(p.rates.gas)}` : "Tidak tersedia"}</dd></div>
+      <div><dt>Gas → sparger</dt><dd>{p.gasAvailable ? `O₂ ${p.oxygen.toFixed(1)}% / N₂ ${(100-p.oxygen).toFixed(1)}% · ${state(p.rates.gas)}${snapshot.process_disturbance?.aeration_restricted ? " · jalur terhambat (skenario)" : ""}` : "Tidak tersedia"}</dd></div>
       <div><dt>Trace · pergi / kembali</dt><dd>{p.trace.state === "live" || p.trace.state === "waiting" ? state(p.rates.trace) : p.trace.status}</dd></div>
       <div><dt>Medium → pompa → kultur</dt><dd>{state(p.rates.feed)}</dd></div>
       <div><dt>Retensi → limbah</dt><dd>{state(p.rates.waste)}</dd></div>

@@ -37,6 +37,19 @@ export interface MeasurementUncertainty {
 }
 
 export type CultureScenario = "balanced" | "nutrient_limited" | "metabolite_stress"
+export type DisturbanceKind = "ph_drop" | "low_do" | "low_nutrients"
+export interface LabAlert {
+  id:string; metric:"ph"|"do"|"glucose"; label:string; device:"core"|"trace"; unit:string;
+  severity:"warning"|"critical"; status:"active"|"resolved"|"hold"; acknowledged:boolean;
+  value:number|null; reading_id:string; measured_at_hour:number; available_at_hour:number;
+  opened_at_hour:number; resolved_at_hour:number|null;
+  warning_below:number; critical_below:number; recovery_at:number; advice:string;
+  correction:"restore_buffer"|"restore_aeration"|"review_feed";
+}
+export interface LabAlertEvent {
+  seq:number; kind:"raised"|"escalated"|"improving"|"resolved"|"acknowledged"|"correction";
+  alert_id:string; metric:LabAlert["metric"]; severity:LabAlert["severity"]; hour:number;
+}
 
 export interface SampleMetadata {
   sample_id: string
@@ -76,6 +89,10 @@ export interface LabIntervention {
 }
 
 export interface LabSnapshot {
+  lab_alerts?:LabAlert[]
+  alert_events?:LabAlertEvent[]
+  training_scenarios?: { limit:number; runs:{id:string;kind:DisturbanceKind;started_at_hour:number;mitigated_at_hour:number|null}[] }
+  process_disturbance?: {acid_load_active:boolean;aeration_restricted:boolean}
   type: "snapshot"
   schema_version: 3 | 4
   device_profile?: {
@@ -178,7 +195,7 @@ export interface SensorReading {
   model_version: string
 }
 
-export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed" | "execute" | "setpoints" | "sensor_fault"
+export type LabAction = "play" | "pause" | "collect" | "load" | "analyze" | "advance" | "speed" | "execute" | "setpoints" | "sensor_fault" | "disturbance"
 export type LiveModule = "dashboard" | "guard" | "pilot" | "plan"
 export const sessionPattern = /^[a-f0-9]{32}$/
 

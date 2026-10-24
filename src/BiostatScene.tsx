@@ -10,6 +10,7 @@ import { createCultureFluid, createHoseMedium } from "./fluid-rendering"
 import { hoseDistance } from "./fluid-motion"
 import { createTransferHardware } from "./transfer-rendering"
 import { transferPresentation, transferFrameDelta, TransferVisualClock } from "./transfer-visual"
+import {alarmPresentation} from "./lab-alerts"
 import { canInspect, InspectionClock } from "./operator-hands"
 import type { HandStation } from "./operator-hands"
 import { EYE_HEIGHT, WALK_SPAWN, mouseLook, walkStep } from "./lab-navigation"
@@ -349,6 +350,10 @@ export default function BiostatScene(props: Props) {
     const controllerScreen = surface()
     const controllerDisplay = box(tower, [0.63, 0.54, 0.025], [0, 1.92, 0.36], controllerScreen.material)
     plaque(tower, "DCU / VIRTUAL AUTO", [0, 1.52, 0.33], 0.57, 0.12)
+    cyl(tower,.025,.10,[0,2.30,0],dark)
+    const beaconMaterial=new THREE.MeshStandardMaterial({color:"#879ba0",emissive:"#879ba0",emissiveIntensity:.25,roughness:.4})
+    const beacon=mesh(tower,new THREE.CylinderGeometry(.055,.07,.11,16),beaconMaterial,[0,2.40,0])
+    beacon.castShadow=false;beacon.receiveShadow=false
     const rotorGroups: THREE.Group[] = []
     for (let i = 0; i < 3; i++) {
       const rotor = new THREE.Group()
@@ -949,6 +954,7 @@ moved: boolean } | null = null,
     let angle = 0, traceElapsed = 0, handElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
     let instrumentSnapshot: LabSnapshot | null | undefined, instrumentConnected: boolean | undefined
     let process = processPresentation(null, false)
+    let alarms=alarmPresentation(null,false),alarmElapsed=0
     let traceView = process.trace
     let viaView = process.via
     let tracePulse = 0, viaPulse = 0
@@ -990,6 +996,7 @@ moved: boolean } | null = null,
       const { station, snapshot: s, connected } = current.current
       if (instrumentSnapshot !== s || instrumentConnected !== connected) {
         process = processPresentation(s, connected)
+        alarms=alarmPresentation(s,connected)
         const nextTrace = process.trace
         const nextVia = process.via
         if (nextTrace.state === "live" && nextTrace.receipt !== traceView.receipt) tracePulse = 0.6
@@ -1020,6 +1027,10 @@ moved: boolean } | null = null,
       }
       const running = !!s?.running && connected && document.visibilityState === "visible" && !contextLost
       const motionSeconds = renderedSeconds(delta, running)
+      alarmElapsed+=current.current.reducedMotion ? 0 : motionSeconds
+      const beaconColor=alarms.tone==="critical" ? "#e65c51" : alarms.tone==="warning" ? "#efb54b" : alarms.tone==="hold"||!alarms.dataReady ? "#879ba0" : "#66c7aa"
+      beaconMaterial.color.set(beaconColor);beaconMaterial.emissive.set(beaconColor)
+      beaconMaterial.emissiveIntensity=.25+(alarms.current.length ? .35*(.5+.5*Math.sin(alarmElapsed*Math.PI)):0)
       const processSeconds = process.running && !current.current.reducedMotion
         ? transferFrameDelta(motionSeconds,process.transferView?.status === "executing",current.current.slowTransfers) : 0
       if (current.current.reducedMotion) cancelInspection()
@@ -1155,7 +1166,7 @@ moved: boolean } | null = null,
             : "--"
         screen(
           controllerScreen,
-          `DCU | ${s?.controller?.mode ?? "READY"}`,
+          s?.process_disturbance?.aeration_restricted ? "DCU | GAS RESTRICTED" : `DCU | ${s?.controller?.mode ?? "READY"}`,
           [
             `pH   ${pv("ph", 2)}  SP ${s?.controller?.setpoints.ph.toFixed(2) ?? "7.30"}`,
             `DO   ${pv("dissolved_oxygen", 1)}% SP ${s?.controller?.setpoints.dissolved_oxygen ?? 40}%`,

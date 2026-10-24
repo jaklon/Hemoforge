@@ -94,12 +94,13 @@ export function createCultureFluid(parent: THREE.Object3D) {
   return {
     update(volumeMl: number, rpm: number, gas: number, delta: number, active: boolean, balanced: boolean) {
       const shape = fluidShape(volumeMl,rpm)
-      clock.advance(delta,active,shape.drive,shape.present ? gas : 0)
+      clock.advance(delta,active,shape.drive,shape.present&&gas>0 ? 1 : 0)
       liquid.visible = shape.present
       bubbles.visible = shape.present && gas > 0 && FLUID_BASE+shape.height > SPARGER_HEIGHT+.03
       ripples.visible = bubbles.visible
       tracers.visible = shape.present
-      bubbles.count = balanced ? 80 : 144
+      bubbles.count = Math.max(1,Math.round((balanced ? 80 : 144)*Math.max(.1,Math.min(1,gas))))
+      ripples.count=Math.max(1,Math.round(12*Math.max(.1,Math.min(1,gas))))
       tracers.count = balanced ? 48 : 80
       const profile = surfaceProfile(shape.height,clock.drive,clock.mix*2.4)
       liquid.scale.y = Math.max(.0001,shape.height)

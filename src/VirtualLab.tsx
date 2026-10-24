@@ -5,6 +5,11 @@ import { canInspect } from "./operator-hands"
 import BiostatTelemetry from "./BiostatTelemetry"
 import ProcessMotionPanel from "./ProcessMotionPanel"
 import TransferReadout from "./TransferReadout"
+import LabAlerts from "./LabAlerts"
+import LabNotifications from "./LabNotifications"
+import LabAmbience from "./LabAmbience"
+import ScenarioPanel from "./ScenarioPanel"
+import {alarmPresentation} from "./lab-alerts"
 import { transferPresentation, transferFrameDelta } from "./transfer-visual"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
@@ -55,6 +60,8 @@ export default function VirtualLab() {
   const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
   const transferView = transferPresentation(snapshot,ready)
+  const alarmView=alarmPresentation(snapshot,ready)
+  const showAlarm=alarmView.current.length>0
   const blenderCount = Object.values(assetState).filter(value => value === "blender").length
   const fallbackAssets = Object.entries(assetState).filter(([,value]) => value === "fallback").map(([name]) => name).join(", ")
   const inspectionStation = walkMode ? navigation.target : station === "transfer" ? "overview" : station
@@ -226,6 +233,7 @@ export default function VirtualLab() {
             }}
             onError={setGraphicsError}
           />
+          <LabNotifications snapshot={snapshot} connected={ready}/>
           <div className="vl-scene-top">
             <span className="vl-room-label">
               CELL CULTURE / SINGLE-USE STR 50
@@ -239,7 +247,8 @@ export default function VirtualLab() {
             <h1>Inside the process.</h1>
             <p>BIOSTAT Gen 2 + BioPAT Trace + ViaMass</p>
           </div>
-          <div className={`biostat-scene-legend${showTransfer ? " has-transfer" : ""}`}>
+          <div className={`biostat-scene-legend${showTransfer||showAlarm ? " has-transfer" : ""}`}>
+            {snapshot&&showAlarm&&<LabAlerts snapshot={snapshot} connected={ready} compact/>}
             {showTransfer && transferView ? <TransferReadout view={transferView} compact /> : instrument ? <>
               <strong>{inspectionStation === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
               {instrument.values.map(value => <span key={value}>{value}</span>)}
@@ -271,6 +280,7 @@ export default function VirtualLab() {
             <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !inspectionReady} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
             <label><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /> Kurangi gerakan</label>
             <label><input type="checkbox" checked={slowTransfers} onChange={event=>setSlowTransfers(event.target.checked)} /> Transfer presentasi ⅓×</label>
+            <LabAmbience snapshot={snapshot} connected={ready}/>
             <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : walkMode && !navigation.inRange ? "Dekati dan bidik layar alat" : inspectionStation === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !inspectionReady ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
           </div>
           {walkMode && <div className={`vl-fps-reticle${navigation.inRange ? " is-target" : ""}`} aria-live="polite"><i aria-hidden="true" /><span>{navigation.hint}</span></div>}
@@ -413,6 +423,8 @@ export default function VirtualLab() {
           {snapshot && (
             <>
               <BiostatTelemetry snapshot={snapshot} compact />
+              <ScenarioPanel snapshot={snapshot} connected={ready} onRun={kind=>{if(command("disturbance",{disturbance:kind})){setStation("bioreactor")}}}/>
+              <LabAlerts snapshot={snapshot} connected={ready}/>
               <ProcessMotionPanel snapshot={snapshot} connected={ready} />
               <form
                 className="vl-model-config"

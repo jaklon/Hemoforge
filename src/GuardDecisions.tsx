@@ -9,6 +9,7 @@ import {
 import LabInterventionStatus from "./LabInterventionStatus"
 import TransferReadout from "./TransferReadout"
 import { transferPresentation } from "./transfer-visual"
+import LabAlerts from "./LabAlerts"
 
 interface Decision {
   request_id: string
@@ -74,6 +75,13 @@ amount: number }) =>
     } finally {
       setBusy(false)
     }
+  }
+
+  async function alarmAction(alert_id:string,action:"acknowledge"|"restore_buffer"|"restore_aeration") {
+    setBusy(true);setError("")
+    try {await labControlRequest(id,"alarm-actions","operator",token,{alert_id,action});setMessage(action==="acknowledge"?"Alarm diakui; kondisi belum dianggap pulih.":"Koreksi diterapkan. Lanjutkan kultur dan tunggu pembacaan sensor baru untuk verifikasi.")}
+    catch(failure){setError(failure instanceof Error?failure.message:"Koreksi belum dapat diterapkan.")}
+    finally{setBusy(false)}
   }
 
   async function send(cancelId?: string) {
@@ -174,6 +182,9 @@ amount: number }) =>
         </p>
       )}
       <div className="vl-decision-inputs">
+        {snapshot.training_scenarios&&<LabAlerts snapshot={snapshot} connected={connected} busy={busy}
+          onAction={paired ? (id,action)=>void alarmAction(id,action):undefined}
+          onReviewFeed={paired ? ()=>{setPresetId("feed-25");setReview(null);setNote("Koreksi nutrisi menipis berdasarkan Trace terbaru");setMessage("Feed 1250 mL dipilih. Tinjau dosis lalu tekan Pratinjau keputusan; belum ada transfer dikirim.")}:undefined}/>}
         <label>
           Tindakan simulasi
           <select

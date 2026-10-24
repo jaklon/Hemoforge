@@ -14,6 +14,7 @@ import time
 from backend.culture_simulation import Culture, FRESH_MEDIUM, INTERVENTION_SECONDS, INTERVENTION_HOURS
 from backend.virtual_lab import Session, END_HOUR
 from backend.lab_interventions import active_intervention
+from backend.lab_alerts import LabAlarms
 
 VERSION = "biostat-gen2-teaching-v1"
 PROFILE = {
@@ -36,6 +37,8 @@ class BiostatCulture(Culture):
         self._target_hour = 0.0
         self._integration_steps = 0
         self.ph, self.do, self.temperature = 7.3, 40.0, 37.0
+        self.acid_load = 0.0
+        self.aeration_efficiency = 1.0
         self.setpoints = {"ph": 7.3, "dissolved_oxygen": 40.0, "temperature": 37.0}
         self.outputs = {"stirrer_rpm": 100.0, "oxygen_percent": 21.0, "base_output_percent": 0.0,
                         "thermal_output_percent": 0.0}
@@ -81,10 +84,10 @@ class BiostatCulture(Culture):
             d = derivative([v + dt * k for v, k in zip(y, c)])
             self.state = [max(0, v + dt * (aa + 2 * bb + 2 * cc + dd) / 6)
                           for v, aa, bb, cc, dd in zip(y, a, b, c, d)]
-            kla = 0.7 * (rpm / 100) ** 1.2
+            kla = 0.7 * (rpm / 100) ** 1.2 * self.aeration_efficiency
             self.do = max(0, min(100, self.do + dt *
                           (kla * (100 * oxygen / 21 - self.do) - 35 * y[0] * (0.2 + 0.8 * stage_factor))))
-            self.ph = max(6, min(8, self.ph + dt * (ph_error * 2 - max(0, a[4]) * 0.032)))
+            self.ph = max(6, min(8, self.ph + dt * (ph_error * 2 - max(0, a[4]) * 0.032 - self.acid_load)))
             self.temperature += dt * (temp_error * 1.5 + 0.015 * y[0])
             self._integration_steps += 1
             self.hour = self._integration_steps / 100
@@ -127,6 +130,8 @@ class BiostatSession(Session):
         self.next_sensor = {name: 0.0 for name in SCHEDULE}
         self.faults = set()
         self.controller_events = []
+        self.alarms = LabAlarms()
+        self.training_runs = []
         self.speed = 0.25
         self.reason = "Ready. Start BIOSTAT; sensors publish automatically with the visible 3D clock."
 
@@ -166,6 +171,7 @@ class BiostatSession(Session):
                 continue
             self.pending_readings.remove(row)
             self.sensor_readings.append(row)
+            self.alarms.release(row)
             if row["device"] != "viamass" or row["quality"]["status"] != "passed":
                 continue
             at = row["measured_at_hour"]
@@ -218,10 +224,60 @@ class BiostatSession(Session):
             controller={"mode": "AUTO", "setpoints": self.culture.setpoints,
                         "outputs": self.culture.outputs, "events": self.controller_events},
             estimate_notice="ViaMass-derived cell estimates use an illustrative stage/size conversion; not measured RBC yield.",
+            lab_alerts=self.alarms.public(self.hour, self.sensor_readings, self.faults),
+            alert_events=self.alarms.events,
+            training_scenarios={"limit": 12, "runs": self.training_runs},
+            process_disturbance={"acid_load_active": self.culture.acid_load > 0,
+                                 "aeration_restricted": self.culture.aeration_efficiency < 1},
             intervention_protocol={"animation_seconds": INTERVENTION_SECONDS,
                 "culture_minutes": INTERVENTION_HOURS * 60, "max_volume_ml": PROFILE["max_volume_ml"],
                 "decision_max_age_hours": 3})
         return snapshot
+
+    def disturb(self, kind):
+        if active_intervention(self) or self.hour > END_HOUR - 3 or len(self.training_runs) >= 12 or len(self.controller_events) >= 38:
+            raise ValueError("Finish the transfer or start a fresh training session.")
+        alerts = self.alarms.public(self.hour, self.sensor_readings, self.faults)
+        if any(r["mitigated_at_hour"] is None for r in self.training_runs) or any(r["status"] in {"active", "hold"} for r in alerts):
+            raise ValueError("Resolve the current exercise and wait for a fresh passed recovery reading first.")
+        if kind == "ph_drop":
+            self.culture.ph = min(self.culture.ph, 6.9)
+            self.culture.acid_load = 1.0
+        elif kind == "low_do":
+            self.culture.do = min(self.culture.do, 14.0)
+            self.culture.aeration_efficiency = 0.025
+        elif kind == "low_nutrients":
+            self.culture.state[2] = min(self.culture.state[2], 4.0)
+        else:
+            raise ValueError("Unknown teaching scenario.")
+        record = {"id": f"SCN-{len(self.training_runs)+1}", "kind": kind, "started_at_hour": round(self.hour, 6), "mitigated_at_hour": None}
+        self.training_runs.append(record)
+        self.controller_events.append({"id": record["id"], "hour": round(self.hour, 6), "setpoints": dict(self.culture.setpoints), "kind": "disturbance"})
+        self.reason = "Teaching disturbance injected. Continue visible culture; alarms wait for scheduled QC-passed sensor releases."
+
+    def alarm_action(self, payload):
+        record = self.alarms.find(payload.alert_id)
+        if payload.action == "acknowledge":
+            self.alarms.acknowledge(payload.alert_id, self.hour)
+        else:
+            public = next(r for r in self.alarms.public(self.hour, self.sensor_readings, self.faults) if r["id"] == payload.alert_id)
+            if public["status"] != "active" or active_intervention(self) or not self.controller:
+                raise ValueError("Fresh passed active alarm and connected idle reactor are required.")
+            expected = {"restore_buffer": ("ph", "ph_drop"), "restore_aeration": ("do", "low_do")}
+            metric, kind = expected[payload.action]
+            run = next((r for r in reversed(self.training_runs) if r["kind"] == kind), None)
+            if record["metric"] != metric or not run:
+                raise ValueError("Correction does not match this training disturbance.")
+            if run["mitigated_at_hour"] is None:
+                if payload.action == "restore_buffer": self.culture.acid_load = 0.0
+                else: self.culture.aeration_efficiency = 1.0
+                run["mitigated_at_hour"] = round(self.hour, 6)
+                self.controller_events.append({"id": f"FIX-{run['id']}", "hour": round(self.hour, 6), "setpoints": dict(self.culture.setpoints), "kind": "correction"})
+                self.alarms.emit("correction", record, self.hour)
+                self.reason = "Virtual supply restored. Resume culture and wait for a new passed sensor reading to verify recovery."
+        self.revision += 1
+        self.touched = time.monotonic()
+        return {"accepted": True}
 
     def apply(self, command):
         if command.seq <= self.seq:
@@ -259,6 +315,8 @@ class BiostatSession(Session):
             else:
                 self.faults.add(command.sensor)
             self.reason = f"{command.sensor} fault toggled; next scheduled output carries QC status."
+        elif action == "disturbance":
+            self.disturb(command.disturbance)
         elif action == "execute":
             if not active or active["id"] != command.intervention_id or active["status"] != "queued":
                 raise ValueError("Decision is no longer queued.")
@@ -275,6 +333,11 @@ class BiostatSession(Session):
                 if self.intervention_seconds >= INTERVENTION_SECONDS - 1e-8:
                     outcome = self.culture.intervene(active["kind"], active["amount"])
                     active.update(status="applied", progress=1, outcome=outcome, completed_at_hour=round(self.hour, 6))
+                    for run in self.training_runs:
+                        if run["kind"] == "low_nutrients" and run["mitigated_at_hour"] is None:
+                            run["mitigated_at_hour"] = round(self.hour, 6)
+                            alarm = self.alarms.states.get("glucose")
+                            if alarm: self.alarms.emit("correction", alarm, self.hour)
                     self.phase = "complete"
                     self.stop("Transfer complete. Resume to observe new online sensor readings.")
             else:

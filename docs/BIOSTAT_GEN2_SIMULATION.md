@@ -319,6 +319,62 @@ settings hold the relevant visual clocks. Other preset cameras and FPS walking
 remain available. All added hardware is original local procedural geometry
 using the existing Three.js package and free materials.
 
+## Training scenarios, alarms and lab ambience
+
+Monitor 01 has three **Skenario gangguan kultur** controls: pH drop (acid
+load), low DO (restricted virtual gas delivery), and low nutrients (glucose
+depletion). Only one exercise runs at a time, with at most 12 per session.
+Continue the visible culture to obtain scheduled sensor results; injecting a
+scenario never rewrites previous receipts or creates an instant measurement.
+
+| Signal | Warning below | Critical below | Recovery at or above |
+| --- | --- | --- | --- |
+| Core pH | 7.15 | 7.00 | 7.22 |
+| Core DO (% air saturation) | 25 | 15 | 30 |
+| Trace glucose (mmol/L) | 5.0 | 2.5 | 5.3 |
+
+These thresholds and disturbances are teaching assumptions, not manufacturer
+specifications or validated culture limits. Alarm state uses only released,
+finite, QC-passed sensor receipts. Invalid/stale readings and disconnection
+hold the status; they cannot prove recovery. Acknowledgement records operator
+review without clearing the condition. A new valid measurement above the
+recovery threshold closes the alarm. Episodes, escalation, correction and
+recovery have a bounded event audit, shared by both monitors.
+
+In paired Monitor 02 / Guard, acknowledge an alarm and review its advice.
+For the pH exercise, **Pulihkan buffer virtual** removes the sustained acid
+load; the AUTO base pump then restores pH over time. For DO, **Pulihkan jalur
+gas virtual** restores gas delivery; AUTO gas blend/agitation recovers DO.
+Neither operation directly overwrites the measurement. For low glucose,
+**Tinjau feed 1250 mL di Guard** prefills the existing reviewed feed proposal.
+Preview and confirm it, execute it in Monitor 01, then continue culture until
+a fresh post-feed Trace result verifies recovery. Operator review remains
+necessary if a dose improves glucose but does not reach
+the recovery threshold; review fresh evidence before another transfer.
+Pairing, local-origin and
+operator authorization apply to alarm corrections just as to other Guard
+actions. No physical device is controlled.
+
+The 3D scene shows the current alarm, DCU beacon, base output, agitation and
+reduced gas/bubble transport; a recorded correction remains pending until a
+new sensor observation. Notifications appear on both monitors. Animation uses
+the existing render loop and fixed meshes/instances, without extra shadow
+lights or physics simulation.
+
+**Aktifkan suara lab** in Monitor 01 enables original, locally synthesized
+HVAC/room hum, motor, pump and aeration ambience. Volume and mute are available;
+sound never autoplays. Motor/aeration track the running simulated process;
+room tone remains during pause. Hidden/offline pages suspend sound. A short
+tone announces each unacknowledged alarm episode/severity once, without
+periodic repeats; Monitor 02 stays silent to avoid duplicate audio. Web Audio
+uses one reusable context and a small loop buffer, with no downloaded audio,
+microphone access, licensed recording or paid API.
+
+Quick demo: create a new session, pair Guard with the on-screen code, select
+one disturbance, start culture, wait for its scheduled sensor alarm, then
+acknowledge/correct in Guard. Keep both windows visible on separate displays.
+Pause to inspect; after verified recovery the next exercise becomes available.
+
 ## Lighting and shading
 
 The room uses ACES tone mapping with explicit sRGB output, a locally generated

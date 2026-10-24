@@ -53,7 +53,8 @@ class RunConfig(InputModel):
 
 class Command(InputModel):
     seq: int = Field(strict=True, ge=1, le=1_000_000)
-    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed", "execute", "setpoints", "sensor_fault"]
+    action: Literal["play", "pause", "advance", "collect", "load", "analyze", "speed", "execute", "setpoints", "sensor_fault", "disturbance"]
+    disturbance: Literal["ph_drop", "low_do", "low_nutrients"] = "ph_drop"
     ph_setpoint: float = Field(default=7.3, ge=6.8, le=7.6)
     do_setpoint: float = Field(default=40, ge=20, le=60)
     temperature_setpoint: float = Field(default=37, ge=35, le=38)
@@ -131,6 +132,8 @@ class Session:
         }
 
     def apply(self, command):
+        if command.action == "disturbance":
+            raise ValueError("Teaching disturbances require the BIOSTAT profile.")
         # An exact retransmission cannot repeat a sample or advance the clock twice.
         if command.seq <= self.seq:
             return
@@ -340,6 +343,22 @@ async def analytics(request: Request, id: str, payload: AnalyticsRequest):
         raise HTTPException(409, "Released measurements changed. Refresh the live analysis.")
     # Read-only computation on a public snapshot. No culture timers or hidden-state access.
     return await run_in_threadpool(live_analytics, snapshot, payload)
+
+
+class AlarmAction(InputModel):
+    alert_id: str = Field(pattern=r"^(ph|do|glucose)-[1-9][0-9]{0,2}$")
+    action: Literal["acknowledge", "restore_buffer", "restore_aeration"]
+
+
+@router.post("/sessions/{id}/alarm-actions")
+async def alarm_action(request: Request, id: str, payload: AlarmAction):
+    session = authorized_session(request, id, "operator")
+    if not hasattr(session, "alarm_action"):
+        raise HTTPException(409, "Alarms require a BIOSTAT training session.")
+    try:
+        return session.alarm_action(payload)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
 
 
 @router.websocket("/sessions/{id}/stream")
