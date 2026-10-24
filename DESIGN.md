@@ -60,6 +60,10 @@ marketing allows indexing; workspace views remain gated and carry noindex.
 Scientific claims link to their primary sources, and illustrative preview samples
 are explicitly labeled.
 
+The public team section uses unframed, consistent portrait crops in the order
+Akbar, Kent, Jascon, Jonathan. Pair a short name with the full name and visible
+44px LinkedIn, GitHub and website icon links. Keep the GenoHack 2026 reference
+as a direct Instagram link beside the section heading, without an origins disclosure.
 The Platform module switcher reserves equal copy and preview space for all four
 modules at each viewport width. Bound illustrative charts so switching modules
 keeps the page height and scroll position stable without clipping content.

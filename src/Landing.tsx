@@ -156,10 +156,38 @@ const roadmap = [
 ]
 
 const team = [
-  "Jonathan Edward Charles De Fretes",
-  "Kent William Soetanto",
-  "Jascon Johanest Kembuan",
-  "Fadhlur Rohman Al Akbar",
+  {
+    name: "Fadhlur Rohman Al Akbar",
+    shortName: "Akbar",
+    photo: "team/akbar.png",
+    links: [{ label: "LinkedIn", icon: "linkedin", url: "https://www.linkedin.com/in/fadhlurrohmanalakbar/" }],
+  },
+  {
+    name: "Kent William Soetanto",
+    shortName: "Kent",
+    photo: "team/kent.png",
+    links: [{ label: "LinkedIn", icon: "linkedin", url: "https://www.linkedin.com/in/kentwil/" }],
+  },
+  {
+    name: "Jascon Johanest Kembuan",
+    shortName: "Jascon",
+    photo: "team/jascon.png",
+    links: [
+      { label: "LinkedIn", icon: "linkedin", url: "https://www.linkedin.com/in/jascon-kembuan/" },
+      { label: "GitHub", icon: "github", url: "https://github.com/jaklon" },
+      { label: "Website", icon: "globe", url: "https://jascon.my.id/" },
+    ],
+  },
+  {
+    name: "Jonathan Edward Charles De Fretes",
+    shortName: "Jonathan",
+    photo: "team/jonathan.png",
+    links: [
+      { label: "LinkedIn", icon: "linkedin", url: "https://www.linkedin.com/in/jonathanedw05/" },
+      { label: "GitHub", icon: "github", url: "https://github.com/AtlasCJr" },
+      { label: "Website", icon: "globe", url: "https://jonathanedw.web.id/" },
+    ],
+  },
 ]
 
 const faqs = [
@@ -205,6 +233,10 @@ export function LocalIcon({ name }: { name: string }) {
     layers: <path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5" />,
     x: <path d="M6 6l12 12M18 6 6 18" />,
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+    external: <path d="M14 4h6v6M20 4 10 14M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />,
+    globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z" /></>,
+    linkedin: <path fill="currentColor" stroke="none" d="M20.45 2H3.55C2.69 2 2 2.68 2 3.52v16.96c0 .84.69 1.52 1.55 1.52h16.9c.86 0 1.55-.68 1.55-1.52V3.52c0-.84-.69-1.52-1.55-1.52ZM7.93 18.75H4.98V9.2h2.95v9.55ZM6.45 7.9a1.71 1.71 0 1 1 0-3.42 1.71 1.71 0 0 1 0 3.42Zm12.3 10.85H15.8V14.1c0-1.11-.02-2.54-1.55-2.54-1.55 0-1.79 1.21-1.79 2.46v4.73H9.51V9.2h2.83v1.3h.04c.39-.75 1.36-1.55 2.79-1.55 2.99 0 3.58 1.97 3.58 4.53v5.27Z" />,
+    github: <path fill="currentColor" stroke="none" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.82-.26.82-.58v-2.24c-3.34.73-4.04-1.42-4.04-1.42-.54-1.39-1.33-1.76-1.33-1.76-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.23 1.84 1.23 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.52 11.52 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.6-2.81 5.62-5.49 5.92.43.38.82 1.12.82 2.26v3.28c0 .32.22.69.83.57A12 12 0 0 0 12 .3Z" />,
   }
   if (!paths[name]) return <Icon name={name} />
   return (
@@ -939,27 +971,36 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         </div>
       </section>
 
-      <section id="about" className="lp-section">
+      <section id="about" className="lp-section lp-team-section">
         <div className="lp-wrap">
-          <div className="lp-head center" data-reveal>
-            <span className="lp-eyebrow">About</span>
-            <h2>Team <em>HemoForge</em></h2>
-            <p className="lp-muted">HemoForge began as a GenoHack 2026 research prototype, built around a practical question: how can a lab review culture data with an evidence trail?</p>
-            <details className="lp-origin">
-              <summary>GenoHack origins</summary>
-              <p>The original 23–25 October 2026 sprint covered source manifests, culture-data adapters, replay, warnings and checkpoint reporting, followed by demo review and a pitch. This is our project history; product availability is listed in the roadmap above.</p>
-            </details>
+          <div className="lp-team-heading" data-reveal>
+            <div>
+              <h2>Meet the team.</h2>
+              <p>The people behind HemoForge.</p>
+            </div>
+            <a className="lp-team-event" href="https://www.instagram.com/p/DeQqCsxiJOg/" target="_blank" rel="noopener noreferrer" aria-label="GenoHack 2026 on Instagram (opens in a new tab)">
+              GenoHack 2026 <LocalIcon name="external" />
+            </a>
           </div>
           <div className="lp-team">
-            {team.map((name, i) => {
-              const parts = name.split(" ")
-              return (
-                <div key={name} className="lp-member" data-reveal style={{ "--d": i } as CSSProperties}>
-                  <span className="lp-avatar">{parts[0][0]}{parts[parts.length - 1][0]}</span>
-                  <strong>{name}</strong>
+            {team.map((member, i) => (
+              <article key={member.name} className="lp-member" data-reveal style={{ "--d": i } as CSSProperties}>
+                <div className="lp-member-portrait">
+                  <img className="lp-member-photo" src={`${import.meta.env.BASE_URL}${member.photo}`} alt={member.name} width={825} height={1024} loading="lazy" decoding="async" />
                 </div>
-              )
-            })}
+                <div className="lp-member-info">
+                  <h3>{member.shortName}</h3>
+                  <p>{member.name}</p>
+                </div>
+                <div className="lp-member-links">
+                  {member.links.map((link) => (
+                    <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} aria-label={`${member.name} — ${link.label} (opens in a new tab)`}>
+                      <LocalIcon name={link.icon} />
+                    </a>
+                  ))}
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
