@@ -91,7 +91,7 @@ export default function SignIn({
           </a>
           <img
             className="signin-mark"
-            src="/favicon.svg"
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
             alt=""
             width="44"
             height="44"

@@ -1456,7 +1456,7 @@ function ResearchWorkspaceContent() {
         >
           <img
             className="brand-mark"
-            src="/favicon.svg"
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
             width="40"
             height="40"
             alt=""
@@ -1604,7 +1604,7 @@ function ResearchWorkspaceContent() {
         >
           <img
             className="brand-mark"
-            src="/favicon.svg"
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
             width="40"
             height="40"
             alt=""
