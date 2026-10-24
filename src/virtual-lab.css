@@ -165,7 +165,7 @@
 .vl-process-motion label { display: grid; gap: 6px; }
 .vl-process-motion progress { width: 100%; accent-color: #268f8b; }
 .biostat-scene-legend.has-transfer { width: 265px; max-width: calc(100% - 48px); top: 90px; bottom: auto; padding: 12px; pointer-events: auto; background: #f4f7f1ed; }
-.is-transfer-view .vl-scene-caption { display: none; }
+.is-transfer-view .vl-scene-caption,.is-alarm-view .vl-scene-caption { display: none; }
 .biostat-lab .vl-station-nav { flex-wrap: wrap; }
 .vl-transfer-readout { margin: 14px 0; padding: 12px; background: #e9f3ec; border: 1px solid #b8d1c3; border-radius: 6px; color: #294e47; font-size: 11px; display: grid; gap: 8px; }
 .vl-transfer-readout strong { font-size: 11px; line-height: 1.6; }
@@ -236,3 +236,14 @@
 .biostat-lab .vl-model-config fieldset { border: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
 @media (max-width: 1000px) { .biostat-lab .vl-scene-caption h1 { font-size: 29px; } .biostat-scene-legend { max-width: 195px; font-size: 9px; bottom: 125px; left: 12px; } }
 @media (max-width: 720px) { .biostat-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .biostat-lab .vl-scene-caption { top: 70px; left: 18px; } .biostat-scene-legend { display: none; } .biostat-lab .vl-station-nav { flex-wrap: wrap; bottom: 55px; gap: 5px; } .biostat-lab .vl-stage { min-height: 550px; } }
+.vl-dataset-panel { margin:18px 0; padding:18px; display:grid; gap:12px; border:1px solid #a8c8bc; border-radius:8px; background:#edf6f1; color:#214d43; font-size:12px; }
+.vl-dataset-heading { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:1px; }
+.vl-dataset-dot { width:8px; height:8px; border-radius:50%; background:#8b9a94; }
+.vl-dataset-dot.is-running { background:#27866b; box-shadow:0 0 0 4px #27866b18; }
+.vl-dataset-panel h3,.vl-dataset-panel p { margin:0; line-height:1.65; }
+.vl-dataset-panel dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0; }
+.vl-dataset-panel dt { font-size:10px; color:#658579; }
+.vl-dataset-panel dd { margin:4px 0; font:500 19px 'JetBrains Mono Variable',monospace; }
+.vl-dataset-downloads { display:flex; flex-wrap:wrap; gap:7px; }
+.vl-dataset-panel a,.vl-dataset-panel button { padding:8px; background:#fffdfa; border:1px solid #bbcec4; border-radius:4px; color:#285e4c; text-decoration:none; cursor:pointer; font:600 11px Inter,sans-serif; }
+.vl-dataset-panel small,.vl-dataset-panel li,.vl-dataset-notice { font-size:10px; line-height:1.7; }

@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,17 @@ from backend.virtual_lab import router as virtual_lab_router
 from backend.models import ExperimentRequest, GrowthRequest
 from backend.predictions import ENGINE, predict_experiments, predict_growth
 
-app = FastAPI(title="HemoForge research API · HemoBot", version="1.1.0")
+@asynccontextmanager
+async def lifespan(_app):
+    from backend.dataset_runtime import runtime
+    runtime.start()
+    try:
+        yield
+    finally:
+        await runtime.close()
+
+
+app = FastAPI(title="HemoForge research API · HemoBot", version="1.1.0", lifespan=lifespan)
 app.add_middleware(BodyLimitMiddleware)
 extra_hosts = [host.strip() for host in os.environ.get("HEMOBOT_ALLOWED_HOSTS", "").split(",") if host.strip()]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver", *extra_hosts])

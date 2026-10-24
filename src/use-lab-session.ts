@@ -27,6 +27,8 @@ export default function useLabSession(
     sensor?: "core" | "trace" | "viamass"
   } | null>(null)
   const nextSeq = useRef(1)
+  const retryAttempts=useRef(0)
+  const persistentDataset=useRef<string|null>(null)
   const command = useCallback(
     (
       action: LabAction,
@@ -75,6 +77,7 @@ export default function useLabSession(
       return
     }
     let disposed = false
+    let reconnectTimer:ReturnType<typeof setTimeout>|undefined
     setConnection("connecting")
     const ws = new WebSocket(
       `${
@@ -106,6 +109,7 @@ export default function useLabSession(
       )
         return
       latest.current = message
+      if(message.dataset)persistentDataset.current=id
       nextSeq.current = message.ack_seq + 1
       if (pending.current !== null && message.ack_seq >= pending.current) {
         pending.current = null
@@ -113,6 +117,7 @@ export default function useLabSession(
       }
       setSnapshot(message)
       setConnection("connected")
+      retryAttempts.current=0
       if (pending.current === null && queued.current) {
         const value = queued.current
         queued.current = null
@@ -130,8 +135,12 @@ export default function useLabSession(
         setSnapshot(latest.current)
       }
       setError(
-        "Connection closed. Reconnect; if the API restarted or the session expired, start a new run.",
+        persistentDataset.current===id ? "Dataset API offline. Mencoba menyambung ulang otomatis; pencatatan pulih dari checkpoint saat API hidup." : "Connection closed. Reconnect; if the API restarted or the session expired, start a new run.",
       )
+      if(persistentDataset.current===id){
+        const delay=Math.min(15000,1000*2**Math.min(4,retryAttempts.current++))
+        reconnectTimer=setTimeout(()=>setRetry(n=>n+1),delay)
+      }
     }
     ws.onerror = () => {
       if (!disposed)
@@ -141,6 +150,7 @@ export default function useLabSession(
     }
     return () => {
       disposed = true
+      clearTimeout(reconnectTimer)
       socket.current = null
       ws.close()
     }

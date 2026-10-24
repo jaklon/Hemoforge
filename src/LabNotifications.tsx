@@ -18,9 +18,10 @@ export default function LabNotifications({
   }[]>([])
   useEffect(() => {
     if (!snapshot || !connected) return
-    const changed = session.current !== snapshot.session_id
+    const scope=snapshot.dataset?.run_id??snapshot.session_id
+    const changed = session.current !== scope
     if (changed) {
-      session.current = snapshot.session_id
+      session.current = scope
       seen.current = 0
       setNotices([])
     }

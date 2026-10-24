@@ -1,7 +1,7 @@
 """Stage D: local culture, FLEX2 and Guard intervention demonstration sessions.
 
-Only accepted animation ticks advance culture time. No database, instrument,
-external inference, or autonomous background culture timer is used here.
+Guided sessions follow rendered frames. Dataset Live uses an explicit local
+server clock and durable SQLite records. No instrument or external inference.
 """
 
 import asyncio
@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import Field, ValidationError
 from starlette.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 
 from backend.models import InputModel
 from backend.culture_simulation import (Culture, MODEL_VERSION, ASSAY_SECONDS, ASSAY_HOURS,
@@ -45,7 +46,17 @@ def local_client(connection):
             and connection.headers.get("origin") in ORIGINS)
 
 
+def local_read_client(connection):
+    # Same-origin GET/downloads may omit Origin. Reject explicit cross-site reads.
+    return (connection.client is not None and connection.client.host in {"127.0.0.1","::1","testclient"}
+            and urlsplit("http://"+connection.headers.get("host","")).hostname in {"localhost","127.0.0.1","::1","testserver"}
+            and connection.headers.get("origin") in {None,*ORIGINS}
+            and connection.headers.get("sec-fetch-site") not in {"cross-site"})
+
+
 class RunConfig(InputModel):
+    execution_mode: Literal["guided", "dataset"] = "guided"
+    max_batches: int = Field(default=0, strict=True, ge=0, le=10000)
     device_profile: Literal["biostat-str-gen2", "legacy-flex2"] = "biostat-str-gen2"
     scenario: Literal["balanced", "nutrient_limited", "metabolite_stress"] = "balanced"
     seed: int = Field(default=42, strict=True, ge=0, le=2_147_483_647)
@@ -246,7 +257,7 @@ sessions: dict[str, Session] = {}
 
 def find_session(id):
     session = sessions.get(id)
-    if not session or time.monotonic() - session.touched > 3600:
+    if not session or (not getattr(session,"dataset_campaign",None) and time.monotonic() - session.touched > 3600):
         sessions.pop(id, None)
         raise HTTPException(404, "Local session expired or API restarted. Start a new run.")
     return session
@@ -257,7 +268,7 @@ async def create(request: Request, config: RunConfig | None = None):
     if not local_client(request) or request.headers.get("x-hemoforge-action") != "virtual-lab":
         raise HTTPException(403, "Open Virtual Lab on localhost to create a session.")
     for id in list(sessions):
-        if time.monotonic() - sessions[id].touched > 3600:
+        if not getattr(sessions[id],"dataset_campaign",None) and time.monotonic() - sessions[id].touched > 3600:
             del sessions[id]
     if len(sessions) >= MAX_SESSIONS:
         raise HTTPException(429, "Local session limit reached. Restart the prototype API or wait for expiry.")
@@ -265,6 +276,14 @@ async def create(request: Request, config: RunConfig | None = None):
     from backend.biostat import BiostatSession
     session_type = BiostatSession if config.device_profile == "biostat-str-gen2" else Session
     session = session_type(scenario=config.scenario, seed=config.seed)
+    if config.execution_mode == "dataset":
+        if config.device_profile != "biostat-str-gen2":
+            raise HTTPException(422,"Dataset Live requires BIOSTAT Gen 2.")
+        from backend.dataset_runtime import runtime
+        try:
+            runtime.create(session,max_batches=config.max_batches)
+        except (ValueError,OSError) as error:
+            raise HTTPException(409,str(error)) from error
     sessions[session.id] = session
     return {"session_id": session.id, "controller_token": session.token}
 
@@ -274,9 +293,51 @@ def authorized_session(request, id, role):
         raise HTTPException(403, "Use the local Virtual Lab application.")
     session = find_session(id)
     expected = session.token if role == "controller" else session.operator_token
-    if not matches_token(request.headers.get(f"x-lab-{role}", ""), expected):
+    supplied=request.headers.get(f"x-lab-{role}", "")
+    valid=controller_matches(session,supplied) if role=="controller" else matches_token(supplied,expected)
+    if not valid:
         raise HTTPException(403, "Control authorization expired or is missing. Pair the Guard again.")
     return session
+
+
+def controller_matches(session, supplied):
+    expected=getattr(session,"_controller_digest",None)
+    if expected:
+        return isinstance(supplied,str) and supplied.isascii() and matches_token(hashlib.sha256(supplied.encode()).hexdigest(),expected)
+    return matches_token(supplied,session.token)
+
+
+@router.get("/datasets")
+async def dataset_list(request: Request):
+    if not local_read_client(request):
+        raise HTTPException(403,"Use localhost to view synthetic campaigns.")
+    from backend.dataset_runtime import runtime
+    return {"campaigns":[campaign.public() for campaign in runtime.campaigns.values()]}
+
+
+@router.get("/sessions/{id}/dataset/{table}.csv")
+async def dataset_csv(request: Request,id: str,table: str):
+    if not local_read_client(request):
+        raise HTTPException(403,"Use localhost to export synthetic data.")
+    from backend.dataset_store import KINDS
+    campaign=getattr(find_session(id),"dataset_campaign",None)
+    if not campaign or table not in KINDS:
+        raise HTTPException(404,"Dataset table unavailable.")
+    return StreamingResponse(campaign.store.csv_rows(id,table),media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition":f'attachment; filename="{id}-{table}.csv"',"Cache-Control":"no-store"})
+
+
+@router.get("/sessions/{id}/dataset/manifest")
+async def dataset_manifest(request: Request,id: str):
+    if not local_read_client(request): raise HTTPException(403,"Use localhost.")
+    campaign=getattr(find_session(id),"dataset_campaign",None)
+    if not campaign: raise HTTPException(404,"Not a dataset campaign.")
+    from backend.dataset_scenarios import CATALOG
+    from backend.lab_alerts import RULES
+    from backend.dataset_store import KINDS
+    return {**campaign.public(),"catalog":CATALOG,"alarm_rules":RULES,"tables":KINDS,"units":{"culture_time":"hours","volume":"mL","glucose_glutamine_lactate_ammonium":"mmol/L","do":"percent air saturation","temperature":"C","cell_density":"million cells/mL","capacitance":"pF/cm","ph":"pH","cell_count":"million cells"},
+        "training_notice":"Synthetic, unvalidated model output. Ground truth, scenario labels and events are labels/metadata, never model input features. Join features only where available_at_hour <= prediction_time. Split/group entire runs, not adjacent rows. Validate against independent experimental data.",
+        "clock":"No fabricated progress while API/PC offline. Automatic resume from last SQLite checkpoint; all writes local."}
 
 
 @router.post("/sessions/{id}/pairing")
@@ -318,6 +379,8 @@ async def revoke_operator(request: Request, id: str):
 @router.post("/sessions/{id}/interventions", status_code=201)
 async def decide(request: Request, id: str, payload: InterventionRequest):
     session = authorized_session(request, id, "operator")
+    if getattr(session,"dataset_campaign",None):
+        raise HTTPException(409,"Dataset Live owns its audited automatic interventions.")
     try:
         return queue_intervention(session, payload, END_HOUR)
     except ValueError as error:
@@ -327,6 +390,8 @@ async def decide(request: Request, id: str, payload: InterventionRequest):
 @router.post("/sessions/{id}/interventions/{intervention_id}/cancel")
 async def cancel_decision(request: Request, id: str, intervention_id: str):
     session = authorized_session(request, id, "operator")
+    if getattr(session,"dataset_campaign",None):
+        raise HTTPException(409,"Pause Dataset Live instead of altering a recorded experiment.")
     try:
         return cancel_intervention(session, intervention_id, "Cancelled by the Guard operator.")
     except ValueError as error:
@@ -346,13 +411,15 @@ async def analytics(request: Request, id: str, payload: AnalyticsRequest):
 
 
 class AlarmAction(InputModel):
-    alert_id: str = Field(pattern=r"^(ph|do|glucose)-[1-9][0-9]{0,2}$")
+    alert_id: str = Field(pattern=r"^(ph|do|glucose|ph_high|do_high|temperature_low|temperature_high|lactate)-[1-9][0-9]{0,2}$")
     action: Literal["acknowledge", "restore_buffer", "restore_aeration"]
 
 
 @router.post("/sessions/{id}/alarm-actions")
 async def alarm_action(request: Request, id: str, payload: AlarmAction):
     session = authorized_session(request, id, "operator")
+    if getattr(session,"dataset_campaign",None):
+        raise HTTPException(409,"Dataset Live uses an audited automatic policy. Use a guided session for manual decisions.")
     if not hasattr(session, "alarm_action"):
         raise HTTPException(409, "Alarms require a BIOSTAT training session.")
     try:
@@ -386,8 +453,7 @@ async def stream(socket: WebSocket, id: str):
             return
         controller = hello["role"] == "controller"
         supplied_token = hello.get("token", "")
-        if session.viewers >= 6 or (controller and (session.controller or not isinstance(supplied_token, str)
-                or not supplied_token.isascii() or not secrets.compare_digest(supplied_token, session.token))):
+        if session.viewers >= 6 or (controller and (session.controller or not controller_matches(session,supplied_token))):
             await socket.close(code=1008)
             return
         joined = True
@@ -399,12 +465,13 @@ async def stream(socket: WebSocket, id: str):
         session.revision += 1
         last_revision = -1
         while True:
-            if sessions.get(id) is not session or time.monotonic() - session.touched > 3600:
+            dataset = getattr(session,"dataset_campaign",None)
+            if sessions.get(id) is not session or (not dataset and time.monotonic() - session.touched > 3600):
                 sessions.pop(id, None)
                 session.stop("Local session expired. Start a new run.")
                 await socket.close(code=1008)
                 break
-            if session.running and time.monotonic() - session.last_tick > 2:
+            if not dataset and session.running and time.monotonic() - session.last_tick > 2:
                 session.stop("Animation heartbeat lost. Resume from the 3D window.")
             if session.revision != last_revision:
                 await asyncio.wait_for(socket.send_json(session.snapshot()), 2)
@@ -421,6 +488,7 @@ async def stream(socket: WebSocket, id: str):
                 break
             try:
                 session.apply(Command.model_validate_json(raw))
+                if dataset: dataset.flush()
             except (ValidationError, ValueError):
                 await socket.send_json({"type": "error", "detail": "Action refused. Check the current step and reconnect if needed."})
                 await socket.send_json(session.snapshot())
@@ -430,6 +498,7 @@ async def stream(socket: WebSocket, id: str):
         if joined:
             if controller:
                 session.controller = False
-                session.stop("3D controller disconnected. Culture is paused.")
+                if not getattr(session,"dataset_campaign",None):
+                    session.stop("3D controller disconnected. Culture is paused.")
             else:
                 session.viewers -= 1

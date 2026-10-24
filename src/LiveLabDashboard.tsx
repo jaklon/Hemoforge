@@ -16,6 +16,7 @@ import LiveProcessDashboard from "./LiveProcessDashboard"
 import BiostatTelemetry from "./BiostatTelemetry"
 import LabAlerts from "./LabAlerts"
 import LabNotifications from "./LabNotifications"
+import DatasetPanel from "./DatasetPanel"
 import {alarmPresentation} from "./lab-alerts"
 import PocShell, { liveModuleNames } from "./PocShell"
 import { Badge, Details, PageTitle } from "./workspace-ui"
@@ -54,6 +55,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
   useEffect(() => {
     document.title = `${liveModuleNames[module]} · Monitor 02 · HemoForge`
   }, [module])
+  useEffect(()=>{setNotes({});setMessage("")},[snapshot?.dataset?.run_id])
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [module])
@@ -108,7 +110,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
         <div>
           <small>MONITOR 01</small>
           <strong>
-            {snapshot?.running ? "3D clock running" : "3D clock paused"}
+            {snapshot?.dataset ? snapshot.running?"Server clock running":"Server clock paused" : snapshot?.running ? "3D clock running" : "3D clock paused"}
           </strong>
         </div>
         <div className="poc-live-actions">
@@ -122,7 +124,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
       </section>
       <p className="poc-live-note">
         BIOSTAT Gen 2 PoC · virtual sensors. Cell counts are model estimates.
-        Culture time follows Monitor 01.{" "}
+        {snapshot?.dataset?"Dataset time follows the backend clock, independently of browser visibility.":"Culture time follows Monitor 01."}{" "}
         {snapshot?.phase === "analyzing"
           ? `Analyzing · ${snapshot.assay_stage.replace(/_/g, " ")} · ${Math.round(snapshot.analysis_progress * 100)}%`
           : latest
@@ -130,6 +132,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
             : "Start BIOSTAT on Monitor 01; online sensor readings arrive automatically."}
       </p>
       <LabNotifications snapshot={snapshot} connected={connection==="connected"}/>
+      {snapshot?.dataset&&<DatasetPanel snapshot={snapshot}/>}
       {snapshot?.training_scenarios&&module!=="guard"&&<LabAlerts snapshot={snapshot} connected={connection==="connected"}/>}
       {error && (
         <p role="alert" className="import-error">

@@ -11,6 +11,17 @@ RULES = {
     "glucose": {"device": "trace", "channel": "glucose_mmol_l", "label": "Nutrisi menipis", "unit": "mmol/L", "warning": 5.0, "critical": 2.5, "recovery": 5.3,
                 "advice": "Tinjau Trace terbaru, lalu pratinjau feed 1250 mL atau pertukaran medium. Konfirmasi dosis di Guard dan tunggu Trace pascatindakan.", "correction": "review_feed"},
 }
+for key, device, channel, label, unit, warning, critical, recovery, direction in (
+    ("ph_high", "core", "ph", "pH tinggi", "pH", 7.55, 7.7, 7.45, "high"),
+    ("do_high", "core", "dissolved_oxygen", "DO tinggi", "% air sat.", 65, 80, 60, "high"),
+    ("temperature_low", "core", "temperature", "Temperatur rendah", "°C", 36, 35.5, 36.8, "low"),
+    ("temperature_high", "core", "temperature", "Temperatur tinggi", "°C", 38, 39, 37.4, "high"),
+    ("lactate", "trace", "lactate_mmol_l", "Laktat menumpuk", "mmol/L", 6, 10, 5.5, "high"),
+):
+    RULES[key] = dict(device=device, channel=channel, label=label, unit=unit, warning=warning,
+                      critical=critical, recovery=recovery, direction=direction,
+                      advice="Tinjau sensor terbaru, kendali proses dan kebutuhan medium. Dataset Live menjalankan kebijakan aturan simulasi; bukan keputusan model AI.",
+                      correction="review_process")
 
 
 class LabAlarms:
@@ -35,15 +46,19 @@ class LabAlarms:
                 continue
             old = self.states.get(key)
             active = old and old["status"] == "active"
-            severity = "critical" if value < rule["critical"] else "warning" if value < rule["warning"] else None
-            if active and not severity and value < rule["recovery"]:
+            high = rule.get("direction") == "high"
+            critical = value > rule["critical"] if high else value < rule["critical"]
+            warning = value > rule["warning"] if high else value < rule["warning"]
+            unrecovered = value > rule["recovery"] if high else value < rule["recovery"]
+            severity = "critical" if critical else "warning" if warning else None
+            if active and not severity and unrecovered:
                 severity = "warning"
             if not active and not severity:
                 continue
             if not active:
                 self.episodes[key] += 1
                 record = {"id": f"{key}-{self.episodes[key]}", "metric": key, "label": rule["label"], "device": rule["device"],
-                          "unit": rule["unit"], "warning_below": rule["warning"], "critical_below": rule["critical"], "recovery_at": rule["recovery"],
+                          "unit": rule["unit"], "warning_below": rule["warning"], "critical_below": rule["critical"], "recovery_at": rule["recovery"], "direction": "high" if high else "low",
                           "advice": rule["advice"], "correction": rule["correction"], "acknowledged": False,
                           "opened_at_hour": row["available_at_hour"], "resolved_at_hour": None, "severity": severity, "status": "active"}
                 self.states[key] = record

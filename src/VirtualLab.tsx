@@ -9,6 +9,9 @@ import LabAlerts from "./LabAlerts"
 import LabNotifications from "./LabNotifications"
 import LabAmbience from "./LabAmbience"
 import ScenarioPanel from "./ScenarioPanel"
+import DatasetPanel from "./DatasetPanel"
+import SavedDatasets from "./SavedDatasets"
+import type {DatasetStatus} from "./lab-session"
 import {alarmPresentation} from "./lab-alerts"
 import { transferPresentation, transferFrameDelta } from "./transfer-visual"
 import LabControlPanel from "./LabControlPanel"
@@ -34,6 +37,10 @@ export default function VirtualLab() {
   const [createError, setCreateError] = useState("")
   const [scenario, setScenario] = useState<CultureScenario>("balanced")
   const [seed, setSeed] = useState(42)
+  const [executionMode,setExecutionMode]=useState<"dataset"|"guided">("dataset")
+  const [savedDatasets,setSavedDatasets]=useState<DatasetStatus[]>([])
+  const loadDatasets=useCallback(()=>{void fetch('/api/v1/lab/datasets').then(r=>r.ok?r.json():{campaigns:[]}).then(v=>setSavedDatasets(v.campaigns??[])).catch(()=>{})},[])
+  useEffect(()=>{if(!id)loadDatasets()},[id,loadDatasets])
   const [station, setStation] =
     useState<"overview" | "bioreactor" | "trace" | "viamass" | "transfer">("overview")
   const [graphicsError, setGraphicsError] = useState("")
@@ -59,8 +66,9 @@ export default function VirtualLab() {
   const clock = useRef(new AnimationClock())
   const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
-  const transferView = transferPresentation(snapshot,ready)
-  const alarmView=alarmPresentation(snapshot,ready)
+  const displayReady=connection==="connected"&&!!snapshot
+  const transferView = transferPresentation(snapshot,displayReady)
+  const alarmView=alarmPresentation(snapshot,displayReady)
   const showAlarm=alarmView.current.length>0
   const blenderCount = Object.values(assetState).filter(value => value === "blender").length
   const fallbackAssets = Object.entries(assetState).filter(([,value]) => value === "fallback").map(([name]) => name).join(", ")
@@ -108,6 +116,7 @@ export default function VirtualLab() {
           scenario,
           seed,
           device_profile: "biostat-str-gen2",
+          execution_mode:executionMode,
         }),
         signal: AbortSignal.timeout(10000),
       })
@@ -134,6 +143,11 @@ export default function VirtualLab() {
   }
   const onFrame = useCallback(
     (delta: number) => {
+      if(latest.current?.dataset){
+        const active=latest.current.active_intervention
+        if(active?.status==="executing"&&attemptedIntervention.current!==active.id){attemptedIntervention.current=active.id;setStation("transfer")}
+        return
+      }
       const intervention = latest.current?.active_intervention
       if (
         intervention?.status === "queued" &&
@@ -157,14 +171,14 @@ export default function VirtualLab() {
   useEffect(() => {
     const hidden = () => {
       clock.current.reset()
-      if (document.visibilityState === "hidden") command("pause")
+      if (document.visibilityState === "hidden"&&!latest.current?.dataset) command("pause")
     }
     document.addEventListener("visibilitychange", hidden)
     return () => document.removeEventListener("visibilitychange", hidden)
-  }, [command])
+  }, [command,latest])
   useEffect(() => {
-    if (graphicsError) command("pause")
-  }, [graphicsError, command])
+    if (graphicsError&&!latest.current?.dataset) command("pause")
+  }, [graphicsError, command,latest])
   function exportRun() {
     if (!snapshot) return
     const url = URL.createObjectURL(
@@ -180,7 +194,7 @@ export default function VirtualLab() {
   }
   const canRun =
     ready &&
-    !graphicsError &&
+    (!graphicsError||!!snapshot?.dataset) &&
     snapshot!.active_intervention?.status !== "queued" &&
     (snapshot!.culture_hours < snapshot!.end_hour ||
       snapshot!.phase === "intervening")
@@ -210,19 +224,19 @@ export default function VirtualLab() {
       </header>
       <main className={`vl-layout${expandedScene ? " is-expanded" : ""}`}>
         <section
-          className={`vl-stage${showTransfer ? " is-transfer-view" : ""}`}
+          className={`vl-stage${showTransfer ? " is-transfer-view" : ""}${showAlarm ? " is-alarm-view" : ""}`}
           id="biostat-stage"
           aria-label="Laboratorium BIOSTAT 3D orang pertama"
         >
           <BiostatScene
             station={station}
             snapshot={snapshot}
-            connected={ready}
+            connected={displayReady}
             onAssetState={onAssetState}
             onPerformance={onPerformance}
             inspectionRequest={inspectionRequest}
             reducedMotion={reducedMotion}
-            slowTransfers={slowTransfers}
+            slowTransfers={slowTransfers&&!snapshot?.dataset}
             onHandState={setHandState}
             walkMode={walkMode}
             resetWalkRequest={resetWalkRequest}
@@ -233,7 +247,7 @@ export default function VirtualLab() {
             }}
             onError={setGraphicsError}
           />
-          <LabNotifications snapshot={snapshot} connected={ready}/>
+          <LabNotifications snapshot={snapshot} connected={displayReady}/>
           <div className="vl-scene-top">
             <span className="vl-room-label">
               CELL CULTURE / SINGLE-USE STR 50
@@ -248,7 +262,7 @@ export default function VirtualLab() {
             <p>BIOSTAT Gen 2 + BioPAT Trace + ViaMass</p>
           </div>
           <div className={`biostat-scene-legend${showTransfer||showAlarm ? " has-transfer" : ""}`}>
-            {snapshot&&showAlarm&&<LabAlerts snapshot={snapshot} connected={ready} compact/>}
+            {snapshot&&showAlarm&&<LabAlerts snapshot={snapshot} connected={displayReady} compact/>}
             {showTransfer && transferView ? <TransferReadout view={transferView} compact /> : instrument ? <>
               <strong>{inspectionStation === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
               {instrument.values.map(value => <span key={value}>{value}</span>)}
@@ -279,8 +293,8 @@ export default function VirtualLab() {
             {walkMode && <><button onClick={() => setResetWalkRequest(value => value+1)}>Reset posisi</button><small>{navigation.locked ? "Mouse aktif · Esc untuk melepas" : navigation.dragOnly ? "Mouse: tahan dan drag untuk melihat" : "Klik ruangan untuk mouse · drag juga tersedia"}</small></>}
             <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !inspectionReady} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
             <label><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /> Kurangi gerakan</label>
-            <label><input type="checkbox" checked={slowTransfers} onChange={event=>setSlowTransfers(event.target.checked)} /> Transfer presentasi ⅓×</label>
-            <LabAmbience snapshot={snapshot} connected={ready}/>
+            {!snapshot?.dataset&&<label><input type="checkbox" checked={slowTransfers} onChange={event=>setSlowTransfers(event.target.checked)} /> Transfer presentasi ⅓×</label>}
+            <LabAmbience snapshot={snapshot} connected={displayReady}/>
             <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : walkMode && !navigation.inRange ? "Dekati dan bidik layar alat" : inspectionStation === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !inspectionReady ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
           </div>
           {walkMode && <div className={`vl-fps-reticle${navigation.inRange ? " is-target" : ""}`} aria-live="polite"><i aria-hidden="true" /><span>{navigation.hint}</span></div>}
@@ -299,13 +313,13 @@ export default function VirtualLab() {
             )}
           </div>
           <div className="vl-camera-hint">
-            {walkMode ? "Klik ruangan · WASD berjalan · mouse melihat · E inspeksi · Esc lepas mouse" : "Drag untuk melihat sekitar · panah mengaktifkan / menjeda kultur · waktu hanya maju setelah frame dirender"}
+            {walkMode ? "Klik ruangan · WASD berjalan · mouse melihat · E inspeksi · Esc lepas mouse" : snapshot?.dataset?"Dataset Live · jam server terus berjalan · 3D menampilkan keadaan terbaru":"Drag untuk melihat sekitar · panah mengaktifkan / menjeda kultur · waktu hanya maju setelah frame dirender"}
           </div>
           {graphicsError && (
             <div role="alert" className="vl-graphics-error">
               {graphicsError}
               <br />
-              Aktifkan WebGL. Jam kultur dijeda.
+              {snapshot?.dataset?"Aktifkan WebGL untuk melihat 3D. Dataset tetap berjalan di backend.":"Aktifkan WebGL. Jam kultur dijeda."}
             </div>
           )}
         </section>
@@ -319,7 +333,7 @@ export default function VirtualLab() {
             </p>
           </div>
           <div className="vl-session-row">
-            <span className={`vl-status ${ready ? "is-online" : ""}`}>
+            <span className={`vl-status ${displayReady ? "is-online" : ""}`}>
               {id ? connection : "Belum ada sesi"}
             </span>
             <span>{snapshot?.batch_id ?? "Local only"}</span>
@@ -332,7 +346,7 @@ export default function VirtualLab() {
             </strong>
             <span>
               {snapshot?.running
-                ? "Mengikuti animasi 3D"
+                ? snapshot?.dataset ? "Dataset Live · jam backend terus berjalan" : "Mengikuti animasi 3D"
                 : "Paused · tidak ada waktu yang maju"}
             </span>
           </div>
@@ -340,21 +354,22 @@ export default function VirtualLab() {
             <>
               <fieldset className="vl-model-config" disabled={creating}>
                 <legend>Profil sesi baru · STR 50 Gen 2</legend>
+                <label>Mode simulasi<select value={executionMode} onChange={e=>setExecutionMode(e.target.value as "dataset"|"guided")}><option value="dataset">Dataset Live · otomatis berkelanjutan</option><option value="guided">Terpandu · kontrol manual</option></select></label>
                 <label>
-                  Skenario kultur
+                  {executionMode==="dataset"?"Profil medium otomatis per batch":"Skenario kultur"}
                   <select
-                    value={scenario}
+                    value={scenario} disabled={executionMode==="dataset"}
                     onChange={(e) =>
                       setScenario(e.target.value as CultureScenario)
                     }
                   >
-                    <option value="balanced">Nutrisi seimbang</option>
+                    <option value="balanced">{executionMode==="dataset"?"Otomatis · tiga profil medium":"Nutrisi seimbang"}</option>
                     <option value="nutrient_limited">Nutrisi terbatas</option>
                     <option value="metabolite_stress">Stres metabolit</option>
                   </select>
                 </label>
                 <label>
-                  Seed sensor
+                  {executionMode==="dataset"?"Seed kampanye":"Seed sensor"}
                   <input
                     type="number"
                     min={0}
@@ -374,8 +389,9 @@ export default function VirtualLab() {
                 disabled={creating || !validSeed}
                 onClick={() => void createSession()}
               >
-                {creating ? "Menghubungkan…" : "Buat sesi BIOSTAT →"}
+                {creating ? "Menghubungkan…" : executionMode==="dataset"?"Mulai Dataset Live otomatis →":"Buat sesi BIOSTAT →"}
               </button>
+              {savedDatasets.length>0&&<SavedDatasets campaigns={savedDatasets} onRefresh={loadDatasets}/>}
             </>
           )}
           {id && (
@@ -390,8 +406,7 @@ export default function VirtualLab() {
                 Buka dashboard di monitor 2 ↗
               </a>
               <p className="vl-footnote">
-                Pindahkan jendela baru ke monitor kedua dan biarkan kedua
-                jendela terlihat. Menyembunyikan tab 3D menjeda kultur.
+                {snapshot?.dataset?"Pindahkan dashboard ke monitor kedua. Dataset tetap berjalan saat browser ditutup; API harus tetap hidup.":"Pindahkan jendela baru ke monitor kedua dan biarkan kedua jendela terlihat. Menyembunyikan tab 3D menjeda kultur."}
               </p>
               <div className="vl-clock-controls">
                 <button
@@ -423,9 +438,11 @@ export default function VirtualLab() {
           {snapshot && (
             <>
               <BiostatTelemetry snapshot={snapshot} compact />
-              <ScenarioPanel snapshot={snapshot} connected={ready} onRun={kind=>{if(command("disturbance",{disturbance:kind})){setStation("bioreactor")}}}/>
-              <LabAlerts snapshot={snapshot} connected={ready}/>
-              <ProcessMotionPanel snapshot={snapshot} connected={ready} />
+              <DatasetPanel snapshot={snapshot}/>
+              {snapshot.dataset&&!token&&<p className="vl-footnote">Akses baca. Kontrol pause/kecepatan hanya tersedia di tab pembuat sesi yang menyimpan token sementara. Dataset tetap berjalan dan dapat diekspor.</p>}
+              {!snapshot.dataset&&<ScenarioPanel snapshot={snapshot} connected={ready} onRun={kind=>{if(command("disturbance",{disturbance:kind})){setStation("bioreactor")}}}/>}
+              <LabAlerts snapshot={snapshot} connected={displayReady}/>
+              <ProcessMotionPanel snapshot={snapshot} connected={displayReady} />
               <form
                 className="vl-model-config"
                 onSubmit={(e) => {
@@ -433,7 +450,7 @@ export default function VirtualLab() {
                   if (validSetpoints) command("setpoints", setpoints)
                 }}
               >
-                <fieldset disabled={!ready || !!snapshot.active_intervention}>
+                <fieldset disabled={!ready || !!snapshot.active_intervention || !!snapshot.dataset}>
                   <legend>Setpoint controller virtual · AUTO</legend>
                   {([
                     ["ph_setpoint", "pH", 6.8, 7.6, 0.05],
@@ -507,7 +524,7 @@ export default function VirtualLab() {
                   bawaan STR atau data tervalidasi.
                 </p>
               </div>
-              {token && (
+              {token && !snapshot.dataset && (
                 <LabControlPanel
                   key={id}
                   id={id!}
@@ -546,7 +563,7 @@ export default function VirtualLab() {
           </div>
           <p className="vl-footnote">
             PoC lokal dan aset gratis. Model belum dikalibrasi biologis atau
-            untuk skala BIOSTAT. Sesi hilang saat API restart. Tidak ada alat
+            untuk skala BIOSTAT. Dataset Live tersimpan di disk; sesi terpandu hilang saat API restart. Tidak ada alat
             fisik, NVIDIA, LLM, atau layanan berbayar yang dipanggil.
           </p>
         </aside>

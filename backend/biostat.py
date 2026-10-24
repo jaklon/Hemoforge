@@ -39,6 +39,11 @@ class BiostatCulture(Culture):
         self.ph, self.do, self.temperature = 7.3, 40.0, 37.0
         self.acid_load = 0.0
         self.aeration_efficiency = 1.0
+        # Dataset-mode perturbations; zero/default values preserve guided behavior.
+        self.thermal_load = self.gas_enrichment = 0.0
+        self.extra_glucose = self.extra_glutamine = self.extra_lactate = 0.0
+        self.growth_multiplier = 1.0
+        self.load_targets = {}
         self.setpoints = {"ph": 7.3, "dissolved_oxygen": 40.0, "temperature": 37.0}
         self.outputs = {"stirrer_rpm": 100.0, "oxygen_percent": 21.0, "base_output_percent": 0.0,
                         "thermal_output_percent": 0.0}
@@ -55,13 +60,17 @@ class BiostatCulture(Culture):
         self._target_hour += hours
         while (self._integration_steps + 1) / 100 <= self._target_hour + 1e-9:
             dt = 0.01
+            # First-order equipment/load response instead of instant value injection.
+            for key, target in self.load_targets.items():
+                value = getattr(self, key)
+                setattr(self, key, value + (target - value) * (1 - math.exp(-dt / 0.75)))
             stage_factor = 1.0 if self.stage == "expansion" else max(0, 0.25 * (1 - (self.hour - 72) / 72))
             ph_error = self.setpoints["ph"] - self.ph
             do_error = self.setpoints["dissolved_oxygen"] - self.do
             temp_error = self.setpoints["temperature"] - self.temperature
             rpm = max(80, min(220, 100 + do_error * 3))
             # O2 fraction of a virtual O2/N2 blend; nitrogen can lower the DO supply.
-            oxygen = max(1, min(80, 21 + do_error * 2))
+            oxygen = max(1, min(80, 21 + do_error * 2 + self.gas_enrichment))
             self.outputs = {"stirrer_rpm": round(rpm, 2), "oxygen_percent": round(oxygen, 2),
                             "base_output_percent": round(max(0, min(100, ph_error * 300)), 2),
                             "acid_output_percent": round(max(0, min(100, -ph_error * 300)), 2),
@@ -73,9 +82,12 @@ class BiostatCulture(Culture):
                 # Reduce division and nutrient demand as the illustrative stage changes.
                 death_flux = result[1] + 0.003 * max(0, y[1])
                 division_flux = result[0] + death_flux
-                result[0] = division_flux * stage_factor * oxygen_factor * temp_factor - death_flux
+                result[0] = division_flux * stage_factor * oxygen_factor * temp_factor * self.growth_multiplier - death_flux
                 for index in range(2, 6):
                     result[index] *= (0.35 + 0.65 * stage_factor) * oxygen_factor
+                result[2] -= self.extra_glucose
+                result[3] -= self.extra_glutamine
+                result[4] += self.extra_lactate
                 return result
             y = self.state
             a = derivative(y)
@@ -88,7 +100,7 @@ class BiostatCulture(Culture):
             self.do = max(0, min(100, self.do + dt *
                           (kla * (100 * oxygen / 21 - self.do) - 35 * y[0] * (0.2 + 0.8 * stage_factor))))
             self.ph = max(6, min(8, self.ph + dt * (ph_error * 2 - max(0, a[4]) * 0.032 - self.acid_load)))
-            self.temperature += dt * (temp_error * 1.5 + 0.015 * y[0])
+            self.temperature = max(30, min(42, self.temperature + dt * (temp_error * 1.5 + 0.015 * y[0] + self.thermal_load)))
             self._integration_steps += 1
             self.hour = self._integration_steps / 100
 
@@ -132,6 +144,7 @@ class BiostatSession(Session):
         self.controller_events = []
         self.alarms = LabAlarms()
         self.training_runs = []
+        self.sensor_bias = {"trace": 0.0, "viamass": 0.0}
         self.speed = 0.25
         self.reason = "Ready. Start BIOSTAT; sensors publish automatically with the visible 3D clock."
 
@@ -152,6 +165,8 @@ class BiostatSession(Session):
             channels = {"capacitance_pf_cm": round(max(0, culture.state[0] * size_factor *
                         (1 + rng.gauss(0, 0.025))), 6)}
         good = device not in self.faults
+        if device in self.sensor_bias:
+            channels = {key: round(value * (1 + self.sensor_bias[device]), 6) for key, value in channels.items()}
         return {"id": f"{device.upper()}-{round(at * 100):05d}", "device": device,
                 "source_kind": "virtual_sensor", "measured_at_hour": round(at, 6),
                 "available_at_hour": round(at + SCHEDULE[device][1], 6),
@@ -227,11 +242,17 @@ class BiostatSession(Session):
             lab_alerts=self.alarms.public(self.hour, self.sensor_readings, self.faults),
             alert_events=self.alarms.events,
             training_scenarios={"limit": 12, "runs": self.training_runs},
-            process_disturbance={"acid_load_active": self.culture.acid_load > 0,
-                                 "aeration_restricted": self.culture.aeration_efficiency < 1},
+            process_disturbance={"acid_load_active": abs(self.culture.acid_load) > .02,
+                                 "aeration_restricted": self.culture.aeration_efficiency < .95,
+                                 "aeration_capacity": round(self.culture.aeration_efficiency,4)},
             intervention_protocol={"animation_seconds": INTERVENTION_SECONDS,
                 "culture_minutes": INTERVENTION_HOURS * 60, "max_volume_ml": PROFILE["max_volume_ml"],
                 "decision_max_age_hours": 3})
+        campaign = getattr(self, "dataset_campaign", None)
+        if campaign:
+            snapshot["dataset"] = campaign.public()
+            snapshot["controller_connected"] = True  # the backend owns this clock
+            snapshot["batch_id"] = f"DS-{self.id[:6].upper()}-{campaign.batch_number:05d}"
         return snapshot
 
     def disturb(self, kind):
@@ -280,6 +301,13 @@ class BiostatSession(Session):
         return {"accepted": True}
 
     def apply(self, command):
+        if getattr(self, "dataset_campaign", None) and not getattr(self, "_dataset_internal", False):
+            if self.dataset_campaign.error or self.dataset_campaign.finished:
+                raise ValueError("Dataset paused by storage/error or completed. Inspect Dataset Live status.")
+            if command.action == "advance":
+                return  # a rendered frame must never double-advance the server clock
+            if command.action not in {"play", "pause", "speed"}:
+                raise ValueError("Dataset Live owns process actions. Use a guided session for manual experiments.")
         if command.seq <= self.seq:
             return
         if command.seq != self.seq + 1:

@@ -274,3 +274,32 @@ stale or failed-QC evidence holds its state. Thresholds are PoC assumptions.
 pump/aeration and short alarm tones. It is off initially, has volume/mute,
 and suspends when the page is hidden or offline. Motor and aeration follow
 the running process. No audio download, microphone or paid service is used.
+
+## Dataset Live (default for new sessions)
+
+Start **Dataset Live · otomatis berkelanjutan** once. Twenty coverage cases,
+seeded severities/initial conditions, disturbances and rule-based corrections
+then run automatically. One quarter per coverage cycle is untreated comparison data. At 168
+modeled hours the next batch starts automatically; no per-scenario click is
+needed. Sensor failures, drift and unmeasured latent variables stay labeled.
+
+The clock runs in the Python backend, independently of browser visibility/FPS.
+Closing or hiding 3D does not stop collection. The API and computer must stay
+on. Checkpoints restore campaigns after API restart without inventing progress
+during downtime. Dataset records are stored at
+`data/simulation/culture.sqlite3` in the API working directory. Folder `data/`
+is excluded from Git. Both monitors offer separate CSV exports for sensors,
+estimates, events/actions, actuator commands, truth/labels and batch metadata,
+plus a JSON manifest. Dataset growth pauses at its disk quota; nothing is
+silently deleted. Keep the original controller tab for pause/speed controls.
+
+Data is **synthetic and biologically unvalidated**. Keep hidden truth, scenario
+identity and future actions/events separate from predictor inputs. Use released
+sensor times and group entire batches when splitting training/evaluation data.
+The full contract and catalogue are in `docs/SIMULATION_DATASETS.md` in the repo.
+
+Audio now has **Uji suara bip-bip**, volume/mute and an output signal meter.
+Normal running culture: bip-bip every 4s; warning/QC: every 0.5s; critical alert:
+every 0.3s. Activate audio once in the browser. Hidden/offline tabs are silent;
+Dataset Live continues recording. If the meter moves but the speaker is silent,
+check OS volume and tab mute. All sounds are synthesized locally for free.

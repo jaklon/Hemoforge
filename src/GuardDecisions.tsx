@@ -116,6 +116,13 @@ amount: number }) =>
     }
   }
 
+  if(snapshot.dataset)return <section className="vl-decision-panel" aria-label="Guard otomatis Dataset Live">
+    <h2>Guard otomatis · kebijakan simulasi</h2>
+    <p>{snapshot.dataset.policy==="observe_only"?"Batch pembanding: kondisi direkam tanpa koreksi otomatis.":"Tindakan dipilih otomatis dari sensor yang sudah dirilis dan lolos QC. Ini kebijakan aturan untuk menghasilkan data, bukan inferensi AI tervalidasi."}</p>
+    <LabAlerts snapshot={snapshot} connected={connected}/>
+    <LabInterventionStatus items={snapshot.interventions} testId="guard-intervention-status"/>
+    {transferView&&<TransferReadout view={transferView}/>}
+  </section>
   return (
     <section
       className="vl-decision-panel"

@@ -127,8 +127,8 @@ export default function PocShell({
         <div className="sidebar-bottom">
           <Badge tone="warning">Synthetic · PoC only</Badge>
           <p>
-            Dedicated simulation data. Culture time follows the visible 3D
-            laboratory.
+              Dedicated synthetic data. Guided mode follows 3D frames;
+              Dataset Live follows the backend clock.
           </p>
         </div>
         <nav className="nav-signout" aria-label="Leave simulation">

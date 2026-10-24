@@ -89,7 +89,7 @@ export default function LabAlerts({
               )}
               {a.status === "active" &&
                 onAction &&
-                a.correction !== "review_feed" &&
+                ["restore_buffer","restore_aeration"].includes(a.correction) &&
                 canRestore(a) && (
                   <button
                     disabled={

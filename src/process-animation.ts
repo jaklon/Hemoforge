@@ -14,7 +14,8 @@ export function processPresentation(snapshot: LabSnapshot | null, connected: boo
   const rpm = command(output?.stirrer_rpm, 0, 500)
   const oxygen = command(output?.oxygen_percent, 0, 100)
   const gasAvailable = available && Number.isFinite(output?.oxygen_percent)
-  const gasCapacity=snapshot?.process_disturbance?.aeration_restricted ? .12 : 1
+  const capacity=snapshot?.process_disturbance?.aeration_capacity
+  const gasCapacity=Number.isFinite(capacity)?Math.max(.01,Math.min(1,capacity!)):snapshot?.process_disturbance?.aeration_restricted ? .12 : 1
   const base = command(output?.base_output_percent, 0, 100)
   const acid = command(output?.acid_output_percent, 0, 100)
   const thermal = command(output?.thermal_output_percent, -100, 100)

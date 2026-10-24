@@ -43,7 +43,12 @@ Guard decisions return to the animated reactor; Pilot/Plan use bounded stage-awa
 The main research workspace keeps its own inputs. Only visible rendered time advances culture; keep both windows visible.
 
 See [local walkthrough and free asset credits](public/VIRTUAL_LAB.md), [BIOSTAT implementation contract](docs/BIOSTAT_GEN2_SIMULATION.md),
-and [PoC routes](docs/VIRTUAL_LAB_POC_WORKSPACE.md). Run one Python API worker; sessions are local, in memory and lost on restart.
+and [PoC routes](docs/VIRTUAL_LAB_POC_WORKSPACE.md). Run one Python API worker.
+New sessions default to [Dataset Live](docs/SIMULATION_DATASETS.md): automatic
+20-case coverage, continuous backend clock, batch rollover, rule-based responses,
+durable local SQLite checkpoints and separate sensor/estimate/action/truth CSVs.
+Data lives in `data/simulation/culture.sqlite3` and does not enter Git.
+Guided sessions keep their frame-driven clock and are lost on API restart.
 No physical device, remote database, NVIDIA, hosted LLM, paid assets or cloud resources are called by this simulation.
 Stage A–E documents describe the historical FLEX2 implementation; new sessions default to BIOSTAT schema 4.
 ## Demo account

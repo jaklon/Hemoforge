@@ -321,6 +321,11 @@ using the existing Three.js package and free materials.
 
 ## Training scenarios, alarms and lab ambience
 
+New sessions default to **Dataset Live**, an independent server-clock campaign
+with automatic coverage cases, corrections, batch rollover, SQLite checkpoints
+and streaming CSV exports. See [Dataset Live contract](SIMULATION_DATASETS.md).
+The manual scenario/pairing workflow below applies to **guided** sessions.
+
 Monitor 01 has three **Skenario gangguan kultur** controls: pH drop (acid
 load), low DO (restricted virtual gas delivery), and low nutrients (glucose
 depletion). Only one exercise runs at a time, with at most 12 per session.
@@ -364,9 +369,11 @@ lights or physics simulation.
 **Aktifkan suara lab** in Monitor 01 enables original, locally synthesized
 HVAC/room hum, motor, pump and aeration ambience. Volume and mute are available;
 sound never autoplays. Motor/aeration track the running simulated process;
-room tone remains during pause. Hidden/offline pages suspend sound. A short
-tone announces each unacknowledged alarm episode/severity once, without
-periodic repeats; Monitor 02 stays silent to avoid duplicate audio. Web Audio
+room tone remains during pause. Hidden/offline pages suspend sound. Two short
+beeps repeat every 4 seconds during a normal running culture, every 0.5 second
+for warnings/QC faults, and every 0.3 second for critical alarms. Acknowledging
+an active condition does not slow the rhythm. The test button and output meter
+help check browser audio. Monitor 02 stays silent to avoid duplicate audio. Web Audio
 uses one reusable context and a small loop buffer, with no downloaded audio,
 microphone access, licensed recording or paid API.
 

@@ -39,12 +39,13 @@ export interface MeasurementUncertainty {
 export type CultureScenario = "balanced" | "nutrient_limited" | "metabolite_stress"
 export type DisturbanceKind = "ph_drop" | "low_do" | "low_nutrients"
 export interface LabAlert {
-  id:string; metric:"ph"|"do"|"glucose"; label:string; device:"core"|"trace"; unit:string;
+  id:string; metric:"ph"|"do"|"glucose"|"ph_high"|"do_high"|"temperature_low"|"temperature_high"|"lactate"; label:string; device:"core"|"trace"; unit:string;
   severity:"warning"|"critical"; status:"active"|"resolved"|"hold"; acknowledged:boolean;
   value:number|null; reading_id:string; measured_at_hour:number; available_at_hour:number;
   opened_at_hour:number; resolved_at_hour:number|null;
   warning_below:number; critical_below:number; recovery_at:number; advice:string;
-  correction:"restore_buffer"|"restore_aeration"|"review_feed";
+  correction:"restore_buffer"|"restore_aeration"|"review_feed"|"review_process";
+  direction?:"low"|"high";
 }
 export interface LabAlertEvent {
   seq:number; kind:"raised"|"escalated"|"improving"|"resolved"|"acknowledged"|"correction";
@@ -89,10 +90,11 @@ export interface LabIntervention {
 }
 
 export interface LabSnapshot {
+  dataset?: DatasetStatus
   lab_alerts?:LabAlert[]
   alert_events?:LabAlertEvent[]
   training_scenarios?: { limit:number; runs:{id:string;kind:DisturbanceKind;started_at_hour:number;mitigated_at_hour:number|null}[] }
-  process_disturbance?: {acid_load_active:boolean;aeration_restricted:boolean}
+  process_disturbance?: {acid_load_active:boolean;aeration_restricted:boolean;aeration_capacity?:number}
   type: "snapshot"
   schema_version: 3 | 4
   device_profile?: {
@@ -179,6 +181,15 @@ setpoints: Record<string, number> }[]
   assays: CompletedAssay[]
   measurements: Flex2Measurement[]
   measurements_sha256: string
+}
+
+export interface DatasetStatus {
+  mode:"server_clock";campaign_id:string;run_id:string;batch_number:number;
+  case_id:string;case_label:string;policy:"observe_only"|"sensor_rules_v1";split:"train"|"validation"|"test";
+  status:"running"|"paused"|"completed"|"error";error:string;counts:Record<string,number>;
+  coverage:string[];catalog_size:number;catalog_version:string;format_version:string;
+  storage_mb:number;storage_limit_mb:number;clock_notice:string;evidence:"synthetic_unvalidated";lag_seconds:number;
+  recent_events:{kind:string;hour:number;actor:string;batch_number:number}[];
 }
 
 export interface SensorReading {

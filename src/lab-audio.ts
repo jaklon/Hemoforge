@@ -1,4 +1,13 @@
 import type { LabSnapshot } from "./lab-session.ts"
+import { alarmPresentation } from "./lab-alerts.ts"
+
+export type BeepMode = "silent" | "normal" | "warning" | "critical"
+export const BEEP_INTERVAL: Record<BeepMode, number> = {
+  silent: Infinity,
+  normal: 4,
+  warning: 0.5,
+  critical: 0.3,
+}
 
 export function labSoundState(
   snapshot: LabSnapshot | null,
@@ -10,17 +19,35 @@ export function labSoundState(
   const audible = enabled && connected && visible && !!snapshot
   const running = audible && !!snapshot?.running
   const motor = snapshot?.controller?.outputs.stirrer_rpm ?? 0
+  const alarms = alarmPresentation(snapshot, connected)
+  const beep: BeepMode = !audible
+    ? "silent"
+    : alarms.current.some(
+          (a) => a.status === "active" && a.severity === "critical",
+        )
+      ? "critical"
+      : alarms.current.length || snapshot?.sensor_faults?.length
+        ? "warning"
+        : running && alarms.dataReady
+          ? "normal"
+          : "silent"
   return {
     audible,
+    beep,
     volume: Number.isFinite(volume) ? Math.max(0, Math.min(0.6, volume)) : 0,
     motor:
       running && Number.isFinite(motor)
         ? Math.max(0, Math.min(220, motor)) / 220
         : 0,
     gas: running
-      ? snapshot?.process_disturbance?.aeration_restricted
-        ? 0.12
-        : 1
+      ? Number.isFinite(snapshot?.process_disturbance?.aeration_capacity)
+        ? Math.max(
+            0.01,
+            Math.min(1, snapshot!.process_disturbance!.aeration_capacity!),
+          )
+        : snapshot?.process_disturbance?.aeration_restricted
+          ? 0.12
+          : 1
       : 0,
     pump:
       running &&
@@ -38,13 +65,21 @@ export class LabAudioEngine {
   private motor: GainNode
   private gas: GainNode
   private motorOsc: OscillatorNode
+  private meter: AnalyserNode
+  private samples = new Float32Array(256)
   private sources: (AudioBufferSourceNode | OscillatorNode)[] = []
+  private beepMode: BeepMode = "silent"
+  private nextBeep = 0
+  private timer: ReturnType<typeof setInterval>
   constructor() {
     this.context = new AudioContext({ latencyHint: "playback" })
     const c = this.context
     this.master = c.createGain()
     this.master.gain.value = 0
-    this.master.connect(c.destination)
+    this.meter = c.createAnalyser()
+    this.meter.fftSize = 256
+    this.master.connect(this.meter)
+    this.meter.connect(c.destination)
     const noise = c.createBuffer(1, c.sampleRate * 3, c.sampleRate),
       data = noise.getChannelData(0)
     let seed = 31
@@ -93,16 +128,39 @@ export class LabAudioEngine {
     this.motor.connect(this.master)
     this.motorOsc.start()
     this.sources.push(this.motorOsc)
+    this.timer = setInterval(() => {
+      if (this.context.state !== "running" || this.beepMode === "silent") return
+      if (this.context.currentTime >= this.nextBeep) {
+        this.chime(this.beepMode === "critical")
+        this.nextBeep = this.context.currentTime + BEEP_INTERVAL[this.beepMode]
+      }
+    }, 100)
+  }
+  /** Call directly from a click: browsers may reject resume outside a user gesture. */
+  unlock() {
+    return this.context.resume()
+  }
+  signalLevel() {
+    this.meter.getFloatTimeDomainData(this.samples)
+    return Math.sqrt(
+      this.samples.reduce((sum, v) => sum + v * v, 0) / this.samples.length,
+    )
   }
   async set(state: ReturnType<typeof labSoundState>) {
     const c = this.context
     if (c.state === "closed") return
     if (!state.audible) {
+      this.beepMode = "silent"
       await c.suspend()
       return
     }
     await c.resume()
-    this.master.gain.setTargetAtTime(state.volume * 0.45, c.currentTime, 0.08)
+    if (c.state !== "running") throw new Error("Audio is suspended")
+    if (this.beepMode !== state.beep) {
+      this.beepMode = state.beep
+      this.nextBeep = c.currentTime + 0.1
+    }
+    this.master.gain.setTargetAtTime(state.volume * 0.8, c.currentTime, 0.03)
     this.motor.gain.setTargetAtTime(
       0.008 * state.motor + 0.004 * state.pump,
       c.currentTime,
@@ -122,21 +180,25 @@ export class LabAudioEngine {
       gain = c.createGain(),
       now = c.currentTime
     tone.type = "sine"
-    tone.frequency.setValueAtTime(critical ? 740 : 520, now)
-    tone.frequency.setValueAtTime(critical ? 880 : 660, now + 0.16)
+    tone.frequency.setValueAtTime(critical ? 1040 : 760, now)
+    tone.frequency.setValueAtTime(critical ? 1120 : 820, now + 0.15)
     gain.gain.setValueAtTime(0, now)
-    gain.gain.linearRampToValueAtTime(0.05, now + 0.025)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42)
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1)
+    gain.gain.setValueAtTime(0.0001, now + 0.15)
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.162)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25)
     tone.connect(gain)
     gain.connect(this.master)
     tone.start(now)
-    tone.stop(now + 0.45)
+    tone.stop(now + 0.28)
     tone.onended = () => {
       tone.disconnect()
       gain.disconnect()
     }
   }
   dispose() {
+    clearInterval(this.timer)
     for (const s of this.sources) s.stop()
     void this.context.close()
   }
