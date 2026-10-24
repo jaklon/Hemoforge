@@ -789,7 +789,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             {team.map((member, i) => (
               <article key={member.name} className="lp-member" data-reveal style={{ "--d": i } as CSSProperties}>
                 <div className="lp-member-portrait">
-                  <img className="lp-member-photo" src={`${import.meta.env.BASE_URL}${member.photo}`} alt={member.name} width={825} height={1024} loading="lazy" decoding="async" />
+                  <img className="lp-member-photo" src={`${import.meta.env.BASE_URL}${member.photo}?v=2`} alt={member.name} width={825} height={1024} loading="lazy" decoding="async" />
                 </div>
                 <div className="lp-member-info">
                   <h3>{member.shortName}</h3>
