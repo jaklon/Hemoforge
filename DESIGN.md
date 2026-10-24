@@ -60,6 +60,10 @@ marketing allows indexing; workspace views remain gated and carry noindex.
 Scientific claims link to their primary sources, and illustrative preview samples
 are explicitly labeled.
 
+The Platform module switcher reserves equal copy and preview space for all four
+modules at each viewport width. Bound illustrative charts so switching modules
+keeps the page height and scroll position stable without clipping content.
+
 ## Colors
 
 `src/index.css` is the runtime token owner (ownership model B). Map primary to

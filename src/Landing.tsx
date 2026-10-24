@@ -437,15 +437,15 @@ function ModuleSwitcher() {
     const timer = setTimeout(() => setActive((a) => (a + 1) % modules.length), 7000)
     return () => clearTimeout(timer)
   }, [active, paused])
-  const current = modules[active]
-
   return (
     <div className="lp-switcher" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
       <div className="lp-tabs" role="tablist" aria-label="HemoForge modules">
         {modules.map((m, i) => (
           <button
             key={m.id}
+            id={`module-tab-${m.id}`}
             role="tab"
+            aria-controls="module-panel"
             aria-selected={i === active}
             className={`lp-tab${i === active ? " active" : ""}${paused ? " paused" : ""}`}
             onClick={() => setActive(i)}
@@ -459,14 +459,24 @@ function ModuleSwitcher() {
           </button>
         ))}
       </div>
-      <div className="lp-panel" role="tabpanel" key={current.id}>
+      <div className="lp-panel" id="module-panel" role="tabpanel" aria-labelledby={`module-tab-${modules[active].id}`}>
         <div className="lp-panel-copy">
-          <span className="lp-eyebrow">{current.when}</span>
-          <h3>{current.question}</h3>
-          <p>{current.does}</p>
-          <p className="lp-not"><LocalIcon name="x" /> {current.not}</p>
+          {modules.map((m, i) => (
+            <div key={m.id} className={`lp-module-copy${i === active ? " active" : ""}`} aria-hidden={i !== active} inert={i !== active}>
+              <span className="lp-eyebrow">{m.when}</span>
+              <h3>{m.question}</h3>
+              <p>{m.does}</p>
+              <p className="lp-not"><LocalIcon name="x" /> {m.not}</p>
+            </div>
+          ))}
         </div>
-        <ModulePreview id={current.id} />
+        <div className="lp-panel-previews">
+          {modules.map((m, i) => (
+            <div key={m.id} className={`lp-module-preview${i === active ? " active" : ""}`} aria-hidden={i !== active} inert={i !== active}>
+              <ModulePreview id={m.id} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

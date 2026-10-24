@@ -265,9 +265,22 @@ html:has(.lp), body:has(.lp) { background: #05070d; }
 .lp-tab-progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--red); }
 .lp-tab.active .lp-tab-progress { animation: lp-progress 7s linear forwards; }
 .lp-tab.active.paused .lp-tab-progress { animation-play-state: paused; }
-.lp-panel { display: grid; grid-template-columns: 1fr 1.1fr; gap: 40px; padding: 40px; align-items: center; animation: lp-panel .6s var(--ease); }
+.lp-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 32px; padding: 32px; align-items: center; }
+/* Overlap every module in shared tracks so switching never changes their footprint. */
+.lp-panel-copy, .lp-panel-previews { display: grid; min-width: 0; }
+.lp-panel-previews { align-self: stretch; }
+.lp-module-copy, .lp-module-preview { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.lp-module-copy.active, .lp-module-preview.active { visibility: visible; animation: lp-panel .6s var(--ease); }
+.lp-module-preview { display: grid; }
+.lp-module-preview > * { min-width: 0; }
+.lp-module-preview > .lp-preview { display: flex; flex-direction: column; }
+.lp-module-preview .lp-preview-head, .lp-module-preview .lp-mock-bar { flex-wrap: wrap; gap: 6px 12px; }
+.lp-module-preview .lp-mock-body { grid-template-columns: minmax(0, 1fr); }
+.lp-module-preview .lp-preview-foot { margin-top: auto; padding-top: 14px; }
+.lp-module-preview .lp-surface { width: min(100%, 16rem); margin-inline: auto; }
+.lp-module-preview .lp-chart svg { max-height: 7.5rem; }
 .lp-panel h3 { font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.2; letter-spacing: -.03em; margin-top: 14px; }
-.lp-panel-copy > p { margin-top: 16px; }
+.lp-module-copy > p { margin-top: 16px; }
 .lp-not { display: flex; gap: 10px; align-items: flex-start; font-size: .875rem; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .03); border: 1px dashed var(--line-2); color: var(--faint); }
 .lp-not .icon { color: #ff8f99; margin-top: 3px; width: 15px; }
 .lp-preview { border-radius: 18px; border: 1px solid var(--line-2); background: linear-gradient(180deg, rgba(22, 30, 50, .9), rgba(10, 14, 26, .95)); padding: 18px; box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .8); }
@@ -519,6 +532,11 @@ html:has(.lp), body:has(.lp) { background: #05070d; }
   .lp-bento, .lp-integrity, .lp-roadmap, .lp-team, .lp-tabs { grid-template-columns: 1fr; }
   .lp-tab + .lp-tab { border-left: 0; border-top: 1px solid var(--line); }
   .lp-panel { padding: 24px 18px; }
+  .lp-module-preview .lp-snp { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .lp-module-preview .lp-snp > .lp-mono { grid-column: 1; font-size: .7rem; }
+  .lp-module-preview .lp-snp > .lp-status { grid-column: 2; grid-row: 1 / span 2; }
+  .lp-module-preview .lp-batch-head, .lp-module-preview .lp-chart-head { flex-wrap: wrap; gap: 4px; }
+  .lp-module-preview .lp-batches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lp-mock-body { padding: 12px; }
   .lp-batches { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
   .lp-batch { padding: 8px; }
