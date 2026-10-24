@@ -10,7 +10,7 @@ import {
   Status,
 } from "./workspace-ui"
 
-import { downloadFile, escapeHtml } from "./workspace-utils"
+import { downloadFile } from "./workspace-utils"
 
 import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
@@ -46,7 +46,9 @@ import {
 const MethodsPage = lazy(() => import("./MethodsPage"))
 
 import AccountPage, { initials, useProfile } from "./AccountPage"
+
 import { accountApi, signOut } from "./account"
+
 import ActivityLog from "./ActivityLog"
 
 import { CheckpointRoadmap, StageEstimate, TrendHealth } from "./PilotInsights"
@@ -186,11 +188,16 @@ const navigation: NavigationItem[] = [
 
     role: "Report",
   },
+
   {
     id: "activity",
+
     name: "Activity log",
+
     purpose: "Notifications & process events",
+
     icon: "bell",
+
     group: "Output",
   },
 
@@ -792,12 +799,24 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
 
 const reportPage = 10
 
+type ReportDetails = {
+  researcher: string
+
+  supervisor: string
+
+  institution: string
+}
+
 function ResearchReport({
   hour,
 
   replicate,
 
   focusHour,
+
+  details,
+
+  onDetailsChange,
 
   // Checkpoint to open first, from #report/<hour> (ErythroPilot's Review report).
 }: {
@@ -806,9 +825,17 @@ function ResearchReport({
   replicate: number
 
   focusHour: number | null
+
+  details: ReportDetails
+
+  onDetailsChange: (details: ReportDetails) => void
 }) {
   const { batchId, checkpointReports, reportInterval, source } =
     useCultureData()
+
+  const [exporting, setExporting] = useState(false)
+
+  const [exportError, setExportError] = useState("")
 
   const [activeHour, setActiveHour] = useState(focusHour)
 
@@ -842,33 +869,154 @@ function ResearchReport({
   const selected =
     all.find((report) => report.checkpoint_hour === activeHour) ?? all.at(-1)
 
-  // ponytail: no real batch start clock, so the run is anchored to now minus replay hours.
+  const download = async () => {
+    if (!selected || exporting) return
 
-  const startedAt = Date.now() - hour * 3_600_000
+    setExporting(true)
 
-  const madeAt = (h: number) => new Date(startedAt + h * 3_600_000)
+    setExportError("")
 
-  const download = (report: typeof reports[number]) => {
-    const made = madeAt(report.checkpoint_hour)
+    try {
+      const response = await fetch("/api/reports/checkpoint.pdf", {
+        method: "POST",
 
-    const html = `<!doctype html><html lang="en"><meta charset="utf-8"><title>HemoForge report ${report.checkpoint_hour}h</title><style>body{font:16px/1.6 system-ui;max-width:900px;margin:40px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5f9;padding:20px}h1{color:#9d232c}</style><h1>HemoForge report · ${report.checkpoint_hour}h</h1><p>Batch ${escapeHtml(report.batch_id)} · made ${made.toLocaleString()}</p><p>${escapeHtml(report.summary)}</p><p>${escapeHtml(report.recommendation)}</p><pre>${escapeHtml(JSON.stringify({ ...report, generated_at: made.toISOString() }, null, 2))}</pre></html>`
+        headers: { "Content-Type": "application/json" },
 
-    downloadFile(
-      `hemoforge-report-${report.batch_id}-${report.checkpoint_hour}h.html`,
+        body: JSON.stringify({
+          report: selected,
 
-      html,
+          ...details,
 
-      "text/html;charset=utf-8",
-    )
+          source_added_at: source.loaded_at || null,
+        }),
+
+        signal: AbortSignal.timeout(30_000),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null)
+
+        throw new Error(
+          error?.detail ||
+            "PDF export failed. Check the Python service and retry.",
+        )
+      }
+
+      if (!response.headers.get("content-type")?.includes("application/pdf")) {
+        throw new Error(
+          "PDF service unavailable. Check the Python service and retry.",
+        )
+      }
+
+      const filename = response.headers
+        .get("content-disposition")
+        ?.match(/filename="(HF-RPT-[A-Z0-9-]+\.pdf)"/)?.[1]
+
+      downloadFile(
+        filename || "hemoforge-research-report.pdf",
+        await response.blob(),
+        "application/pdf",
+      )
+    } catch (error) {
+      setExportError(
+        error instanceof Error &&
+          error.name !== "TypeError" &&
+          error.name !== "TimeoutError"
+          ? error.message
+          : "PDF export could not reach the Python service. Check the connection and retry.",
+      )
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
     <>
       <PageTitle
         title="Research Report"
-        description={`Reports the AI made every ${reportInterval}h for ${batchId(replicate)}.`}
+        description={`Review and document every ${reportInterval}h checkpoint for ${batchId(replicate)}.`}
         action={<Badge>{all.length} reports</Badge>}
       />
+      <Panel
+        title="Formal PDF report"
+        className="report-document"
+        caption={
+          selected
+            ? `Create a report template for the ${selected.checkpoint_hour}h checkpoint with an automatic generation date.`
+            : "Select a checkpoint once reports are available."
+        }
+        action={
+          <Button
+            primary
+            icon="download"
+            disabled={!selected || exporting}
+            onClick={() => void download()}
+          >
+            {exporting ? "Generating PDF…" : "Download PDF"}
+          </Button>
+        }
+      >
+        <div className="report-document-fields" aria-busy={exporting}>
+          <div className="settings-grid">
+            <label>
+              Researcher
+              <input
+                value={details.researcher}
+                maxLength={120}
+                disabled={exporting}
+                autoComplete="name"
+                placeholder="Name for researcher sign-off"
+                onChange={(event) =>
+                  onDetailsChange({
+                    ...details,
+                    researcher: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Supervisor
+              <input
+                value={details.supervisor}
+                maxLength={120}
+                disabled={exporting}
+                placeholder="Name for supervisor sign-off"
+                onChange={(event) =>
+                  onDetailsChange({
+                    ...details,
+                    supervisor: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Institution / laboratory
+              <input
+                value={details.institution}
+                maxLength={160}
+                disabled={exporting}
+                autoComplete="organization"
+                placeholder="Institution or laboratory name"
+                onChange={(event) =>
+                  onDetailsChange({
+                    ...details,
+                    institution: event.target.value,
+                  })
+                }
+              />
+            </label>
+          </div>
+          <p className="panel-note">
+            Content is a placeholder. The date is set automatically when the
+            report is generated. Sign above each printed name.
+          </p>
+          {exportError && (
+            <p role="alert" className="import-error">
+              {exportError}
+            </p>
+          )}
+        </div>
+      </Panel>
       <div className="report-layout">
         <Panel title="Past reports" caption="Select a report to inspect it">
           <div className="report-filters">
@@ -936,17 +1084,7 @@ function ResearchReport({
                     {report.checkpoint_hour}h
                   </span>
                   <span>
-                    <strong>
-                      {madeAt(report.checkpoint_hour).toLocaleString(
-                        undefined,
-
-                        {
-                          dateStyle: "medium",
-
-                          timeStyle: "short",
-                        },
-                      )}
-                    </strong>
+                    <strong>Checkpoint · {report.checkpoint_hour}h</strong>
                     <small>{report.summary}</small>
                   </span>
                   <Status status={report.status} />
@@ -982,17 +1120,10 @@ function ResearchReport({
           }
           caption={
             selected
-              ? `Made ${madeAt(selected.checkpoint_hour).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+              ? `Reporting window (${selected.data_window.from_hour}h, ${selected.checkpoint_hour}h]`
               : undefined
           }
           className="report-inspector"
-          action={
-            selected && (
-              <Button icon="download" onClick={() => download(selected)}>
-                Download
-              </Button>
-            )
-          }
         >
           {selected ? (
             <ReportDetail report={selected} evidence={source.evidence} />
@@ -1025,16 +1156,25 @@ function ServiceStatus({
   const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">(
     "checking",
   )
-  const [database, setDatabase] = useState<"checking" | "online" | "offline">("checking")
+
+  const [database, setDatabase] = useState<"checking" | "online" | "offline">(
+    "checking",
+  )
 
   useEffect(() => {
     if (backend !== "online") return
+
     const check = () =>
       accountApi("health/db")
+
         .then(() => setDatabase("online"))
+
         .catch(() => setDatabase("offline"))
+
     void check()
+
     const timer = setInterval(check, 60_000)
+
     return () => clearInterval(timer)
   }, [backend])
 
@@ -1166,6 +1306,14 @@ function ResearchWorkspaceContent() {
   const [replicate, setReplicate] = useState(1)
 
   const [eventNotes, setEventNotes] = useState<Record<string, string>>({})
+
+  const [reportDetails, setReportDetails] = useState<ReportDetails>(() => ({
+    researcher: profile.name || profile.username,
+
+    supervisor: "",
+
+    institution: profile.company,
+  }))
 
   const [checks, setChecks] = useState([false, false, false])
 
@@ -1428,6 +1576,7 @@ function ResearchWorkspaceContent() {
               e.preventDefault()
 
               location.hash = ""
+
               void signOut()
             }}
           >
@@ -1610,6 +1759,8 @@ function ResearchWorkspaceContent() {
             hour={hour}
             replicate={replicate}
             focusHour={Number(methodSection) || null}
+            details={reportDetails}
+            onDetailsChange={setReportDetails}
           />
         )}
       </main>

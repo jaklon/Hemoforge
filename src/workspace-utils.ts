@@ -1,4 +1,8 @@
-export function downloadFile(name: string, content: string, type: string) {
+export function downloadFile(
+  name: string,
+  content: string | Blob,
+  type: string,
+) {
   const url = URL.createObjectURL(new Blob([content], { type }))
 
   const link = document.createElement("a")
@@ -12,6 +16,7 @@ export function downloadFile(name: string, content: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 
   // The workspace provider listens for this and shows a notification.
+
   window.dispatchEvent(new CustomEvent("workspace-download", { detail: name }))
 }
 

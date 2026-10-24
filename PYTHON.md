@@ -33,7 +33,7 @@ simulation. CulturePlan fits experiment data through the Python API. Python
 connection errors keep staged inputs available for retry; no JavaScript fallback
 is presented as a Python prediction.
 
-Download results from Research report as JSON or HTML. Changing prediction
+Download the selected checkpoint from Research Report as a formal PDF. Changing prediction
 settings requires a new run. Examples are in `public/examples/` and can be
 downloaded from Data & runs.
 
@@ -73,6 +73,19 @@ save source snapshots, context, and responses in local SQLite. In Ollama mode,
 the query and bounded evidence statements are sent to the configured model server.
 See [HEMOBOT.md](HEMOBOT.md) for configuration, retention, Docker, and server setup.
 Export browser-only work before refreshing or restarting.
+
+## Report typography
+
+Report templates embed Times New Roman regular and bold at 12 pt with 18 pt
+leading (1.5 line spacing) and one-inch A4 margins. Report number and automatic
+generation date appear at the upper left, the institution at the right, and
+the title in the center. The body is a placeholder. Both signature lines sit
+above centered names in the footer; there are no handwritten date fields.
+Windows uses the installed `times.ttf` and `timesbd.ttf` files. The Docker image
+installs Microsoft's core fonts through Debian's `ttf-mscorefonts-installer`.
+For another host, install those fonts or set `HEMOFORGE_REPORT_FONT_DIR` to their
+directory, then restart the API. If fonts are absent, PDF export returns a readable
+503 error; it does not substitute another typeface or prevent the API from starting.
 
 ## Development and checks
 

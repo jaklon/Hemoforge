@@ -201,7 +201,18 @@ Full equations, references, and provenance also live on the dedicated Methods
 & References page, with visible section links beside analysis controls. Use one short purpose sentence per page;
 avoid repeating explanations in banners and cards. Example loading stays beside
 the file picker, with template downloads available in a disclosure.
-Reports show 8 checkpoints per page with explicit Earlier/Newer controls.
+Reports show 10 checkpoints initially with an explicit Show more action.
+Research Report exports a one-page A4 analysis report template in embedded Times
+New Roman, 12 pt with 18 pt leading (1.5 spacing), black text, and one-inch margins.
+Match the supplied report reference: report number and automatic generation date
+at the upper left, issuing institution at the right, and a centered bold title.
+The content area is intentionally a placeholder. Place the researcher and
+supervisor signature blocks at the bottom, with a horizontal signing line and
+each name centered below it. Role labels sit above the signing space. The date
+is static server-generated page text; there are no handwritten date lines.
+Named people are intended signatories, not evidence of approval. The details
+panel reuses labeled native fields and the shared download action. Measurement
+records, source traceability, and warnings remain available in the app inspector.
 All export actions download actual content. HTML escapes notes; CSV escapes fields
 and neutralizes formula-leading text. JSON/HTML include the full case snapshot;
 CSV contains checkpoint rows and follow-up notes. Python outputs include model

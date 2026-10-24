@@ -10,6 +10,12 @@ RUN pnpm build
 
 FROM python:3.12-slim AS application
 WORKDIR /app
+RUN sed -i 's/Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y ttf-mscorefonts-installer && \
+    test -f /usr/share/fonts/truetype/msttcorefonts/times.ttf && \
+    test -f /usr/share/fonts/truetype/msttcorefonts/timesbd.ttf && \
+    rm -rf /var/lib/apt/lists/*
 COPY requirements.txt requirements-rag.txt ./
 ARG INSTALL_RAG=true
 RUN pip install --no-cache-dir -r requirements.txt && \

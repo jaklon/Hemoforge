@@ -23,7 +23,7 @@ a dedicated Methods & References page. Users can expand them without leaving the
 | Form | NumberField / labeled native inputs and textarea | DESIGN.md | session notes, marker filters | Browser label activation and retained navigation state |
 | Navigation | ResearchWorkspace navigation / hash | Proposal section VII and user navigation request | desktop sidebar, inline mobile menu; both brand links open About Us | All modules and back/forward |
 | Replay | ReplayControls and culture-monitoring.ts | Proposal section III | paused, playback, manual cursor | Core tests and browser |
-| Reports | reportsForSamples / ResearchReport | Proposal section IV | timeline, HTML, JSON, CSV | Core tests and browser exports |
+| Reports | reportsForSamples / ResearchReport / backend/research_report.py | Proposal section IV and formal PDF request | timeline, checkpoint PDF, JSON, CSV | Core tests and browser exports |
 | Import | DataWorkspace / workspace-data.ts | Current user request | CSV, TSV, JSON; picker and drop | Parser tests and browser file chooser |
 | Scientific charts | InteractivePlot / plot-navigation.ts | Current user request | linear/logarithmic Y; Home reset, Ctrl/Shift wheel axis zoom, hover values, pointer, keyboard, pinch | Navigation tests and desktop/mobile browser |
 | Methods | MethodsPage / methods-content.ts | Implementation and cited primary sources | nested hash anchors, LaTeX source export | Equation rendering test and browser deep links |
@@ -54,6 +54,18 @@ modules. Reset returns to 0h; reaching the final source time pauses playback. Ch
 never reveals later samples or warnings. All calculations operate on available
 counts only. Three-hour report windows use (previous checkpoint, checkpoint].
 No new sample means no new measurement, not a refreshed count or a zero change.
+
+Research Report downloads an A4 analysis report template through the signed-in
+Python API. PDFs use embedded Times New Roman at 12 pt, 1.5 line spacing (18 pt
+leading), one-inch margins, and black text. Each export receives a unique report
+number and the server's actual UTC generation date, distinct from source timing.
+The date is static PDF text, never an editable input or a handwritten date line.
+Researcher, supervisor, and institution persist across module navigation for the
+session. The body is an explicit placeholder; measurements and evidence stay in
+the app inspector. Each signatory has blank space above a line, with their name
+centered beneath it. Entered names never imply signatures or approval. PDFs are
+generated in memory rather than stored in a report registry. Export errors retain
+the details and allow retry.
 
 Selecting a batch changes the chart and its warning context. Warning expansion
 shows source values, measurement time, a rule, and a follow-up note. Empty channels

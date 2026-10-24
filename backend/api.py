@@ -14,6 +14,7 @@ from backend.document_scan import router as document_scan_router
 from backend.evo2_routes import router as evo2_router
 from backend.http_limits import BodyLimitMiddleware
 from backend.proposals import router as proposals_router
+from backend.research_report import router as research_report_router
 
 from backend.models import ExperimentRequest, GrowthRequest
 from backend.predictions import ENGINE, predict_experiments, predict_growth
@@ -27,6 +28,7 @@ app.include_router(agent_router)
 app.include_router(evo2_router)
 app.include_router(proposals_router)
 app.include_router(document_scan_router)
+app.include_router(research_report_router)
 
 
 @app.exception_handler(RequestValidationError)
