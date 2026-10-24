@@ -5,7 +5,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
 import type { LabSnapshot } from "./lab-session"
 import { lastSensor, sensorUsable } from "./biostat-data"
 import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
-import { instrumentPresentation } from "./biopat-instrument"
+import { flowPhase, processPresentation, type FlowKind } from "./process-animation"
 import { canInspect, InspectionClock } from "./operator-hands"
 import type { HandStation } from "./operator-hands"
 import { EYE_HEIGHT, WALK_SPAWN, mouseLook, walkStep } from "./lab-navigation"
@@ -50,6 +50,9 @@ export default function BiostatScene(props: Props) {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.autoUpdate = false
+    let shadowDirty = true
+    renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.95
     renderer.domElement.setAttribute("role", "img")
@@ -61,32 +64,43 @@ export default function BiostatScene(props: Props) {
     renderer.domElement.tabIndex = 0
     renderer.domElement.setAttribute("aria-description", "Mode berjalan: klik untuk mouse, WASD untuk berjalan, E untuk inspeksi layar dekat, Escape untuk melepas mouse. Drag mouse tersedia bila pointer lock tidak didukung.")
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color("#e0e7e7")
-    scene.fog = new THREE.Fog("#e0e7e7", 14, 32)
+    scene.background = new THREE.Color("#dce5e7")
+    scene.fog = new THREE.Fog("#dce5e7", 16, 34)
     // Locally generated studio reflections: no HDRI download or external request.
     const pmrem = new THREE.PMREMGenerator(renderer)
     const roomEnvironment = new RoomEnvironment()
     const environment = pmrem.fromScene(roomEnvironment, 0.04)
     scene.environment = environment.texture
-    scene.environmentIntensity = 0.7
+    scene.environmentIntensity = 0.55
     roomEnvironment.dispose()
     pmrem.dispose()
     const camera = new THREE.PerspectiveCamera(48, 1, 0.05, 40)
     camera.position.set(1, 2.65, 8)
     scene.add(camera)
-    scene.add(new THREE.HemisphereLight(0xf1faff, 0x71818d, 0.95))
-    const key = new THREE.DirectionalLight(0xfff8e8, 2.1)
-    key.position.set(-3, 7, 5)
+    scene.add(new THREE.HemisphereLight(0xeaf5ff, 0x64716e, 0.72))
+    // A soft key inside the ceiling, neutral fill and cool rim separate the
+    // metal/plastic silhouettes. Only the key owns a shadow map.
+    const key = new THREE.DirectionalLight(0xfff2df, 3)
+    key.position.set(-3.2, 3.85, 3)
+    key.target.position.set(-.6, 1, -.8)
+    scene.add(key.target)
     key.castShadow = true
-    key.shadow.mapSize.set(1024, 1024)
-    key.shadow.camera.left = key.shadow.camera.bottom = -7
-    key.shadow.camera.right = key.shadow.camera.top = 7
-    key.shadow.bias = -0.00015
-    key.shadow.normalBias = 0.025
+    const shadowResolution = Math.min(2048, renderer.capabilities.maxTextureSize)
+    key.shadow.mapSize.set(shadowResolution, shadowResolution)
+    key.shadow.camera.left = key.shadow.camera.bottom = -4.8
+    key.shadow.camera.right = key.shadow.camera.top = 4.8
+    key.shadow.camera.near = .5
+    key.shadow.camera.far = 16
+    key.shadow.bias = -0.00008
+    key.shadow.normalBias = 0.012
     scene.add(key)
-    const fill = new THREE.PointLight(0x73dbe8, 7, 10)
-    fill.position.set(0, 3, -2)
+    const fill = new THREE.PointLight(0xe4f3ff, 6, 11)
+    fill.position.set(2.7, 3.35, 1.8)
     scene.add(fill)
+    const rim = new THREE.DirectionalLight(0xb9dce9, .75)
+    rim.position.set(3.5, 3.4, -3)
+    rim.target.position.set(-1,1,-.7)
+    scene.add(rim, rim.target)
     function mat(color: string, metalness = 0, roughness = 0.5) {
       return new THREE.MeshStandardMaterial({ color, metalness, roughness })
     }
@@ -106,7 +120,8 @@ export default function BiostatScene(props: Props) {
     ) {
       const object = new THREE.Mesh(geometry, material)
       object.position.set(...xyz as [number, number, number])
-      object.castShadow = object.receiveShadow = true
+      object.castShadow = !material.transparent
+      object.receiveShadow = true
       parent.add(object)
       return object
     }
@@ -163,6 +178,32 @@ export default function BiostatScene(props: Props) {
     }
     const roomFallback = new THREE.Group()
     scene.add(roomFallback)
+    // Cheap static contact occlusion grounds both Blender and fallback props.
+    // One local radial texture, no screen-space AO or extra render pass.
+    const contactCanvas = document.createElement("canvas")
+    contactCanvas.width = contactCanvas.height = 128
+    const contactContext = contactCanvas.getContext("2d")!
+    const contactGradient = contactContext.createRadialGradient(64,64,4,64,64,64)
+    contactGradient.addColorStop(0,"rgba(15,25,29,0.65)")
+    contactGradient.addColorStop(.4,"rgba(15,25,29,0.38)")
+    contactGradient.addColorStop(1,"rgba(15,25,29,0)")
+    contactContext.fillStyle = contactGradient
+    contactContext.fillRect(0,0,128,128)
+    const contactTexture = new THREE.CanvasTexture(contactCanvas)
+    contactTexture.colorSpace = THREE.SRGBColorSpace
+    const contactMaterial = new THREE.MeshBasicMaterial({ map: contactTexture, transparent: true, opacity: .62, depthWrite: false, toneMapped: false })
+    const contactGeometry = new THREE.PlaneGeometry(1,1)
+    for(const [x,z,width,depth] of [
+      [-1.6,-.9,2.4,2], [.15,-1.05,1.2,1.3], [2.05,-1.5,2,1.5],
+      [-3.38,-1.85,1.65,1], [-3.82,0,.7,.65], [.68,0,.7,.65],
+      [-4.4,-3.05,3.2,1.6], [1.85,-3.05,3.2,1.6], [5.1,-1.75,1.6,1.6],
+    ]) {
+      const contact = new THREE.Mesh(contactGeometry,contactMaterial)
+      contact.rotation.x = -Math.PI/2
+      contact.position.set(x,.008,z)
+      contact.scale.set(width,depth,1)
+      scene.add(contact)
+    }
     box(roomFallback, [15, 0.1, 16], [0, -0.06, 0], mat("#afc4cb", 0.1, 0.65))
     const grid = new THREE.GridHelper(16, 16, 0xa5b8bc, 0xa5b8bc)
     grid.position.y = 0.003
@@ -342,12 +383,13 @@ export default function BiostatScene(props: Props) {
           0.025,
           0.05,
           [Math.cos(a) * 0.061, Math.sin(a) * 0.061, 0.025],
-          i === 0 ? green : i === 1 ? teal : violet,
+          i === 0 ? green : i === 1 ? teal : amber,
         )
         bolt.rotation.x = Math.PI / 2
       }
       tower.add(rotor)
       rotorGroups.push(rotor)
+      plaque(tower, ["FEED", "BASE", "ACID"][i], [0.18, 0.5+i*.29, .335], .16, .07)
     }
     const trace = new THREE.Group()
     trace.position.set(2.05, 1.03, -1.5)
@@ -373,40 +415,67 @@ export default function BiostatScene(props: Props) {
     }
     plaque(traceFallback, "BioPAT TRACE", [0, 0.16, 0.4], 0.95, 0.12)
     plaque(traceFallback, "GLUCOSE / LACTATE", [0, -0.1, 0.5], 1.1, 0.13)
-    // Separate visible paths for gas, sampling/return, feed and filtrate.
+    // Static hoses + instanced directional markers. Arc-length lookup tables
+    // are baked once; no curve evaluation or object allocation in the frame loop.
     const paths: {
-      curve: THREE.CatmullRomCurve3
-      particles: THREE.Mesh[]
-      kind: string
+      particles: THREE.InstancedMesh
+      points: THREE.Vector3[]
+      rotations: THREE.Quaternion[]
+      kind: FlowKind
+      phase: number
     }[] = []
-    function circuit(points: number[][], color: THREE.Material, kind: string) {
+    function circuit(points: number[][], color: THREE.Material, kind: FlowKind) {
       const curve = new THREE.CatmullRomCurve3(
         points.map((p) => new THREE.Vector3(...p as [number, number, number])),
       )
+      const data = kind === "traceData" || kind === "viaData"
       mesh(
         scene,
-        new THREE.TubeGeometry(curve, 48, 0.018, 7, false),
-        color,
+        new THREE.TubeGeometry(curve, 64, data ? .009 : .018, 6, false),
+        data ? dark : color,
         [0, 0, 0],
       )
-      const particles = Array.from({ length: 8 }, () =>
-        mesh(scene, new THREE.SphereGeometry(0.027, 7, 5), color, [0, 0, 0]),
+      const particles = new THREE.InstancedMesh(
+        data ? new THREE.BoxGeometry(.025,.07,.025) : new THREE.ConeGeometry(.04,.10,6),
+        new THREE.MeshBasicMaterial({ color: data ? "#eaffff" : "#f9efd2" }),
+        8,
       )
-      paths.push({ curve, particles, kind })
+      particles.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      particles.frustumCulled = false
+      particles.visible = false
+      scene.add(particles)
+      const samples = curve.getSpacedPoints(96)
+      const up = new THREE.Vector3(0,1,0)
+      const rotations = samples.map((_, i) => new THREE.Quaternion().setFromUnitVectors(up, curve.getTangentAt(i/96).normalize()))
+      paths.push({ particles, points: samples, rotations, kind, phase: 0 })
     }
+    // O2/N2 are the virtual gas blend. AIR remains an unused reserve cylinder.
+    box(scene, [.55,.12,.15], [-3.23,1.66,-1.8], steel)
+    plaque(scene, "O2 / N2 MIX · AIR SPARE", [-3.32,1.83,-1.71], .95,.11)
+    const gasValves: THREE.Group[] = []
+    for (const x of [-3.38,-3.06]) {
+      const valve = new THREE.Group()
+      valve.position.set(x,1.66,-1.7)
+      scene.add(valve)
+      cyl(valve,.04,.065,[0,0,0],dark).rotation.x = Math.PI/2
+      box(valve,[.12,.022,.025],[0,0,.045],blue)
+      gasValves.push(valve)
+    }
+    circuit([[-3.38,1.43,-1.8],[-3.45,1.54,-1.68],[-3.38,1.66,-1.7],[-3.23,1.69,-1.8]],blue,"oxygen")
+    circuit([[-3.06,1.43,-1.8],[-2.98,1.54,-1.68],[-3.06,1.66,-1.7],[-3.23,1.69,-1.8]],amber,"nitrogen")
     circuit(
       [
-        [-3.5, 0.2, -1.9],
+        [-3.23, 1.69, -1.8],
         [-3.2, 2.4, -1.6],
         [-2.0, 2.55, -0.9],
-        [-1.8, 0.55, -0.8],
+        [-1.6, 0.54, -0.9],
       ],
       blue,
       "gas",
     )
     circuit(
       [
-        [-1.1, 1.2, -0.6],
+        [-1.13, 1.2, -0.6],
         [-0.8, 2.7, -1.4],
         [0.7, 2.75, -1.7],
         [2.13, 1.21, -1.02],
@@ -426,27 +495,65 @@ export default function BiostatScene(props: Props) {
     )
     circuit(
       [
-        [-3.5, 0.9, 0],
-        [-3, 2.5, -0.4],
-        [-2, 2.6, -0.4],
-        [-1.6, 2.05, -0.7],
+        [-3.5, 0.86, 0.2],
+        [-2.8, .32, -.2],
+        [-.05, .3, -.65],
+        [.05, .5, -.65],
       ],
       green,
       "feed",
     )
+    // Each DCU tube wraps the rotating rollers and exits at the opposite side.
+    for (let i=0; i<3; i++) {
+      const y = .5+i*.29
+      const kind = (["feed","base","acid"] as const)[i]
+      const color = [green,teal,amber][i]
+      const arc = Array.from({ length: 9 }, (_,j) => {
+        const a = Math.PI-j*Math.PI/8
+        return [.15+Math.cos(a)*.1,y+Math.sin(a)*.1,-.65]
+      })
+      circuit(arc,color,kind)
+      // Explicit virtual dosing ports on the bag's front shoulder, so every
+      // hose terminates at a connector rather than in empty space.
+      const portX = -1.88+i*.26
+      cyl(scene,.025,.20,[portX,2.04,-.47],white)
+      cyl(scene,.045,.025,[portX,1.98,-.47],steel)
+      cyl(scene,.035,.025,[portX,2.13,-.47],color)
+      circuit([[.25,y,-.65],[.45,y+.15,-.55],[.55,2.55+i*.11,-1.35],[portX,2.48+i*.06,-.47],[portX,2.14,-.47]],color,kind)
+      if(i>0) {
+        const z = i===1 ? -1.26 : -.99
+        cyl(scene,.065,.27,[.55,.52,z],color)
+        cyl(scene,.07,.035,[.55,.67,z],dark)
+        box(scene,[.22,.04,.57],[.51,.36,-1.13],steel)
+        circuit([[.55,.69,z],[.64,y+.18,z],[.48,y+.17,-.65],[.05,y,-.65]],color,kind)
+      }
+    }
+    plaque(scene,"BASE / ACID",[.55,.29,-.81],.38,.085)
+    // Cell-retention skid: culture passes the filter, filtrate reaches waste;
+    // retained culture has its own return line during medium exchange.
+    cyl(scene,.09,.32,[1,1.1,.2],white)
+    plaque(scene,"RETENTION",[1,1.11,.31],.48,.09)
     circuit(
       [
         [-1.1, 0.7, -0.5],
         [-0.5, 0.6, 0],
-        [0.65, 0.6, 0],
-        [1.0, 0.45, 0.5],
+        [0.65, 0.85, 0],
+        [1, 1.26, .2],
       ],
       violet,
       "waste",
     )
+    circuit([[1,1.1,.2],[1.18,.98,.24],[1,.86,.2]],violet,"waste")
+    circuit([[.93,1.08,.2],[.65,1.2,-.2],[-.6,1.5,-.55],[-1.12,1.45,-.65]],violet,"waste")
+    circuit([[2.57,1.69,-1.84],[2.3,.65,-2.06],[.6,.4,-1.5],[.15,1.65,-1.37]],dark,"traceData")
+    circuit([[-.63,1.53,-1.04],[-.5,1.58,-1.45],[.15,1.58,-1.37]],dark,"viaData")
+    const thermalMat = new THREE.MeshBasicMaterial({ color: "#e9a06a", transparent: true, opacity: 0, depthWrite: false })
+    const thermalField = mesh(reactor,new THREE.TorusGeometry(.63,.012,6,64),thermalMat,[0,.98,0])
+    thermalField.rotation.x = Math.PI/2
+    plaque(reactor,"VIRTUAL THERMAL FIELD",[0,.24,.62],.9,.08)
     for (const [x, color, text] of [
       [-3.5, green, "MEDIUM"],
-      [1, violet, "RETENTION SKID"],
+      [1, violet, "FILTRATE / WASTE"],
     ] as const) {
       const bag = box(scene, [0.42, 0.62, 0.2], [x, 0.55, 0.2], color)
       bag.rotation.z = x < 0 ? 0.05 : -0.05
@@ -507,6 +614,7 @@ export default function BiostatScene(props: Props) {
       thumb.rotation.z = side * -0.7
       handFallback.add(hand)
     }
+    handFallback.traverse(object => { if (object instanceof THREE.Mesh) object.castShadow = false })
     const arrowFace = surface(128, 128)
     arrowFace.ctx.fillStyle = "#ecd299"
     arrowFace.ctx.beginPath()
@@ -555,6 +663,7 @@ export default function BiostatScene(props: Props) {
     const fingerBones: { bone: THREE.Object3D; rest: THREE.Quaternion; side: string; finger: string; joint: number }[] = []
     const viaFallbackObjects = [viaProbe, fallbackViaPlaque, fallbackViaBox, fallbackViaDisplay, fallbackViaLabel, fallbackViaWire]
     const prepareModel = (model: THREE.Object3D) => model.traverse(object => {
+      shadowDirty = true
       if (object instanceof THREE.Mesh) {
         const materials = Array.isArray(object.material) ? object.material : [object.material]
         object.castShadow = materials.every(m => !m.transparent)
@@ -828,13 +937,15 @@ moved: boolean } | null = null,
       goalLook = new THREE.Vector3()
     let animation = 0,
       last = performance.now(),
-      elapsed = 0,
+      gasElapsed = 0,
+      mixingElapsed = 0,
       lastPaint = 0,
       previousStation = props.station
     let angle = 0, traceElapsed = 0, handElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
     let instrumentSnapshot: LabSnapshot | null | undefined, instrumentConnected: boolean | undefined
-    let traceView = instrumentPresentation(null, "trace", false)
-    let viaView = instrumentPresentation(null, "viamass", false)
+    let process = processPresentation(null, false)
+    let traceView = process.trace
+    let viaView = process.via
     let tracePulse = 0, viaPulse = 0
     const screenWorld = new THREE.Vector3(), contactLocal = new THREE.Vector3(), tipLocal = new THREE.Vector3()
     const poseRotation = new THREE.Quaternion(), curlAxis = new THREE.Vector3(1,0,0)
@@ -873,8 +984,9 @@ moved: boolean } | null = null,
       last = now
       const { station, snapshot: s, connected } = current.current
       if (instrumentSnapshot !== s || instrumentConnected !== connected) {
-        const nextTrace = instrumentPresentation(s, "trace", connected)
-        const nextVia = instrumentPresentation(s, "viamass", connected)
+        process = processPresentation(s, connected)
+        const nextTrace = process.trace
+        const nextVia = process.via
         if (nextTrace.state === "live" && nextTrace.receipt !== traceView.receipt) tracePulse = 0.6
         if (nextVia.state === "live" && nextVia.receipt !== viaView.receipt) viaPulse = 0.6
         traceView = nextTrace
@@ -903,6 +1015,7 @@ moved: boolean } | null = null,
       }
       const running = !!s?.running && connected && document.visibilityState === "visible" && !contextLost
       const motionSeconds = renderedSeconds(delta, running)
+      const processSeconds = process.running && !current.current.reducedMotion ? motionSeconds : 0
       if (current.current.reducedMotion) cancelInspection()
       if (lastInspectionRequest !== current.current.inspectionRequest) {
         lastInspectionRequest = current.current.inspectionRequest
@@ -939,7 +1052,8 @@ moved: boolean } | null = null,
         look.lerp(goalLook, ease)
         camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
       }
-      elapsed += motionSeconds
+      gasElapsed += processSeconds * process.rates.gas
+      mixingElapsed += processSeconds * process.rpm / 100
       if (!inspection.active || inspectionAvailable) handElapsed += motionSeconds
       const idle = current.current.reducedMotion ? 0 : Math.sin(handElapsed * 1.25) * .003
       gloveRoots.forEach((root, index) => {
@@ -967,21 +1081,28 @@ moved: boolean } | null = null,
         camera.worldToLocal(tipLocal)
         gloveRoots[1].position.addScaledVector(contactLocal.sub(tipLocal), handPose.reach)
       }
-      if (traceView.flowing) traceElapsed += motionSeconds
+      traceElapsed += processSeconds * process.rates.trace
       tracePumps.forEach((pump, index) => { pump.rotation.z = traceElapsed * (index === 0 ? 3 : -3) })
-      tracePulse = traceView.state === "live" ? Math.max(0, tracePulse - motionSeconds * 2) : 0
-      viaPulse = viaView.state === "live" ? Math.max(0, viaPulse - motionSeconds * 2) : 0
+      tracePulse = traceView.state === "live" ? Math.max(0, tracePulse - processSeconds * .4) : 0
+      viaPulse = viaView.state === "live" ? Math.max(0, viaPulse - processSeconds * .4) : 0
       paintStatus(traceStatus, traceView.color, tracePulse)
       paintStatus(viaStatus, viaView.color, viaPulse)
-      const rpm = s?.controller?.outputs.stirrer_rpm ?? 100
-      angle = stirrerAngle(angle, rpm, motionSeconds)
+      const rpm = process.rpm
+      angle = stirrerAngle(angle, rpm, processSeconds)
       impellers.rotation.y = angle
+      if (process.gasAvailable) {
+        gasValves[0].rotation.z = process.oxygen/100*Math.PI/2
+        gasValves[1].rotation.z = (100-process.oxygen)/100*Math.PI/2
+      }
+      thermalField.visible = process.available && process.thermal !== 0
+      thermalMat.color.set(process.thermal > 0 ? "#ea9b62" : "#67c8eb")
+      thermalMat.opacity = .15 + Math.abs(process.thermal)/100 * (.3 + .15*Math.sin(gasElapsed*3))
       const height = liquidHeight(s?.working_volume_ml ?? 12500)
       liquid.scale.y = height
       if (!blenderLoaded) liquid.position.y = 0.48 + height / 2
       for (let i = 0; i < 100; i++) {
-        const f = (elapsed * 0.38 + i / 100) % 1,
-          angle = i * 2.399 + elapsed * 0.3
+        const f = (gasElapsed * 0.38 + i / 100) % 1,
+          angle = i * 2.399 + gasElapsed * 0.3
         marker.position.set(
           Math.cos(angle) * (0.12 + (i % 7) * 0.045),
           0.5 + f * height * 0.92,
@@ -992,12 +1113,13 @@ moved: boolean } | null = null,
         bubbles.setMatrixAt(i, marker.matrix)
       }
       bubbles.instanceMatrix.needsUpdate = true
+      bubbles.visible = process.rates.gas > 0
       for (let i = 0; i < 90; i++) {
-        const a = i * 2.399 + elapsed * (0.22 + (i % 5) * 0.03),
+        const a = i * 2.399 + mixingElapsed * (0.22 + (i % 5) * 0.03),
           r = 0.16 + (i % 9) * 0.045
         marker.position.set(
           Math.cos(a) * r,
-          0.53 + ((i * 0.618 + elapsed * 0.08) % 1) * height * 0.85,
+          0.53 + ((i * 0.618 + mixingElapsed * 0.08) % 1) * height * 0.85,
           Math.sin(a) * r,
         )
         marker.scale.set(1, 0.45, 1)
@@ -1005,30 +1127,35 @@ moved: boolean } | null = null,
         cells.setMatrixAt(i, marker.matrix)
       }
       cells.instanceMatrix.needsUpdate = true
-      const transferring = s?.active_intervention?.status === "executing"
       rotorGroups.forEach((rotor, i) => {
-        rotor.rotation.z = elapsed * (i === 1 || transferring ? 3 : 0.1)
+        const rate = [process.rates.feed,process.rates.base,process.rates.acid][i]
+        rotor.rotation.z = (rotor.rotation.z - processSeconds*rate*3) % (Math.PI*2)
       })
-      paths.forEach(({ curve, particles, kind }) =>
-        particles.forEach((particle, i) => {
-          particle.visible =
-            !!s &&
-            (kind === "gas" ||
-              (kind === "trace" && traceView.flowing) ||
-              (transferring &&
-                (kind === "feed" ||
-                  s.active_intervention?.kind === "medium_exchange")))
-          particle.position.copy(
-            curve.getPoint(((kind === "trace" ? traceElapsed : elapsed) * 0.18 + i / particles.length) % 1),
-          )
-        }),
-      )
+      paths.forEach(path => {
+        const { particles,points,rotations,kind } = path
+        const pulse = kind === "traceData" ? tracePulse : kind === "viaData" ? viaPulse : 1
+        const rate = process.rates[kind]
+        particles.visible = rate > 0 && pulse > 0
+        if (!particles.visible) return
+        path.phase = flowPhase(path.phase,rate,processSeconds,true)
+        for(let i=0; i<particles.count; i++) {
+          const sample = ((path.phase+i/particles.count)%1)*96
+          const index = Math.floor(sample), fraction = sample-index
+          marker.position.lerpVectors(points[index],points[index+1],fraction)
+          marker.quaternion.slerpQuaternions(rotations[index],rotations[index+1],fraction)
+          marker.scale.setScalar(1)
+          marker.updateMatrix()
+          particles.setMatrixAt(i,marker.matrix)
+        }
+        particles.instanceMatrix.needsUpdate = true
+      })
+      marker.quaternion.identity()
       traceLampMat.color.set(traceView.color)
       traceLampMat.emissive.copy(traceLampMat.color)
       handFallback.position.y = idle
       arrow.visible =
         !!s && !s.active_intervention && s.culture_hours < s.end_hour
-      arrow.position.y = 2.6 + Math.sin(now / 400) * 0.035
+      arrow.position.y = 2.6 + (current.current.reducedMotion ? 0 : Math.sin(now / 400) * 0.035)
       if (document.visibilityState === "visible" && now - lastPaint > 500) {
         lastPaint = now
         const core = s ? lastSensor(s, "core") : null
@@ -1045,7 +1172,7 @@ moved: boolean } | null = null,
             `TEMP ${pv("temperature", 1)} C SP ${s?.controller?.setpoints.temperature ?? 37}`,
             `STIR ${rpm.toFixed(0)} rpm`,
             `${(s?.working_volume_ml ?? 12500) / 1000} L | ${s?.culture_hours.toFixed(2) ?? "0.00"} h`,
-            `O2 OUT ${s?.controller?.outputs.oxygen_percent.toFixed(1) ?? "21.0"}%`,
+            process.gasAvailable ? `GAS MIX O2 ${process.oxygen.toFixed(1)}%` : "GAS MIX -- / HOLD",
           ],
           !!s?.sensor_faults?.includes("core"),
         )
@@ -1063,6 +1190,12 @@ moved: boolean } | null = null,
         )
       }
       if (!contextLost && document.visibilityState === "visible") {
+        // Camera navigation doesn't invalidate a fixed directional shadow map.
+        // Update for asset loads and moving process geometry only.
+        if (shadowDirty || processSeconds > 0) {
+          renderer.shadowMap.needsUpdate = true
+          shadowDirty = false
+        }
         renderer.render(scene, camera)
         current.current.onFrame(delta)
         frames++
@@ -1071,6 +1204,12 @@ moved: boolean } | null = null,
           if (fps < 32 && quality === "high") {
             quality = "balanced"
             renderer.setPixelRatio(Math.min(devicePixelRatio, 1))
+            if (key.shadow.mapSize.x > 1024) {
+              key.shadow.mapSize.set(1024,1024)
+              key.shadow.map?.dispose()
+              key.shadow.map = null
+              shadowDirty = true
+            }
             resize()
           }
           current.current.onPerformance(Math.round(fps), quality)
@@ -1104,6 +1243,7 @@ moved: boolean } | null = null,
       renderer.domElement.removeEventListener("pointercancel", clearKeys)
       disposeObject(scene)
       environment.dispose()
+      key.shadow.dispose()
       renderer.dispose()
       renderer.domElement.remove()
     }

@@ -3,6 +3,7 @@ import BiostatScene, { type FpsStatus, type LabAsset, type LabAssetState } from 
 import { instrumentPresentation } from "./biopat-instrument"
 import { canInspect } from "./operator-hands"
 import BiostatTelemetry from "./BiostatTelemetry"
+import ProcessMotionPanel from "./ProcessMotionPanel"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
 import {
@@ -245,10 +246,10 @@ export default function VirtualLab() {
               <i /> Trace fluid circuit
             </span>
             <span>
-              <i /> Feed / retention skid
+              <i /> Feed / retensi · panah = arah aliran
             </span>
             <small>
-              Illustrative cutaway · geometry is not a certified device replica
+              Pulsa putih = data PAT · gerakan mengikuti command simulasi
             </small>
             </>}
             <small aria-live="off">
@@ -403,6 +404,7 @@ export default function VirtualLab() {
           {snapshot && (
             <>
               <BiostatTelemetry snapshot={snapshot} compact />
+              <ProcessMotionPanel snapshot={snapshot} connected={ready} />
               <form
                 className="vl-model-config"
                 onSubmit={(e) => {

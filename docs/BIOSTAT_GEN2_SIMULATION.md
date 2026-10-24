@@ -186,3 +186,60 @@ readout clicks are rechecked at activation. FPS inspection retains player camera
 position and orientation instead of moving through colliders; locomotion and
 mouse look hold until the gesture finishes or is cancelled. Reset/preset/exit
 cancel gestures and clear held keys without altering a session.
+
+## Command-driven process motion
+
+`process-animation.ts` derives the same state for the 3D view and the accessible
+**Jalur proses** panel. It reads controller outputs, active intervention status
+and released PAT receipts; it never reads private plant chemistry or writes a
+measurement. All movement uses valid rendered seconds, holds on pause, lost
+controller/connection, hidden tabs and long frame gaps, and resumes its previous
+phase without jumping. **Kurangi gerakan** also freezes these visual motions;
+the visible culture clock and measurements continue normally.
+
+| Unit / route | Activity source |
+| --- | --- |
+| Impeller and cell circulation | Finite bounded commanded RPM; no default 100 RPM without controller data |
+| O2/N2 valves → mixer → sparger | Virtual oxygen blend fraction and its nitrogen complement; AIR stays reserve |
+| Trace outgoing / return hoses and pump heads | Valid or awaiting Trace release; fault, expired and invalid receipts hold this circuit |
+| Medium bag → DCU feed head → dosing port | Only a valid executing feed or medium-exchange intervention |
+| Culture → optional retention skid → filtrate/waste, with culture return | Only executing medium exchange; feed alone keeps this circuit closed |
+| Base/acid reservoirs → corresponding DCU heads → dosing ports | Respective base/acid controller output percentages |
+| Virtual thermal ring | Signed thermal output (positive heating, negative cooling); a visual field, not a modeled hydraulic loop |
+| Trace/ViaMass cables → DCU | Brief packets when a new fresh QC-passed device receipt arrives; no liquid in electrical leads |
+
+Direction arrows show qualitative command activity. Blend percentage is not
+gas flow, dosing percentage is not mL/min, and arrow speed is not a flow sensor.
+Three extra dosing connectors, the manifold, chemical reservoirs and retention
+skid are illustrative virtual service geometry rather than manufacturer CAD.
+Medium progress comes from the intervention; recorded liquid height changes
+only when the backend applies its final audited volume. Reagents and ancillary
+lab equipment remain standby because their protocols are not modeled. Core
+sensor QC faults do not invent an actuator safety interlock: existing AUTO
+commands keep driving the virtual equipment, while the sensor overlay shows QC.
+
+Hoses/cables remain fixed while contents move in their correct direction. Each
+route uses one eight-instance marker mesh and a precomputed 97-point arc-length
+and orientation table. No per-frame tube rebuild, curve evaluation, marker
+allocation, extra shadow map, external asset request or runtime dependency is
+needed. Pump rotation integrates its current command rather than using elapsed
+time multiplied by a newly changed rate.
+
+## Lighting and shading
+
+The room uses ACES tone mapping with explicit sRGB output, a locally generated
+PMREM studio environment for PBR reflections, a warm-neutral directional key
+inside the room, neutral/cool fill and a cool rim. This keeps the original
+Blender roughness/material maps and unlit live displays while separating steel,
+plastic and translucent culture geometry. No external HDRI is loaded.
+
+Only the key casts real-time PCF-soft shadows. Its bounded 9.6m shadow frustum,
+near/far range and small normal bias keep equipment shadows local and reduce
+surface acne/detachment. Shadow resolution is capped at 2048 and drops to 1024
+with the existing automatic Balanced mode. Paused camera navigation reuses the
+shadow map; asset loading and process motion invalidate it. Transparent fluid,
+thermal overlays and first-person hands do not cast opaque shadows. Nine static
+floor contact decals share one locally generated 128px radial texture to ground
+the equipment and supporting furniture without a screen-space AO/postprocessing
+pass. They approximate contact occlusion; dynamic shadows still come from the
+moving physical meshes.

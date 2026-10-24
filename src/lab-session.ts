@@ -109,6 +109,7 @@ temperature: number }
       stirrer_rpm: number
       oxygen_percent: number
       base_output_percent: number
+      acid_output_percent?: number
       thermal_output_percent: number
     }
     events: { id: string

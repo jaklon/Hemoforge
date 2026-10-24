@@ -6,7 +6,7 @@ export const WALK_SPAWN = { x: .8, z: 3.2 }
 export const LAB_BOUNDS = { minX: -5.8, maxX: 5.8, minZ: -4.05, maxZ: 4.65 }
 export const LAB_OBSTACLES = [
   { name: "BIOSTAT", minX: -2.44, maxX: -.76, minZ: -1.76, maxZ: -.04 },
-  { name: "DCU", minX: -.22, maxX: .55, minZ: -1.5, maxZ: -.55 },
+  { name: "DCU", minX: -.22, maxX: .67, minZ: -1.5, maxZ: -.55 },
   { name: "Trace table", minX: 1.19, maxX: 2.91, minZ: -2.08, maxZ: -.91 },
   { name: "Gas bank", minX: -3.96, maxX: -2.8, minZ: -2.15, maxZ: -1.58 },
   { name: "Medium stand", minX: -4.1, maxX: -3.22, minZ: -.3, maxZ: .43 },

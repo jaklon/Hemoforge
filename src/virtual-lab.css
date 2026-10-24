@@ -156,6 +156,14 @@
 .biostat-scene-legend span:nth-child(2) i { background: #0e929c; }
 .biostat-scene-legend span:nth-child(3) i { background: #77af8f; }
 .biostat-scene-legend small { color: #7c8d92; line-height: 1.5; margin-top: 3px; }
+.vl-process-motion { margin: 16px 0; padding: 14px; border: 1px solid #c7d6d3; border-radius: 6px; background: #f4f8f6; color: #2c514d; font-size: 11px; }
+.vl-process-motion summary { cursor: pointer; font-weight: 650; }
+.vl-process-motion dl { margin: 12px 0; display: grid; gap: 8px; }
+.vl-process-motion dl div { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; border-bottom: 1px solid #dde6e1; padding-bottom: 6px; }
+.vl-process-motion dd { margin: 0; font-variant-numeric: tabular-nums; }
+.vl-process-motion p { font-size: 10px; line-height: 1.65; color: #647b75; margin: 8px 0 0; }
+.vl-process-motion label { display: grid; gap: 6px; }
+.vl-process-motion progress { width: 100%; accent-color: #268f8b; }
 .biostat-telemetry { margin: 20px 0; font-size: 12px; color: #39515e; }
 .biostat-telemetry-heading { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .biostat-telemetry-heading small { font-size: 9px; letter-spacing: 1.3px; color: #728a90; }

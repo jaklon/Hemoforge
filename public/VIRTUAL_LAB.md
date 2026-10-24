@@ -181,3 +181,32 @@ frame gaps do not cause movement catch-up. Typing in dashboard controls is not
 captured. **Reset posisi** returns to the clear aisle without changing the batch.
 Preset camera buttons exit FPS mode. Existing Blender assets/materials are reused
 without downloads, new dependencies, paid assets or extra shadow maps.
+
+## Follow the animated process
+
+Monitor 01 now shows directional contents moving through fixed hoses, rotating
+DCU/Trace pump heads, gas-blend valves, sparger bubbles, RPM-driven cell motion,
+a virtual heating/cooling ring and short PAT data packets. The **Jalur proses**
+panel explains the current commands and which routes are active or closed.
+White cable packets indicate a new valid sensor receipt, not a liquid stream.
+
+With culture running, inspect the gas and Trace circuits. Pause to hold their
+positions, or toggle **Kurangi gerakan** to hold visual motion while measurement
+time continues. In the sensor-fault section, a Trace fault holds only its loop;
+restore it and wait for the next passed receipt to recover. AUTO actuators follow
+their own commands rather than assuming a new interlock from a sensor fault.
+
+To see medium transfer, create a pairing code on Monitor 01, enter it in Guard
+on Monitor 02, select a feed or exchange action, preview and confirm. Feed opens
+the medium path only. Exchange also opens the optional retention/filtrate and
+culture-return paths. Pause can hold a transfer in progress; completion closes
+the transfer paths and updates recorded volume once. Arrow speeds are
+qualitative, not measured mL/min. Calibration reagents and supporting equipment
+stay standby until a corresponding protocol is modeled. All materials and
+existing Blender assets remain free and local.
+
+Lighting includes studio reflections, neutral/warm key, cool fill/rim, soft
+equipment shadows and subtle floor contact occlusion. The existing FPS meter
+shows actual browser performance; Balanced mode automatically lowers both pixel
+ratio and shadow resolution when needed. All lighting is generated locally,
+without paid assets, external HDRI downloads or additional dependencies.
