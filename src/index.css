@@ -618,6 +618,8 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .guard-segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; padding: 2px; background: #f4f7fa; min-width: 0; }
 .guard-segmented button { border: 0; padding: 7px 10px; border-radius: 3px; font-size: var(--text-xs); color: var(--muted); background: transparent; }
 .guard-segmented button:hover { background: #e8eef4; }
+.bot-mode { align-self: flex-start; margin-bottom: 14px; }
+.jev-output { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.55; }
 .guard-segmented button[aria-pressed="true"] { color: var(--navy); background: var(--surface); box-shadow: 0 1px 3px #0f172a12; font-weight: 600; }
 .guard-growth-chart { display: block; width: 100%; height: auto; min-height: 240px; margin-top: 10px; }
 .guard-growth-chart text { font: 11px "Inter", "Segoe UI", sans-serif; fill: #59677a; }

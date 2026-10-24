@@ -12,6 +12,7 @@ from backend.accounts import router as accounts_router
 from backend.agent_routes import router as agent_router
 from backend.document_scan import router as document_scan_router
 from backend.evo2_routes import router as evo2_router
+from backend.jev_routes import router as jev_router
 from backend.http_limits import BodyLimitMiddleware
 from backend.proposals import router as proposals_router
 from backend.research_report import router as research_report_router
@@ -26,6 +27,7 @@ extra_hosts = [host.strip() for host in os.environ.get("HEMOBOT_ALLOWED_HOSTS", 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver", *extra_hosts])
 app.include_router(accounts_router)
 app.include_router(agent_router)
+app.include_router(jev_router)
 app.include_router(evo2_router)
 app.include_router(proposals_router)
 app.include_router(virtual_lab_router)

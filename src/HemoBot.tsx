@@ -5,6 +5,8 @@ import { downloadFile } from "./workspace-utils"
 import { accountApi } from "./account"
 import { analyzeWithBot, botExportUrl, botPayload, botQuestions, botStatus,
   type BotAnalysis, type BotContext, type BotModule, type BotStatus } from "./hemobot-api"
+import { JevError, jevStatus } from "./jev-api"
+import JevAssistant from "./JevAssistant"
 
 export function useHemoBot(context: BotContext) {
   const { inputs, notify, flag } = useWorkspace()
@@ -65,6 +67,9 @@ export function useHemoBot(context: BotContext) {
 }
 
 type BotState = ReturnType<typeof useHemoBot>
+type GcpConnection = "checking" | "online" | "offline" | "signed-out"
+const gcpLabels: Record<GcpConnection, string> = {
+  checking: "Checking GCP", online: "GCP connected", offline: "GCP offline", "signed-out": "GCP · sign in" }
 
 export default function HemoBot({ bot, context, batchChoices, onBatchChange, replayControls }: {
   bot: BotState; context: BotContext; batchChoices: string[]; onBatchChange: (id: string) => void; replayControls: ReactNode
@@ -79,6 +84,25 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
   const [saveError, setSaveError] = useState("")
   const [exporting, setExporting] = useState(false)
   const statusController = useRef<AbortController | null>(null)
+  const [mode, setMode] = useState<"research" | "jev">("research")
+  const [gcp, setGcp] = useState<GcpConnection>("checking")
+  const gcpController = useRef<AbortController | null>(null)
+  // The header pill tracks the GCP inference service that runs the JEV models.
+  const refreshGcp = useCallback(async () => {
+    gcpController.current?.abort()
+    const requestController = new AbortController()
+    gcpController.current = requestController
+    setGcp("checking")
+    const timer = window.setTimeout(() => requestController.abort(), 10000)
+    try {
+      const health = await jevStatus(requestController.signal)
+      if (gcpController.current === requestController) setGcp(health.status === "online" ? "online" : "offline")
+    } catch (failure) {
+      if (gcpController.current === requestController)
+        setGcp(failure instanceof JevError && failure.status === 401 ? "signed-out" : "offline")
+    } finally { window.clearTimeout(timer) }
+  }, [])
+  useEffect(() => { void refreshGcp(); return () => { gcpController.current?.abort(); gcpController.current = null } }, [refreshGcp])
   const refresh = useCallback(async () => {
     statusController.current?.abort()
     setStatus(null)
@@ -136,12 +160,16 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
   }
   return <>
     <PageTitle title="HemoBot" description="Review laboratory evidence with your biomedical research assistant."
-      action={<Badge tone={llmOnline ? "success" : "warning"}>
-        {llmOnline ? "LLM connected" : status ? status.llm_status === "disabled" ? "LLM disabled" : "LLM offline" : statusError ? "API unavailable" : "Checking connection"}
-      </Badge>} />
+      action={<Badge tone={gcp === "online" ? "success" : gcp === "checking" ? "neutral" : "warning"}>{gcpLabels[gcp]}</Badge>} />
+    <fieldset className="guard-segmented bot-mode">
+      <legend className="sr-only">HemoBot mode</legend>
+      <button type="button" aria-pressed={mode === "research"} onClick={() => setMode("research")}>Research analysis</button>
+      <button type="button" aria-pressed={mode === "jev"} onClick={() => setMode("jev")}>JEV AI · GCP</button>
+    </fieldset>
+    {mode === "jev" ? <JevAssistant online={gcp === "online"} onRecheck={() => void refreshGcp()} /> : <>
     <div className="context-strip"><label>Analysis batch <select value={context.batch_id} onChange={event => onBatchChange(event.target.value)}>
       {batchChoices.map(id => <option key={id}>{id}</option>)}</select></label><span>Replay <b>{context.replay_elapsed_hours}h</b> · Biomedical English</span>
-      <Button onClick={() => void refresh()}>Check connection</Button></div>
+      <Button onClick={() => { void refresh(); void refreshGcp() }}>Check connection</Button></div>
     {replayControls}
     {statusError && <p role="alert" className="import-error">{statusError}</p>}
     <Panel title="Ask HemoBot">
@@ -220,5 +248,6 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
         </div>
       </Panel>
     </div> : !bot.busy && <div className="bot-empty"><h2>Start with the evidence</h2><p>Select a question above, then analyze the current batch.</p></div>}
+    </>}
   </>
 }

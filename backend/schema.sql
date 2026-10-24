@@ -75,3 +75,10 @@ create table if not exists reports (
 alter table reports add column if not exists sections jsonb, add column if not exists chart jsonb;
 create index if not exists reports_account on reports(account_id, created_at desc);
 alter table reports enable row level security;
+-- JEV GPU jobs per account: ownership for job reads and the rolling 24-hour quota. Results stay on the GCP service.
+create table if not exists jev_jobs (
+    job_id uuid primary key, account_id text not null references accounts(id) on delete cascade,
+    created_at timestamptz not null default now()
+);
+create index if not exists idx_jev_jobs_account on jev_jobs (account_id, created_at);
+alter table jev_jobs enable row level security;
