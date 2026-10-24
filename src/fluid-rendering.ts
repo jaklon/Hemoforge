@@ -145,16 +145,18 @@ export function createCultureFluid(parent: THREE.Object3D) {
 /** A continuously filled medium line with subtle advected highlights, not air slugs. */
 export function createHoseMedium(color: THREE.Color) {
   const travel = {value:0}
+  const activity = {value:0}
   const material = new THREE.MeshStandardMaterial({color,roughness:.29,metalness:0})
   material.onBeforeCompile = shader => {
     shader.uniforms.hfTravel = travel
+    shader.uniforms.hfActivity = activity
     shader.vertexShader = shader.vertexShader.replace("#include <common>","#include <common>\nvarying float hfDistance;")
       .replace("#include <begin_vertex>","#include <begin_vertex>\nhfDistance=uv.x;")
-    shader.fragmentShader = shader.fragmentShader.replace("#include <common>","#include <common>\nvarying float hfDistance; uniform float hfTravel;")
+    shader.fragmentShader = shader.fragmentShader.replace("#include <common>","#include <common>\nvarying float hfDistance; uniform float hfTravel, hfActivity;")
       .replace("#include <color_fragment>",`#include <color_fragment>
         float streak = pow(0.5+0.5*cos((hfDistance-hfTravel)*39.269908),12.0);
-        diffuseColor.rgb = mix(diffuseColor.rgb,vec3(0.92,0.86,0.69),streak*0.32);`)
+        diffuseColor.rgb = mix(diffuseColor.rgb,vec3(0.92,0.94,0.69),streak*(0.32+hfActivity*0.4));`)
   }
   material.customProgramCacheKey = () => "hemoforge-hose-medium-1"
-  return {material,travel}
+  return {material,travel,activity}
 }

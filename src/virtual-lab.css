@@ -164,6 +164,21 @@
 .vl-process-motion p { font-size: 10px; line-height: 1.65; color: #647b75; margin: 8px 0 0; }
 .vl-process-motion label { display: grid; gap: 6px; }
 .vl-process-motion progress { width: 100%; accent-color: #268f8b; }
+.biostat-scene-legend.has-transfer { width: 265px; max-width: calc(100% - 48px); top: 90px; bottom: auto; padding: 12px; pointer-events: auto; background: #f4f7f1ed; }
+.is-transfer-view .vl-scene-caption { display: none; }
+.biostat-lab .vl-station-nav { flex-wrap: wrap; }
+.vl-transfer-readout { margin: 14px 0; padding: 12px; background: #e9f3ec; border: 1px solid #b8d1c3; border-radius: 6px; color: #294e47; font-size: 11px; display: grid; gap: 8px; }
+.vl-transfer-readout strong { font-size: 11px; line-height: 1.6; }
+.vl-transfer-readout small { font-size: 10px; color: #5d756c; line-height: 1.5; }
+.vl-transfer-route { font-size: 10px; color: #347f65; }
+.vl-transfer-readout progress { width: 100%; height: 9px; accent-color: #278e66; }
+.vl-transfer-values { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vl-transfer-readout .vl-transfer-values span { display: grid; gap: 3px; font-size: 9px; }
+.vl-transfer-values b { font: 600 11px/1.5 'JetBrains Mono Variable', monospace; }
+.vl-transfer-readout p { font-size: 10px; line-height: 1.6; margin: 0; }
+.vl-transfer-readout.is-compact { margin: 0; border: 0; padding: 0; background: transparent; }
+.vl-transfer-pause { padding: 8px; background: #204e43; color: #f0f6ec; border: 0; border-radius: 4px; font: 600 11px Inter, sans-serif; cursor: pointer; }
+@media (max-width: 720px) { .biostat-scene-legend.has-transfer { display: grid; width: 230px; top: 80px; bottom: auto; left: 12px; } .vl-transfer-readout.is-compact small { font-size: 8px; } }
 .biostat-telemetry { margin: 20px 0; font-size: 12px; color: #39515e; }
 .biostat-telemetry-heading { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .biostat-telemetry-heading small { font-size: 9px; letter-spacing: 1.3px; color: #728a90; }

@@ -1,5 +1,6 @@
 import type { LabSnapshot } from "./lab-session"
 import { processPresentation } from "./process-animation"
+import TransferReadout from "./TransferReadout"
 
 export default function ProcessMotionPanel({ snapshot, connected }: { snapshot: LabSnapshot; connected: boolean }) {
   const p = processPresentation(snapshot, connected)
@@ -16,8 +17,8 @@ export default function ProcessMotionPanel({ snapshot, connected }: { snapshot: 
       <div><dt>Termal virtual</dt><dd>{!p.available ? "Tidak tersedia" : !p.thermal ? "Standby" : `${p.thermal > 0 ? "Pemanasan" : "Pendinginan"} ${Math.abs(p.thermal).toFixed(1)}% · ${p.running ? "command" : "dijeda"}`}</dd></div>
       <div><dt>Kabel PAT → DCU</dt><dd>Pulsa hanya saat receipt QC valid diterima</dd></div>
     </dl>
-    {p.transfer && <label>{p.transfer.kind === "feed" ? "Pemberian medium" : "Pertukaran medium"} · {(p.transfer.progress*100).toFixed(0)}%<progress max={1} value={p.transfer.progress} /></label>}
-    <p>Panah gas dan kilau cairan menunjukkan arah perintah simulasi, bukan laju alir terukur. Selang cairan tetap terisi saat pompa berhenti. Gelombang, gelembung, dan partikel sirkulasi adalah ilustrasi hidrodinamika, bukan pengukuran sel atau CFD. Volume berubah setelah tindakan selesai.</p>
+    {p.transferView && <TransferReadout view={p.transferView} />}
+    <p>Penanda arah dan kilau cairan menunjukkan perintah simulasi, bukan laju alir terukur. Selang tetap terisi saat pompa berhenti. Selama transfer, level visual mengikuti progres; volume tercatat berubah sekali setelah selesai. Gelombang, gelembung, dan partikel adalah ilustrasi hidrodinamika.</p>
     <p>AIR cadangan, reagen kalibrasi, centrifuge, inkubator, dan alat persiapan tetap standby karena belum memiliki siklus proses di mesin simulasi.</p>
   </details>
 }

@@ -4,6 +4,8 @@ import { instrumentPresentation } from "./biopat-instrument"
 import { canInspect } from "./operator-hands"
 import BiostatTelemetry from "./BiostatTelemetry"
 import ProcessMotionPanel from "./ProcessMotionPanel"
+import TransferReadout from "./TransferReadout"
+import { transferPresentation, transferFrameDelta } from "./transfer-visual"
 import LabControlPanel from "./LabControlPanel"
 import LabInterventionStatus from "./LabInterventionStatus"
 import {
@@ -28,9 +30,10 @@ export default function VirtualLab() {
   const [scenario, setScenario] = useState<CultureScenario>("balanced")
   const [seed, setSeed] = useState(42)
   const [station, setStation] =
-    useState<"overview" | "bioreactor" | "trace" | "viamass">("overview")
+    useState<"overview" | "bioreactor" | "trace" | "viamass" | "transfer">("overview")
   const [graphicsError, setGraphicsError] = useState("")
   const [expandedScene, setExpandedScene] = useState(false)
+  const [slowTransfers, setSlowTransfers] = useState(true)
   const [inspectionRequest, setInspectionRequest] = useState(0)
   const [handState, setHandState] = useState("Siap")
   const [walkMode, setWalkMode] = useState(false)
@@ -51,9 +54,11 @@ export default function VirtualLab() {
   const clock = useRef(new AnimationClock())
   const attemptedIntervention = useRef<string | null>(null)
   const ready = connection === "connected" && !!snapshot && !!token
+  const transferView = transferPresentation(snapshot,ready)
   const blenderCount = Object.values(assetState).filter(value => value === "blender").length
   const fallbackAssets = Object.entries(assetState).filter(([,value]) => value === "fallback").map(([name]) => name).join(", ")
-  const inspectionStation = walkMode ? navigation.target : station
+  const inspectionStation = walkMode ? navigation.target : station === "transfer" ? "overview" : station
+  const showTransfer = !!transferView && (station === "transfer" || !!snapshot?.active_intervention)
   const instrument = inspectionStation === "trace" || inspectionStation === "viamass" ? instrumentPresentation(snapshot, inspectionStation, ready) : null
   const inspectionReady = canInspect(snapshot, ready, inspectionStation) && (!walkMode || navigation.inRange)
   const validSeed = Number.isInteger(seed) && seed >= 0 && seed <= 2147483647
@@ -131,15 +136,16 @@ export default function VirtualLab() {
       ) {
         attemptedIntervention.current = intervention.id
         clock.current.reset()
-        setStation("bioreactor")
+        setStation("transfer")
+        if (slowTransfers) setExpandedScene(true)
       }
       const seconds = clock.current.frame(
-        delta,
+        transferFrameDelta(delta,intervention?.status === "executing",slowTransfers),
         ready && !!latest.current?.running && document.visibilityState === "visible",
       )
       if (seconds) command("advance", { seconds })
     },
-    [command, latest, ready],
+    [command, latest, ready, slowTransfers],
   )
   useEffect(() => {
     const hidden = () => {
@@ -197,7 +203,7 @@ export default function VirtualLab() {
       </header>
       <main className={`vl-layout${expandedScene ? " is-expanded" : ""}`}>
         <section
-          className="vl-stage"
+          className={`vl-stage${showTransfer ? " is-transfer-view" : ""}`}
           id="biostat-stage"
           aria-label="Laboratorium BIOSTAT 3D orang pertama"
         >
@@ -209,6 +215,7 @@ export default function VirtualLab() {
             onPerformance={onPerformance}
             inspectionRequest={inspectionRequest}
             reducedMotion={reducedMotion}
+            slowTransfers={slowTransfers}
             onHandState={setHandState}
             walkMode={walkMode}
             resetWalkRequest={resetWalkRequest}
@@ -232,8 +239,8 @@ export default function VirtualLab() {
             <h1>Inside the process.</h1>
             <p>BIOSTAT Gen 2 + BioPAT Trace + ViaMass</p>
           </div>
-          <div className="biostat-scene-legend">
-            {instrument ? <>
+          <div className={`biostat-scene-legend${showTransfer ? " has-transfer" : ""}`}>
+            {showTransfer && transferView ? <TransferReadout view={transferView} compact /> : instrument ? <>
               <strong>{inspectionStation === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
               {instrument.values.map(value => <span key={value}>{value}</span>)}
               <small>{instrument.status} · {instrument.receipt}</small>
@@ -256,17 +263,19 @@ export default function VirtualLab() {
               {renderStats.fps > 0 ? `${renderStats.fps} FPS · ${renderStats.quality === "high" ? "High" : "Balanced"} quality` : "Measuring render performance…"}
             </small>
             {expandedScene && snapshot && <small>{snapshot.culture_hours.toFixed(3)} h · {ready ? snapshot.running ? "Running" : "Paused" : "Disconnected"}</small>}
+            {transferView?.status === "executing" && <button className="vl-transfer-pause" disabled={!ready} onClick={()=>command(snapshot?.running ? "pause" : "play")}>{snapshot?.running ? "Jeda transfer" : "Lanjutkan transfer"}</button>}
           </div>
           <div className="vl-hand-controls">
             <button aria-pressed={walkMode} onClick={() => setWalkMode(value => !value)}>{walkMode ? "Keluar mode FPS" : "Jalan FPS · WASD"}</button>
             {walkMode && <><button onClick={() => setResetWalkRequest(value => value+1)}>Reset posisi</button><small>{navigation.locked ? "Mouse aktif · Esc untuk melepas" : navigation.dragOnly ? "Mouse: tahan dan drag untuk melihat" : "Klik ruangan untuk mouse · drag juga tersedia"}</small></>}
             <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !inspectionReady} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
             <label><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /> Kurangi gerakan</label>
+            <label><input type="checkbox" checked={slowTransfers} onChange={event=>setSlowTransfers(event.target.checked)} /> Transfer presentasi ⅓×</label>
             <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : walkMode && !navigation.inRange ? "Dekati dan bidik layar alat" : inspectionStation === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !inspectionReady ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
           </div>
           {walkMode && <div className={`vl-fps-reticle${navigation.inRange ? " is-target" : ""}`} aria-live="polite"><i aria-hidden="true" /><span>{navigation.hint}</span></div>}
           <div className="vl-station-nav" aria-label="Posisi kamera">
-            {(["overview", "bioreactor", "trace", "viamass"] as const).map(
+            {(["overview", "bioreactor", "trace", "viamass", "transfer"] as const).map(
               (value, i) => (
                 <button
                   key={value}
@@ -274,7 +283,7 @@ export default function VirtualLab() {
                   onClick={() => { setWalkMode(false); setStation(value) }}
                 >
                   <span>0{i + 1}</span>
-                  {["Ruangan", "BIOSTAT STR", "BioPAT Trace", "ViaMass"][i]}
+                  {["Ruangan", "BIOSTAT STR", "BioPAT Trace", "ViaMass", "Transfer"][i]}
                 </button>
               ),
             )}
