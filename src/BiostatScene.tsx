@@ -7,9 +7,12 @@ import { lastSensor, sensorUsable } from "./biostat-data"
 import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
 import { instrumentPresentation } from "./biopat-instrument"
 import { canInspect, InspectionClock } from "./operator-hands"
+import type { HandStation } from "./operator-hands"
+import { EYE_HEIGHT, WALK_SPAWN, mouseLook, walkStep } from "./lab-navigation"
 
 export type LabAsset = "biostat" | "trace" | "viamass" | "laboratory" | "hands"
 export type LabAssetState = "loading" | "blender" | "fallback"
+export interface FpsStatus { locked: boolean; dragOnly: boolean; target: HandStation; inRange: boolean; hint: string }
 
 interface Props {
   station: "overview" | "bioreactor" | "trace" | "viamass"
@@ -20,6 +23,9 @@ interface Props {
   inspectionRequest: number
   reducedMotion: boolean
   onHandState: (state: string) => void
+  walkMode: boolean
+  resetWalkRequest: number
+  onNavigation: (state: FpsStatus) => void
   onFrame: (delta: number) => void
   onInteract: () => void
   onError: (message: string) => void
@@ -52,6 +58,8 @@ export default function BiostatScene(props: Props) {
       "Blender bioprocess laboratory with cabinets, washstation, clean work enclosure, incubator, centrifuge and gas bank; BIOSTAT cutaway, Trace and ViaMass with live virtual readouts",
     )
     container.appendChild(renderer.domElement)
+    renderer.domElement.tabIndex = 0
+    renderer.domElement.setAttribute("aria-description", "Mode berjalan: klik untuk mouse, WASD untuk berjalan, E untuk inspeksi layar dekat, Escape untuk melepas mouse. Drag mouse tersedia bila pointer lock tidak didukung.")
     const scene = new THREE.Scene()
     scene.background = new THREE.Color("#e0e7e7")
     scene.fog = new THREE.Fog("#e0e7e7", 14, 32)
@@ -679,26 +687,107 @@ moved: boolean } | null = null,
       pointer = new THREE.Vector2()
     const inspection = new InspectionClock()
     let lastInspectionRequest = props.inspectionRequest, lastHandState = ""
-    const inspectionTarget = () => current.current.station === "trace" ? traceDisplay : current.current.station === "viamass" ? viaDisplay : controllerDisplay
+    type InstrumentTarget = { station: HandStation; object: THREE.Object3D }
+    let walkHit: InstrumentTarget | undefined, activeInspection: InstrumentTarget | undefined
+    let player = { ...WALK_SPAWN }, walkYaw = 0, walkPitch = 0
+    let previousWalkMode = props.walkMode, lastResetWalk = props.resetWalkRequest, lastAim = 0, lastNavigation = "", pointerLockUnavailable = false
+    const keys = new Set<string>(), viewEuler = new THREE.Euler(0,0,0,"YXZ")
+    const aimRay = new THREE.Raycaster(), aimCentre = new THREE.Vector2(0,0), targetPosition = new THREE.Vector3()
+    aimRay.near = .05
+    aimRay.far = 1.225
+    const locked = () => document.pointerLockElement === renderer.domElement
+    const focused = () => locked() || document.activeElement === renderer.domElement
+    const displays = (): InstrumentTarget[] => [
+      { station: "bioreactor", object: controllerDisplay },
+      ...(traceDisplay ? [{ station: "trace" as const, object: traceDisplay }] : []),
+      ...(viaDisplay ? [{ station: "viamass" as const, object: viaDisplay }] : []),
+    ]
+    const labels = { overview: "alat", bioreactor: "BIOSTAT DCU", trace: "BioPAT Trace", viamass: "ViaMass" }
+    const cancelInspection = () => { inspection.reset(); activeInspection = undefined }
+    const updateAim = () => {
+      if (!current.current.walkMode) return
+      if (!inspection.active) {
+        scene.updateMatrixWorld(true)
+        aimRay.setFromCamera(aimCentre,camera)
+        const list = displays()
+        const hit = aimRay.intersectObjects(list.map(item => item.object), false)[0]
+        walkHit = undefined
+        if (hit && hit.distance <= 1.2) {
+          // Respect opaque scene occlusion; camera-attached gloves and fluid
+          // illustration do not count as solid barriers to a readout.
+          const solid = aimRay.intersectObjects(scene.children,true).find(item => {
+            if (!(item.object instanceof THREE.Mesh)) return false
+            for (let p: THREE.Object3D | null = item.object; p; p = p.parent) if (p === hands) return false
+            const materials = Array.isArray(item.object.material) ? item.object.material : [item.object.material]
+            return materials.some(material => !material.transparent && material.visible)
+          })
+          if (!solid || solid.distance >= hit.distance-.025) walkHit = list.find(item => item.object === hit.object)
+        }
+      }
+      const nearest = displays().map(item => ({ ...item, distance: camera.position.distanceTo(item.object.getWorldPosition(targetPosition)) })).sort((a,b) => a.distance-b.distance)[0]
+      const target = activeInspection ?? walkHit
+      const hint = target ? `${labels[target.station]} · E / Periksa layar`
+        : nearest && nearest.distance < 3 ? `${labels[nearest.station]} · ${nearest.distance.toFixed(1)} m · dekati dan bidik layarnya`
+        : "Jelajahi lab · dekati dan bidik layar alat"
+      const state: FpsStatus = { locked: locked(), dragOnly: pointerLockUnavailable, target: target?.station ?? "overview", inRange: !!walkHit, hint }
+      const signature = JSON.stringify(state)
+      if (signature !== lastNavigation) { lastNavigation = signature; current.current.onNavigation(state) }
+    }
+    const inspectionTarget = () => activeInspection?.object ?? (current.current.walkMode ? walkHit?.object : current.current.station === "trace" ? traceDisplay : current.current.station === "viamass" ? viaDisplay : controllerDisplay)
+    const inspectionStation = () => activeInspection?.station ?? (current.current.walkMode ? walkHit?.station ?? "overview" : current.current.station)
     const startInspection = () => {
       const p = current.current
-      if (gloveRoots.length === 2 && !p.reducedMotion && canInspect(p.snapshot, p.connected, p.station) && inspectionTarget()) inspection.start()
+      if (p.walkMode) updateAim()
+      const object = inspectionTarget(), station = inspectionStation()
+      if (gloveRoots.length === 2 && !p.reducedMotion && canInspect(p.snapshot, p.connected, station) && object && inspection.start()) {
+        activeInspection = { object, station }
+        keys.clear()
+      }
+    }
+    const clearKeys = () => { keys.clear(); drag = null }
+    const releaseMouse = () => { if (locked()) document.exitPointerLock() }
+    function lockChange() { clearKeys(); updateAim() }
+    function lockError() { keys.clear(); pointerLockUnavailable = true; updateAim() }
+    function keyDown(event: KeyboardEvent) {
+      if (!current.current.walkMode || !focused() || event.altKey || event.ctrlKey || event.metaKey) return
+      if (["KeyW","KeyA","KeyS","KeyD"].includes(event.code)) { event.preventDefault(); keys.add(event.code) }
+      if (event.code === "KeyE" && !event.repeat) { event.preventDefault(); startInspection() }
+      if (event.code === "Escape") clearKeys()
+    }
+    function keyUp(event: KeyboardEvent) { keys.delete(event.code) }
+    function relativeLook(event: MouseEvent) {
+      if (!current.current.walkMode || !locked() || inspection.active) return
+      const next = mouseLook(walkYaw,walkPitch,event.movementX,event.movementY)
+      walkYaw = next.yaw; walkPitch = next.pitch
     }
     function down(e: PointerEvent) {
+      if (current.current.walkMode) {
+        renderer.domElement.focus({ preventScroll: true })
+        if (!locked() && !inspection.active && !pointerLockUnavailable) {
+          if (!renderer.domElement.requestPointerLock) lockError()
+          else try { renderer.domElement.requestPointerLock()?.catch(() => { if (!disposed) lockError() }) } catch { lockError() }
+        }
+      }
       drag = { x: e.clientX, y: e.clientY, moved: false }
       renderer.domElement.setPointerCapture(e.pointerId)
     }
     function move(e: PointerEvent) {
+      if (current.current.walkMode && locked()) return
       if (!drag) return
       const dx = e.clientX - drag.x,
         dy = e.clientY - drag.y
       drag.moved ||= Math.abs(dx) + Math.abs(dy) > 3
-      yaw = THREE.MathUtils.clamp(yaw - dx * 0.003, -0.65, 0.65)
-      pitch = THREE.MathUtils.clamp(pitch + dy * 0.002, -0.25, 0.25)
+      if (current.current.walkMode) {
+        if (!inspection.active) { const next = mouseLook(walkYaw,walkPitch,dx,dy); walkYaw = next.yaw; walkPitch = next.pitch }
+      } else {
+        yaw = THREE.MathUtils.clamp(yaw - dx * 0.003, -0.65, 0.65)
+        pitch = THREE.MathUtils.clamp(pitch + dy * 0.002, -0.25, 0.25)
+      }
       drag.x = e.clientX
       drag.y = e.clientY
     }
     function up(e: PointerEvent) {
+      if (current.current.walkMode) { if (drag && !drag.moved && (locked() || pointerLockUnavailable)) startInspection(); drag = null; return }
       if (drag && !drag.moved) {
         const r = renderer.domElement.getBoundingClientRect()
         pointer.set(
@@ -725,6 +814,15 @@ moved: boolean } | null = null,
     renderer.domElement.addEventListener("pointermove", move)
     renderer.domElement.addEventListener("pointerup", up)
     renderer.domElement.addEventListener("webglcontextlost", lost)
+    renderer.domElement.addEventListener("blur", clearKeys)
+    renderer.domElement.addEventListener("pointercancel", clearKeys)
+    window.addEventListener("keydown", keyDown)
+    window.addEventListener("keyup", keyUp)
+    window.addEventListener("blur", clearKeys)
+    document.addEventListener("visibilitychange", clearKeys)
+    document.addEventListener("pointerlockchange", lockChange)
+    document.addEventListener("pointerlockerror", lockError)
+    document.addEventListener("mousemove", relativeLook)
     const look = new THREE.Vector3(-0.2, 1.4, -1),
       goal = new THREE.Vector3(),
       goalLook = new THREE.Vector3()
@@ -787,17 +885,32 @@ moved: boolean } | null = null,
       if (station !== previousStation) {
         yaw = pitch = 0
         previousStation = station
-        inspection.reset()
+        cancelInspection()
+      }
+      if (previousWalkMode !== current.current.walkMode || lastResetWalk !== current.current.resetWalkRequest) {
+        previousWalkMode = current.current.walkMode
+        lastResetWalk = current.current.resetWalkRequest
+        cancelInspection(); clearKeys()
+        player = { ...WALK_SPAWN }; walkYaw = walkPitch = 0
+        if (!current.current.walkMode) releaseMouse()
+      }
+      if (current.current.walkMode && !inspection.active) {
+        const navDelta = renderedSeconds(delta,document.visibilityState === "visible" && !contextLost && focused())
+        player = walkStep(player,Number(keys.has("KeyW"))-Number(keys.has("KeyS")),Number(keys.has("KeyD"))-Number(keys.has("KeyA")),walkYaw,navDelta)
+        camera.position.set(player.x,EYE_HEIGHT,player.z)
+        camera.quaternion.setFromEuler(viewEuler.set(walkPitch,walkYaw,0,"YXZ"))
+        if (now-lastAim > 150) { lastAim = now; updateAim() }
       }
       const running = !!s?.running && connected && document.visibilityState === "visible" && !contextLost
       const motionSeconds = renderedSeconds(delta, running)
-      if (current.current.reducedMotion) inspection.reset()
+      if (current.current.reducedMotion) cancelInspection()
       if (lastInspectionRequest !== current.current.inspectionRequest) {
         lastInspectionRequest = current.current.inspectionRequest
         startInspection()
       }
-      const inspectionAvailable = running && canInspect(s, connected, station)
+      const inspectionAvailable = running && canInspect(s, connected, inspectionStation())
       const handPose = inspection.advance(delta, inspectionAvailable)
+      if (!inspection.active) activeInspection = undefined
       const handState = inspection.active && !inspectionAvailable ? "Interaksi dijeda · periksa simulasi dan sensor" : handPose.phase
       if (lastHandState !== handState) { lastHandState = handState; current.current.onHandState(handState) }
       if (station === "overview") {
@@ -814,16 +927,18 @@ moved: boolean } | null = null,
         goalLook.set(-1.55, 1.25, -0.9)
       }
       const targetDisplay = inspectionTarget()
-      if (targetDisplay && handPose.lean > 0) {
+      if (!current.current.walkMode && targetDisplay && handPose.lean > 0) {
         targetDisplay.updateWorldMatrix(true, false)
         targetDisplay.getWorldPosition(screenWorld)
         goal.lerp(screenWorld.clone().add(new THREE.Vector3(.02,.04,Math.max(.78,.82/Math.max(.5,camera.aspect)))), handPose.lean)
         goalLook.lerp(screenWorld, handPose.lean)
       }
       const ease = inspection.active && (!inspectionAvailable || motionSeconds === 0) ? 0 : Math.min(1, delta * 3.5)
-      camera.position.lerp(goal, ease)
-      look.lerp(goalLook, ease)
-      camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
+      if (!current.current.walkMode) {
+        camera.position.lerp(goal, ease)
+        look.lerp(goalLook, ease)
+        camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
+      }
       elapsed += motionSeconds
       if (!inspection.active || inspectionAvailable) handElapsed += motionSeconds
       const idle = current.current.reducedMotion ? 0 : Math.sin(handElapsed * 1.25) * .003
@@ -973,10 +1088,20 @@ moved: boolean } | null = null,
       disposed = true
       cancelAnimationFrame(animation)
       observer.disconnect()
+      releaseMouse()
+      window.removeEventListener("keydown", keyDown)
+      window.removeEventListener("keyup", keyUp)
+      window.removeEventListener("blur", clearKeys)
+      document.removeEventListener("visibilitychange", clearKeys)
+      document.removeEventListener("pointerlockchange", lockChange)
+      document.removeEventListener("pointerlockerror", lockError)
+      document.removeEventListener("mousemove", relativeLook)
       renderer.domElement.removeEventListener("pointerdown", down)
       renderer.domElement.removeEventListener("pointermove", move)
       renderer.domElement.removeEventListener("pointerup", up)
       renderer.domElement.removeEventListener("webglcontextlost", lost)
+      renderer.domElement.removeEventListener("blur", clearKeys)
+      renderer.domElement.removeEventListener("pointercancel", clearKeys)
       disposeObject(scene)
       environment.dispose()
       renderer.dispose()

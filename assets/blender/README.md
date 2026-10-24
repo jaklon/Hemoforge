@@ -168,6 +168,13 @@ same gesture time when valid again. Changing camera station cancels the gesture.
 **Kurangi gerakan** disables idle sway and inspection motion (and defaults to the
 browser's reduced-motion preference); it does not stop the simulated culture.
 
+Monitor 01 also supports **Jalan FPS · WASD** using these same free assets.
+The player can walk to a display, aim at it within 1.2m and press E to inspect.
+FPS inspection keeps the player's camera position; no automated approach crosses
+equipment. `src/lab-navigation.ts` contains conservative collision footprints
+matching this room/equipment layout; update them if repositioning Blender assets.
+Pointer lock is requested on click, with drag-look fallback where unsupported.
+
 ## License
 
 Original geometry and generated textures in this folder and the exported GLB

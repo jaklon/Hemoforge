@@ -161,3 +161,28 @@ existing time. Camera station changes cancel it. Reduced motion cancels the
 gesture and removes idle sway; it does not pause the process or its measurements.
 The hand asset validates required joints and skins independently, preserving
 the old hands as a labeled fallback. GPU skeleton textures are disposed on exit.
+
+## FPS navigation
+
+`lab-navigation.ts` owns the 0.22m player radius, fixed 1.65m eye height, 1.6m/s
+walk speed, room bounds and conservative XZ equipment footprints matching the
+current Blender lab. Swept 0.04m substeps and per-axis collision allow wall
+sliding without tunnelling. Diagonal input is normalized, vertical movement is
+absent, and invalid/long frame deltas cause no movement. Update footprints when
+moving or replacing equipment in the Blender builders.
+
+The scene accepts WASD only while its canvas is focused or owns pointer lock.
+Pointer lock is requested only on a user canvas click; rejection switches to a
+documented drag-look fallback. Mouse yaw covers a full turn; pitch is bounded.
+Blur, visibility loss, Escape, pointer lock changes and pointer cancellation clear
+held keys. Listeners and capture are released on unmount. Navigation is independent
+of culture pause and cannot send process commands.
+
+Display raycasts update at most every 150ms during walking, with a 1.225m far
+plane. Interaction requires an aimed screen hit within 1.2m, no nearer opaque
+scene obstruction and the existing sensor/connection/run-state gates. Camera
+gloves and transparent process illustration are excluded as occluders. E and
+readout clicks are rechecked at activation. FPS inspection retains player camera
+position and orientation instead of moving through colliders; locomotion and
+mouse look hold until the gesture finishes or is cancelled. Reset/preset/exit
+cancel gestures and clear held keys without altering a session.

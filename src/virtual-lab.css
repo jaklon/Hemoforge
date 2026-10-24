@@ -13,6 +13,11 @@
 .vl-hand-controls button:disabled { opacity: .5; cursor: default; }
 .vl-hand-controls label { display: flex; align-items: center; gap: 5px; }
 .vl-hand-controls span { font-size: 9px; line-height: 1.5; text-align: right; }
+.vl-hand-controls > small { font-size: 9px; line-height: 1.5; text-align: right; max-width: 190px; }
+.vl-fps-reticle { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; color: #f5f6ec; display: flex; justify-content: center; }
+.vl-fps-reticle > i { height: 8px; width: 8px; border-radius: 50%; background: #f5f6ec; border: 2px solid #254c50; box-shadow: 0 0 0 2px #f5f6ec88; }
+.vl-fps-reticle.is-target > i { background: #f5d48b; box-shadow: 0 0 0 3px #d7ba6588; }
+.vl-fps-reticle > span { position: absolute; top: 24px; width: 220px; text-align: center; padding: 7px 10px; border-radius: 5px; background: #16383de8; font-size: 10px; line-height: 1.6; }
 .biostat-lab .vl-layout.is-expanded { display: grid; grid-template-columns: minmax(0, 1fr); }
 .biostat-lab .vl-layout.is-expanded > .vl-control-panel { display: none; }
 .vl-stage { position: relative; min-height: 0; overflow: hidden; background: #a4bfbd; }

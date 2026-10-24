@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import BiostatScene, { type LabAsset, type LabAssetState } from "./BiostatScene"
+import BiostatScene, { type FpsStatus, type LabAsset, type LabAssetState } from "./BiostatScene"
 import { instrumentPresentation } from "./biopat-instrument"
 import { canInspect } from "./operator-hands"
 import BiostatTelemetry from "./BiostatTelemetry"
@@ -32,6 +32,9 @@ export default function VirtualLab() {
   const [expandedScene, setExpandedScene] = useState(false)
   const [inspectionRequest, setInspectionRequest] = useState(0)
   const [handState, setHandState] = useState("Siap")
+  const [walkMode, setWalkMode] = useState(false)
+  const [resetWalkRequest, setResetWalkRequest] = useState(0)
+  const [navigation, setNavigation] = useState<FpsStatus>({ locked: false, dragOnly: false, target: "overview", inRange: false, hint: "Klik ruangan untuk kendali mouse" })
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)
   const [assetState, setAssetState] = useState<Record<LabAsset, LabAssetState>>({ biostat: "loading", trace: "loading", viamass: "loading", laboratory: "loading", hands: "loading" })
   const onAssetState = useCallback((asset: LabAsset, state: LabAssetState) => setAssetState(previous => previous[asset] === state ? previous : { ...previous, [asset]: state }), [])
@@ -49,7 +52,9 @@ export default function VirtualLab() {
   const ready = connection === "connected" && !!snapshot && !!token
   const blenderCount = Object.values(assetState).filter(value => value === "blender").length
   const fallbackAssets = Object.entries(assetState).filter(([,value]) => value === "fallback").map(([name]) => name).join(", ")
-  const instrument = station === "trace" || station === "viamass" ? instrumentPresentation(snapshot, station, ready) : null
+  const inspectionStation = walkMode ? navigation.target : station
+  const instrument = inspectionStation === "trace" || inspectionStation === "viamass" ? instrumentPresentation(snapshot, inspectionStation, ready) : null
+  const inspectionReady = canInspect(snapshot, ready, inspectionStation) && (!walkMode || navigation.inRange)
   const validSeed = Number.isInteger(seed) && seed >= 0 && seed <= 2147483647
   useEffect(() => {
     document.title = "BIOSTAT Gen 2 · Monitor 01 · HemoForge"
@@ -204,6 +209,9 @@ export default function VirtualLab() {
             inspectionRequest={inspectionRequest}
             reducedMotion={reducedMotion}
             onHandState={setHandState}
+            walkMode={walkMode}
+            resetWalkRequest={resetWalkRequest}
+            onNavigation={setNavigation}
             onFrame={onFrame}
             onInteract={() => {
               if (canRun) command(snapshot?.running ? "pause" : "play")
@@ -225,7 +233,7 @@ export default function VirtualLab() {
           </div>
           <div className="biostat-scene-legend">
             {instrument ? <>
-              <strong>{station === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
+              <strong>{inspectionStation === "trace" ? "BioPAT Trace" : "BioPAT ViaMass"} · Virtual readout</strong>
               {instrument.values.map(value => <span key={value}>{value}</span>)}
               <small>{instrument.status} · {instrument.receipt}</small>
               <small>{instrument.times}</small>
@@ -249,17 +257,20 @@ export default function VirtualLab() {
             {expandedScene && snapshot && <small>{snapshot.culture_hours.toFixed(3)} h · {ready ? snapshot.running ? "Running" : "Paused" : "Disconnected"}</small>}
           </div>
           <div className="vl-hand-controls">
-            <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !canInspect(snapshot, ready, station)} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
+            <button aria-pressed={walkMode} onClick={() => setWalkMode(value => !value)}>{walkMode ? "Keluar mode FPS" : "Jalan FPS · WASD"}</button>
+            {walkMode && <><button onClick={() => setResetWalkRequest(value => value+1)}>Reset posisi</button><small>{navigation.locked ? "Mouse aktif · Esc untuk melepas" : navigation.dragOnly ? "Mouse: tahan dan drag untuk melihat" : "Klik ruangan untuk mouse · drag juga tersedia"}</small></>}
+            <button disabled={assetState.hands !== "blender" || reducedMotion || handState !== "Siap" || !inspectionReady} onClick={() => setInspectionRequest(value => value+1)}>Periksa layar</button>
             <label><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /> Kurangi gerakan</label>
-            <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : station === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !canInspect(snapshot, ready, station) ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
+            <span role="status">{handState !== "Siap" ? handState : reducedMotion ? "Interaksi dimatikan · gerakan minimum" : walkMode && !navigation.inRange ? "Dekati dan bidik layar alat" : inspectionStation === "overview" ? "Pilih alat untuk inspeksi" : !snapshot?.running ? "Jalankan kultur untuk interaksi" : !inspectionReady ? "Menunggu sensor valid / tindakan selesai" : "Inspeksi visual · kendali proses di Monitor 02"}</span>
           </div>
+          {walkMode && <div className={`vl-fps-reticle${navigation.inRange ? " is-target" : ""}`} aria-live="polite"><i aria-hidden="true" /><span>{navigation.hint}</span></div>}
           <div className="vl-station-nav" aria-label="Posisi kamera">
             {(["overview", "bioreactor", "trace", "viamass"] as const).map(
               (value, i) => (
                 <button
                   key={value}
-                  aria-pressed={station === value}
-                  onClick={() => setStation(value)}
+                  aria-pressed={!walkMode && station === value}
+                  onClick={() => { setWalkMode(false); setStation(value) }}
                 >
                   <span>0{i + 1}</span>
                   {["Ruangan", "BIOSTAT STR", "BioPAT Trace", "ViaMass"][i]}
@@ -268,8 +279,7 @@ export default function VirtualLab() {
             )}
           </div>
           <div className="vl-camera-hint">
-            Drag untuk melihat sekitar · panah mengaktifkan / menjeda kultur ·
-            waktu hanya maju setelah frame dirender
+            {walkMode ? "Klik ruangan · WASD berjalan · mouse melihat · E inspeksi · Esc lepas mouse" : "Drag untuk melihat sekitar · panah mengaktifkan / menjeda kultur · waktu hanya maju setelah frame dirender"}
           </div>
           {graphicsError && (
             <div role="alert" className="vl-graphics-error">

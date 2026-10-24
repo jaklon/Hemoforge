@@ -153,3 +153,31 @@ the culture and its measurements continue normally.
 The original 185KB glove GLB has two skins, four material submissions and 6,752
 triangles. Editable source and Blender-only pose study:
 `assets/blender/hemoforge-operator-hands.blend` (frames 1–144).
+
+## Walk through the laboratory
+
+Click **Jalan FPS · WASD**, then click inside the 3D room to focus the keyboard
+and request mouse capture. W/S move forward/back; A/D strafe. Move the mouse to
+look around. Escape releases capture so dashboard/control buttons are accessible.
+If mouse capture is unavailable (including the embedded preview browser), the
+status changes to **Mouse: tahan dan drag untuk melihat**: hold the mouse button
+and drag instead. WASD continues to work while the 3D canvas has keyboard focus.
+
+Approach a virtual display and aim the centre dot at it. Within 1.2m and with
+an unobstructed view, the dot turns gold and the device name appears. Press E,
+click the aimed screen, or use **Periksa layar**. Inspection still requires the
+culture to be running with valid device data and no active process intervention.
+Walking cannot issue feed, setpoint or Guard commands. Unlike preset inspection,
+FPS inspection keeps the camera at the user's position; movement and look hold
+while the gesture runs. Resume the culture to finish a paused gesture, or use
+**Reset posisi**, a preset camera or **Keluar mode FPS** to cancel it.
+
+Walking works while the culture is paused; it does not start or advance the
+process clock. Move freely at a fixed eye height (1.65m) and speed (1.6m/s).
+Conservative collision footprints prevent walking through walls, the reactor,
+tables, gas bank and supporting equipment. There is no jumping or vertical flight.
+Focus loss, Escape, hidden tabs and pointer cancellation clear held keys; long
+frame gaps do not cause movement catch-up. Typing in dashboard controls is not
+captured. **Reset posisi** returns to the clear aisle without changing the batch.
+Preset camera buttons exit FPS mode. Existing Blender assets/materials are reused
+without downloads, new dependencies, paid assets or extra shadow maps.
