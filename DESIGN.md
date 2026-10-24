@@ -64,7 +64,9 @@ are explicitly labeled.
 
 `src/index.css` is the runtime token owner (ownership model B). Map primary to
 `--red`, navy to `--navy`, border to `--line`, teal to `--teal`, and surface to
-`--surface`. Background is the root surface. Status names accompany every color.
+`--surface`. Background is the root surface. Status names accompany every color,
+except the top-bar service pills: show only the service name, use the existing
+pill/dot colors for status, and retain the status text for screen readers.
 Red identifies the selected culture series, slate and teal distinguish comparison
 replicates. Warning uses a pale amber surface and dark brown text. Empty channels
 use neutral dashes and a No data label, never a normal status.
