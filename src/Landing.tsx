@@ -603,9 +603,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="lp-hero-fade" />
         <div className="lp-wrap lp-hero-inner">
           <div className="lp-hero-copy">
-            <span className="lp-badge lp-rise" style={{ "--d": 0 } as CSSProperties}>
-              Research preview · HemoForge
-            </span>
             <h1 className="lp-rise" style={{ "--d": 1 } as CSSProperties}>
               The command center for <em>lab-grown blood.</em>
             </h1>
@@ -617,11 +614,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
               <a className="lp-btn primary lg" href="#work-with-us">Book a demo <LocalIcon name="arrow" /></a>
               <button className="lp-btn ghost lg" onClick={() => go("guard")}>Explore demo</button>
             </div>
-            <ul className="lp-proof lp-rise" style={{ "--d": 4 } as CSSProperties}>
-              <li><LocalIcon name="check" /> Try the preview without an account</li>
-              <li><LocalIcon name="check" /> Illustrative data clearly labeled</li>
-              <li><LocalIcon name="check" /> Source references you can open</li>
-            </ul>
           </div>
         </div>
         <div className="lp-scroll-cue" aria-hidden="true"><i /></div>
