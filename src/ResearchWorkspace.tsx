@@ -21,7 +21,7 @@ import RareMatchBook from "./RareMatchBook"
 
 import HemoBot, { useHemoBot } from "./HemoBot"
 
-import { botStatus, type BotStatus } from "./hemobot-api"
+import { jevStatus } from "./jev-api"
 
 import Guard from "./BioreactorGuard"
 
@@ -1181,14 +1181,14 @@ const serviceLabels = {
   disabled: "off",
 } as const
 
-/** Top-bar health: the Python API, the model server it talks to, the database, and the bioreactor machine. */
+/** Top-bar health: the Python API, the GCP inference service that runs the AI models, the database, and the bioreactor machine. */
 
 function ServiceStatus({
   backend,
 }: {
   backend: "checking" | "online" | "offline"
 }) {
-  const [llm, setLlm] = useState<BotStatus["llm_status"] | "checking">(
+  const [gcp, setGcp] = useState<"checking" | "online" | "offline">(
     "checking",
   )
 
@@ -1223,12 +1223,12 @@ function ServiceStatus({
 
       controller = new AbortController()
 
-      botStatus(controller.signal)
+      jevStatus(controller.signal)
 
-        .then((status) => setLlm(status.llm_status))
+        .then((status) => setGcp(status.status === "online" ? "online" : "offline"))
 
         .catch((error) => {
-          if (error?.name !== "AbortError") setLlm("offline")
+          if (error?.name !== "AbortError") setGcp("offline")
         })
     }
 
@@ -1246,7 +1246,7 @@ function ServiceStatus({
   const services = [
     ["Backend", backend],
 
-    ["LLM", backend === "online" ? llm : backend],
+    ["GCP", backend === "online" ? gcp : backend],
 
     ["Database", backend === "online" ? database : backend],
 
