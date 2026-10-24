@@ -12,6 +12,18 @@
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "backend.api:app", "--host", "127.0.0.1", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "pr3-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d ..\\genohack-pr3 && npx vite --port 8443 --strictPort"],
+      "port": 8443
+    },
+    {
+      "name": "pr3-api",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d ..\\genohack-pr3 && ..\\genohack\\.venv\\Scripts\\python.exe -m uvicorn backend.api:app --host 127.0.0.1 --port 8000"],
+      "port": 8000
     }
   ]
 }
