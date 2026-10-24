@@ -1,4 +1,5 @@
-import { useId, type ReactNode } from "react"
+import { useId, useRef, type ReactNode } from "react"
+import { signOut } from "./account"
 
 export function NumberField({
   label,
@@ -166,6 +167,58 @@ export function Button({
       {icon && <Icon name={icon} />}
       {children}
     </button>
+  )
+}
+
+/** Sidebar sign-out link; asks for confirmation in a modal first. */
+export function SignOutLink({ collapsed }: { collapsed: boolean }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+
+  return (
+    <>
+      <a
+        href="#"
+        title={collapsed ? "Sign out" : undefined}
+        onClick={(e) => {
+          e.preventDefault()
+          dialog.current?.showModal()
+        }}
+      >
+        <Icon name="logout" />
+        <strong>Sign out</strong>
+      </a>
+      <dialog
+        ref={dialog}
+        className="confirm-dialog"
+        aria-labelledby={titleId}
+        // Clicks on the backdrop land on the dialog element itself.
+        onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}
+      >
+        <span className="confirm-dialog-icon">
+          <Icon name="logout" />
+        </span>
+        <h2 id={titleId}>Sign out?</h2>
+        <p>You'll return to the sign-in page.</p>
+        <form method="dialog" className="confirm-dialog-actions">
+          <button className="button" autoFocus>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => {
+              dialog.current?.close()
+              // Any workspace route shows the sign-in page once signed out.
+              location.hash = "data"
+              void signOut()
+            }}
+          >
+            Sign out
+          </button>
+        </form>
+      </dialog>
+    </>
   )
 }
 

@@ -71,17 +71,20 @@ export async function loadAccount() {
 
 /** `beforeEnter` runs after the credentials check out but before the workspace replaces the sign-in page. */
 export async function signIn(username: string, password: string, beforeEnter?: () => Promise<void>) {
+  // A logout still in flight would clear the new session cookie when its response lands.
+  await pendingLogout
   const profile = await accountApi<Profile>("auth/login", "POST", { username, password })
   await beforeEnter?.()
   set(profile)
 }
 
-export async function signOut() {
-  try {
-    await accountApi("auth/logout", "POST")
-  } finally {
-    set(null)
-  }
+let pendingLogout: Promise<void> | undefined
+
+/** Leaves the workspace immediately; the server-side logout finishes in the background. */
+export function signOut() {
+  set(null)
+  pendingLogout = accountApi("auth/logout", "POST").catch(() => {})
+  return pendingLogout
 }
 
 export async function saveProfile(profile: Profile) {

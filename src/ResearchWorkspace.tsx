@@ -8,6 +8,7 @@ import {
   Details,
   PageTitle,
   Status,
+  SignOutLink,
 } from "./workspace-ui"
 
 import { downloadFile } from "./workspace-utils"
@@ -47,7 +48,7 @@ const MethodsPage = lazy(() => import("./MethodsPage"))
 
 import AccountPage, { initials, useProfile } from "./AccountPage"
 
-import { accountApi, signOut } from "./account"
+import { accountApi } from "./account"
 
 import ActivityLog from "./ActivityLog"
 
@@ -1570,20 +1571,7 @@ function ResearchWorkspaceContent() {
               <small>{profile.company}</small>
             </strong>
           </a>
-          <a
-            href="#"
-            title={sidebarCollapsed ? "Sign out" : undefined}
-            onClick={(e) => {
-              e.preventDefault()
-
-              location.hash = ""
-
-              void signOut()
-            }}
-          >
-            <Icon name="logout" />
-            <strong>Sign out</strong>
-          </a>
+          <SignOutLink collapsed={sidebarCollapsed} />
         </nav>
       </aside>
       <header className="topbar">
