@@ -17,7 +17,7 @@ import { DataProvider, useWorkspace, useCultureData } from "./workspace-context"
 
 import DataWorkspace from "./DataWorkspace"
 
-import Evo2Preparation from "./Evo2Preparation"
+import RareMatchBook from "./RareMatchBook"
 
 import HemoBot, { useHemoBot } from "./HemoBot"
 
@@ -1800,9 +1800,9 @@ function ResearchWorkspaceContent() {
           <>
             <PageTitle
               title="RareMatch"
-              description="Browse public KEL/SLC14A1 variants, prepare tasks, and optionally score them with Evo 2."
+              description="Load the donor and recipient FASTA files, then check them side by side."
             />
-            <Evo2Preparation />
+            <RareMatchBook />
           </>
         ) : view === "workflow" ? (
           <Workflow navigate={navigate} />

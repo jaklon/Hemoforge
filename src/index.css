@@ -806,6 +806,48 @@ input[aria-invalid="true"] { border-color: var(--red); }
 .evo2-sequence { margin-block: 18px; }
 .evo2-sequence textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid var(--line); border-radius: 5px; font-family: Consolas, monospace; }
 @media (max-width: 740px) { .evo2-fields { grid-template-columns: 1fr; } }
+.rarematch { display: flex; flex-direction: column; gap: 18px; min-height: calc(100vh - 190px); }
+.rarematch-book { flex: 1; display: grid; grid-template-columns: 1fr 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 34px rgba(15, 23, 42, .09); overflow: hidden; }
+.rarematch-page { display: flex; flex-direction: column; gap: 16px; padding: 30px 36px 34px; min-width: 0; }
+.rarematch-page.is-donor { border-right: 1px solid var(--line); background: linear-gradient(to left, rgba(15, 23, 42, .05), transparent 28px), var(--surface); }
+.rarematch-page.is-recipient { background: linear-gradient(to right, rgba(15, 23, 42, .05), transparent 28px), var(--surface); }
+.rarematch-head { display: flex; gap: 12px; align-items: center; }
+.rarematch-head h2 { margin: 0; font-size: var(--text-section); color: var(--navy); }
+.rarematch-head p { margin: 2px 0 0; color: var(--muted); font-size: var(--text-md); }
+.rarematch-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: #fdecec; color: var(--red); flex: none; }
+.is-recipient .rarematch-icon { background: #e6f6f4; color: var(--teal); }
+.rarematch-icon svg { width: 20px; height: 20px; }
+.rarematch-input { flex: 1; display: flex; flex-direction: column; min-height: 260px; border: 1.5px dashed #c3cdd9; border-radius: 8px; background: #f8fafc; transition: border-color .15s, background .15s; }
+.rarematch-input:focus-within, .rarematch-input.is-dragging { border-color: var(--navy); border-style: solid; background: #fff; }
+.rarematch-input textarea { flex: 1; display: block; width: 100%; min-height: 200px; resize: none; border: 0; background: transparent; padding: 14px; font: var(--text-md)/1.55 Consolas, "Cascadia Mono", monospace; color: var(--navy); outline: none; word-break: break-all; }
+.rarematch-input textarea::placeholder { color: #8795a8; }
+.rarematch-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.rarematch-toolbar .button { cursor: pointer; }
+.rarematch-toolbar .button svg { width: 15px; height: 15px; }
+.rarematch-toolbar .button:focus-within { outline: 2px solid var(--navy); outline-offset: 2px; }
+.rarematch-link { border: 0; background: none; padding: 4px; color: var(--muted); font-size: var(--text-md); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.rarematch-link:hover { color: var(--navy); }
+.rarematch-count { margin-left: auto; color: var(--muted); font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
+.rarematch-result { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+.rarematch-verdict { padding: 10px 14px; border-radius: 7px; font-weight: 600; font-size: var(--text-base); }
+.rarematch-verdict.is-same { background: #e6f6f4; color: #0b6b62; }
+.rarematch-verdict.is-diff { background: var(--guard-alert-surface); color: var(--guard-alert-text); border: 1px solid var(--guard-alert-border); }
+.rarematch-result dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; font-size: var(--text-md); }
+.rarematch-result dt { color: var(--muted); }
+.rarematch-result dd { margin: 0; text-align: left; overflow-wrap: anywhere; color: var(--navy); }
+.rarematch-diffs { display: flex; flex-wrap: wrap; gap: 6px; }
+.rarematch-diffs span { padding: 3px 8px; border-radius: 5px; background: #f1f4f8; font: var(--text-caption) Consolas, monospace; color: var(--muted); }
+.rarematch-diffs b.is-donor { color: var(--red); }
+.rarematch-diffs b.is-recipient { color: var(--teal); }
+.rarematch-page > .button { justify-self: start; }
+.rarematch-error { margin: 0; padding: 10px 14px; border-radius: 7px; background: #fff0ef; color: #a02325; font-size: var(--text-md); overflow-wrap: anywhere; }
+.rarematch-compat { display: grid; gap: 14px; padding: 24px 30px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 34px rgba(15, 23, 42, .09); }
+.rarematch-compat h2 { margin: 0; font-size: var(--text-section); color: var(--navy); }
+.rarematch-compat dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; font-size: var(--text-md); }
+.rarematch-compat dt { color: var(--muted); }
+.rarematch-compat dd { margin: 0; text-align: left; color: var(--navy); }
+.rarematch-hint { margin: 0; text-align: center; color: var(--muted); font-size: var(--text-md); }
+@media (max-width: 740px) { .rarematch { min-height: 0; } .rarematch-book { grid-template-columns: 1fr; } .rarematch-page.is-donor { border-right: 0; border-bottom: 1px solid var(--line); } .rarematch-page { padding: 20px 16px; } }
 .evo2-dataset { border-block: 1px solid var(--line); padding: 24px; }
 .evo2-dataset h3 { margin-bottom: 14px; }
 .evo2-filters { margin-top: 20px; grid-template-columns: 1fr 1fr 2fr; }
