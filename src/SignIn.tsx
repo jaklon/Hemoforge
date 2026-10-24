@@ -13,13 +13,22 @@ const CELLS = [
   [94, 50, 27, -21],
 ]
 
-const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches
+const pause = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms))
+const reducedMotion = () =>
+  matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** Workspace sign-in. `error` is set when the session check itself failed (API or database down). */
-export default function SignIn({ error: initialError, onRetry }: { error?: string; onRetry?: () => void }) {
+export default function SignIn({
+  error: initialError,
+  onRetry,
+}: {
+  error?: string
+  onRetry?: () => void
+}) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(initialError ?? "")
   const [busy, setBusy] = useState(false)
   const [entering, setEntering] = useState(false)
@@ -53,28 +62,77 @@ export default function SignIn({ error: initialError, onRetry }: { error?: strin
           <span
             key={left}
             className="signin-cell"
-            style={{ left: `${left}%`, width: size, height: size, animationDuration: `${duration}s`, animationDelay: `${delay}s` }}
+            style={{
+              left: `${left}%`,
+              width: size,
+              height: size,
+              animationDuration: `${duration}s`,
+              animationDelay: `${delay}s`,
+            }}
           />
         ))}
-        <svg className="signin-pulse" viewBox="0 0 1200 120" preserveAspectRatio="none">
+        <svg
+          className="signin-pulse"
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+        >
           <path d="M0 60 H430 L460 60 L480 20 L505 105 L530 8 L552 84 L570 60 H1200" />
         </svg>
       </div>
 
-      <form key={failures} className={`signin-card account-form${failures ? " is-shaking" : ""}`} onSubmit={submit}>
+      <form
+        key={failures}
+        className={`signin-card account-form${failures ? " is-shaking" : ""}`}
+        onSubmit={submit}
+      >
         <header>
           <a href="#" className="signin-back">
             ← HemoForge
           </a>
-          <div className="signin-mark" aria-hidden="true">
-            <svg viewBox="0 0 48 48">
-              <path d="M24 5c7 9 14 17 14 25a14 14 0 0 1-28 0c0-8 7-16 14-25Z" />
-              <path className="signin-mark-beat" d="M13 31h6l2.5-5 4 9 3-6H35" />
-            </svg>
-          </div>
+          <img
+            className="signin-mark"
+            src="/favicon.svg"
+            alt=""
+            width="44"
+            height="44"
+          />
           <h1>Sign in to the Research Workspace</h1>
           <p>Use your workspace account.</p>
         </header>
+        <div className="grid gap-2">
+          <div
+            className="grid grid-cols-2 gap-2"
+            role="group"
+            aria-label="Demo accounts"
+            aria-describedby="signin-demo-hint"
+          >
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => {
+                setUsername("researcher")
+                setPassword("hemoforge-demo")
+              }}
+            >
+              Workspace Demo
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => {
+                setUsername("pocdemo")
+                setPassword("poc-demo")
+              }}
+            >
+              PoC Demo
+            </button>
+          </div>
+          <p id="signin-demo-hint" className="text-xs text-(--muted)">
+            Fill in a demo account, then press Sign in.
+          </p>
+        </div>
         <div className="account-fields is-single">
           <label>
             <span>Username</span>
@@ -87,18 +145,33 @@ export default function SignIn({ error: initialError, onRetry }: { error?: strin
               onChange={(event) => setUsername(event.target.value)}
             />
           </label>
-          <label>
-            <span>Password</span>
-            <input
-              type="password"
-              required
-              autoFocus={failures > 0}
-              autoComplete="current-password"
-              value={password}
-              disabled={entering}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
+          <div className="signin-password-field">
+            <label htmlFor="signin-password">
+              <span>Password</span>
+            </label>
+            <div className="signin-password-control">
+              <input
+                id="signin-password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoFocus={failures > 0}
+                autoComplete="current-password"
+                value={password}
+                disabled={entering}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="text-button signin-password-toggle"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-controls="signin-password"
+                disabled={entering}
+                onClick={() => setShowPassword((visible) => !visible)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
         </div>
         {error && (
           <p className="signin-error" role="alert">
@@ -113,12 +186,18 @@ export default function SignIn({ error: initialError, onRetry }: { error?: strin
         <footer>
           <button
             type="submit"
-            className={`button primary signin-submit${busy ? " is-busy" : ""}${entering ? " is-done" : ""}`}
+            className={`button primary signin-submit${busy ? " is-busy" : ""}${
+              entering ? " is-done" : ""
+            }`}
             disabled={busy}
           >
             {entering ? (
               <>
-                <svg className="signin-check" viewBox="0 0 20 20" aria-hidden="true">
+                <svg
+                  className="signin-check"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
                   <path d="M4 10.5l4 4 8-9" />
                 </svg>
                 Welcome back

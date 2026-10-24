@@ -161,6 +161,9 @@ assumptions, symbol definitions, sources, and deep links travel together. The
 page has a compact contents rail, quiet equation panels, and a LaTeX download.
 `source-references.ts` supplies shared proposal-source records.
 
+The sign-in password starts masked. An inline Show/Hide button reveals or masks
+the current value without submitting the form and has a matching accessible label.
+
 `Button`, `Badge`, `Panel`, `Details`, `Icon`, `PageTitle`, and `Status` in
 `src/workspace-ui.tsx` are the shared visual owners. `ReplayControls` in
 `src/ResearchWorkspace.tsx` owns the replay toolbar. `src/BioreactorGuard.tsx`
