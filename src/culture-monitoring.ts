@@ -213,3 +213,26 @@ export function screenProfiles(kel: string, slc: string) {
           : "excluded",
   }))
 }
+
+// Live run: culture hour 0 is 24/10/2026 00:00 local time and the run lasts two days.
+// Live mode shows the culture up to the current clock time and never beyond it.
+export const liveStart = new Date(2026, 9, 24)
+export const liveEndHour = 48
+
+/** Current culture hour on whole seconds, held at 0 before the start and at the end after it. */
+export function liveHour(now = Date.now()) {
+  const seconds = Math.floor((now - liveStart.getTime()) / 1000)
+  return Math.min(liveEndHour, Math.max(0, seconds / 3600))
+}
+
+/** Culture hour as wall-clock time, e.g. "24/10/2026, 14:05:33". */
+export function wallTime(hour: number, year = true) {
+  return new Date(liveStart.getTime() + Math.round(hour * 3600) * 1000).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    ...(year ? { year: "numeric" } : {}),
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+}

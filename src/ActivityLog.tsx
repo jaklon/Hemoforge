@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { Badge, Button, Icon, PageTitle, Panel } from "./workspace-ui"
 import { useCultureData, useWorkspace } from "./workspace-context"
 import { guardEventInfo } from "./guard-insights"
-import { loadLimits, processVariables, safeLimits, simulate } from "./dashboard-sim"
+import { loadLimits, measuredSamples, processVariables, safeLimits, simulate } from "./dashboard-sim"
 
 type Tab = "notifications" | "process"
 
@@ -62,7 +62,7 @@ export default function ActivityLog({ hour, replicate }: { hour: number; replica
       href: "#guard",
       source: `Bioreactor Guard · ${batchId(replicate)}`,
     }))
-    const runs = simulate(safeLimits(loadLimits()), hour)
+    const runs = simulate(safeLimits(loadLimits()), hour, measuredSamples(batchMeasurements(replicate)))
     const actions = processVariables.flatMap((variable) =>
       runs[variable.id].actions.map((action) => ({
         key: `dash-${variable.id}-${action.hour}-${action.label}`,

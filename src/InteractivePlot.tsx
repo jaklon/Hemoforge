@@ -5,6 +5,7 @@ import {
   panRange,
   niceTicks,
   plotNumber,
+  timeTicks,
   valueExtent,
   zoomRange,
   type Range,
@@ -397,11 +398,12 @@ export default function InteractivePlot({
             ))}
           </>
         )}
-        {niceTicks(current.x, width < 500 ? 4 : 7).map((value) => (
-          <text key={value} x={x(value)} y={bottom + 17} textAnchor="middle">
-            {plotNumber(value)}h
-          </text>
-        ))}
+        {(({ ticks, label }) =>
+          ticks.map((value) => (
+            <text key={value} x={x(value)} y={bottom + 17} textAnchor="middle">
+              {label(value)}
+            </text>
+          )))(timeTicks(current.x, width < 500 ? 4 : 7))}
         <text
           x={(left + right) / 2}
           y={bottom + 35}

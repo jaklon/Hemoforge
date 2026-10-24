@@ -2,7 +2,7 @@ export type Range = [number, number]
 
 export function boundRange(range: Range, extent: Range): Range {
   const full = extent[1] - extent[0]
-  const size = Math.min(full, Math.max(full / 1000, range[1] - range[0]))
+  const size = Math.min(full, Math.max(full / 100000, range[1] - range[0]))
   const start = Math.max(extent[0], Math.min(extent[1] - size, range[0]))
   return [start, start + size]
 }
@@ -61,4 +61,21 @@ export function niceTicks([min, max]: Range, target = 5): number[] {
   for (let i = Math.ceil(min / step); i * step <= max + step * 1e-9; i++)
     ticks.push(Number((i * step).toPrecision(12)))
   return ticks
+}
+
+// Time of day as hh:mm(:ss); culture hour 0 starts at midnight.
+export function clock(hours: number, seconds = true) {
+  const total = Math.round(hours * 3600)
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${pad(Math.floor(total / 3600) % 24)}:${pad(Math.floor(total / 60) % 60)}${seconds ? `:${pad(total % 60)}` : ""}`
+}
+
+// Time-axis ticks on whole minutes or seconds once a window is too short for hour steps.
+export function timeTicks(range: Range, target: number) {
+  const span = range[1] - range[0]
+  const scale = span < 2 / 60 ? 3600 : span < 2 ? 60 : 1
+  return {
+    ticks: niceTicks([range[0] * scale, range[1] * scale], target).map((value) => value / scale),
+    label: (value: number) => (scale === 1 ? `${plotNumber(value)}h` : clock(value, scale === 3600)),
+  }
 }

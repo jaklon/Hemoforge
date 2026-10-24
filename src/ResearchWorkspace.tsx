@@ -29,6 +29,7 @@ import Dashboard from "./Dashboard"
 
 import { sampleSteps } from "./guard-insights"
 
+
 import {
   SimulationPanel,
   ExperimentPlanner,
@@ -59,8 +60,10 @@ import {
   batchMeasurements,
   checkpointReports,
   demoSource,
+  liveHour,
   replayEndHour,
   screenProfiles,
+  wallTime,
 } from "./culture-monitoring"
 
 import { doeConditions, doeEffects, formatDoeValue } from "./culture-doe"
@@ -256,10 +259,6 @@ function ReplayControls({
 
   setPlaying,
 
-  speed,
-
-  setSpeed,
-
   replicate,
 
   sticky = false,
@@ -275,19 +274,19 @@ function ReplayControls({
   playing: boolean
 
   setPlaying: (playing: boolean) => void
-
-  speed: number
-
-  setSpeed: (speed: number) => void
 }) {
-  const { batchMeasurements, batchId, replayEndHour } = useCultureData()
+  const { batchMeasurements, batchId } = useCultureData()
 
   const steps = sampleSteps(batchMeasurements(replicate), hour)
 
+  // The latest data is now: the track ends at the current time, never at the run's end.
+  const now = liveHour()
+
+  // Leaving live pauses at the chosen time; the future past the clock is never shown.
   function move(next: number) {
     setPlaying(false)
 
-    setHour(next)
+    setHour(Math.min(next, liveHour()))
   }
 
   return (
@@ -296,30 +295,23 @@ function ReplayControls({
       aria-label="Replay controls"
     >
       <div className="replay-actions">
-        <Button
-          primary
-          onClick={() => {
-            if (hour === replayEndHour) setHour(0)
-
-            setPlaying(!playing)
-          }}
-        >
-          {playing ? "Pause" : hour === replayEndHour ? "Replay" : "Play"}
+        <Button primary onClick={() => setPlaying(!playing)}>
+          {playing ? "Pause" : "Go live"}
         </Button>
         <Button onClick={() => move(0)}>Reset</Button>
       </div>
       <div className="replay-track">
         <label htmlFor="replay-hour">
-          <span>Culture replay · {batchId(replicate)}</span>
-          <strong>
-            {Math.round(hour * 10) / 10}h <span>/ {replayEndHour}h</span>
-          </strong>
+          <span>
+            {playing ? "Live" : "Paused"} · {batchId(replicate)}
+          </span>
+          <strong>{wallTime(hour)}</strong>
         </label>
         <input
           id="replay-hour"
           type="range"
           min="0"
-          max={replayEndHour}
+          max={now}
           step="any"
           value={hour}
           onChange={(e) => move(Number(e.target.value))}
@@ -358,31 +350,14 @@ function ReplayControls({
           type="number"
           aria-label="Exact cutoff (hours)"
           min="0"
-          max={replayEndHour}
+          max={now}
           step="any"
           value={Math.round(hour * 10) / 10}
           onChange={(event) => {
             const value = Number(event.target.value)
 
-            if (Number.isFinite(value) && value >= 0 && value <= replayEndHour)
+            if (Number.isFinite(value) && value >= 0 && value <= now)
               move(value)
-          }}
-        />
-      </label>
-      <label className="replay-field">
-        Speed (h/sec)
-        <input
-          type="number"
-          aria-label="Replay speed (hours per second)"
-          min="0.01"
-          max="10000"
-          step="any"
-          value={speed}
-          onChange={(event) => {
-            const value = Number(event.target.value)
-
-            if (Number.isFinite(value) && value > 0 && value <= 10000)
-              setSpeed(value)
           }}
         />
       </label>
@@ -1302,7 +1277,6 @@ function ResearchWorkspaceContent() {
 
   const [playing, setPlaying] = useState(false)
 
-  const [speed, setSpeed] = useState(6)
 
   const [replicate, setReplicate] = useState(1)
 
@@ -1344,21 +1318,18 @@ function ResearchWorkspaceContent() {
     document.title = `${current.name} · HemoForge`
   }, [current.name])
 
+  // Live: the replay hour follows the wall clock (see liveStart), checked every second.
   useEffect(() => {
     if (!playing) return
 
-    const timer = window.setInterval(
-      () => setHour((value) => Math.min(replayEndHour, value + speed)),
+    const tick = () => setHour(liveHour())
 
-      1000,
-    )
+    tick()
+
+    const timer = window.setInterval(tick, 1000)
 
     return () => clearInterval(timer)
-  }, [playing, speed, replayEndHour])
-
-  useEffect(() => {
-    if (hour === replayEndHour) setPlaying(false)
-  }, [hour, replayEndHour])
+  }, [playing])
 
   useEffect(() => {
     function hashChanged() {
@@ -1369,8 +1340,6 @@ function ResearchWorkspaceContent() {
       setView(pages.some((item) => item.id === next) ? next as View : "guard")
 
       setMenuOpen(false)
-
-      setPlaying(false)
     }
 
     window.addEventListener("hashchange", hashChanged)
@@ -1383,7 +1352,8 @@ function ResearchWorkspaceContent() {
 
     setHour(0)
 
-    setPlaying(false)
+    // Data plays live by default; it pauses only when someone scrubs or presses Pause.
+    setPlaying(true)
 
     setEventNotes({})
   }, [source])
@@ -1398,8 +1368,6 @@ function ResearchWorkspaceContent() {
     setView(next)
 
     setMethodSection(detail)
-
-    setPlaying(false)
 
     setMenuOpen(false)
 
@@ -1626,8 +1594,6 @@ function ResearchWorkspaceContent() {
                 setHour={setHour}
                 playing={playing}
                 setPlaying={setPlaying}
-                speed={speed}
-                setSpeed={setSpeed}
                 replicate={replicate}
                 sticky
               />
@@ -1661,8 +1627,6 @@ function ResearchWorkspaceContent() {
                 setHour={setHour}
                 playing={playing}
                 setPlaying={setPlaying}
-                speed={speed}
-                setSpeed={setSpeed}
                 replicate={replicate}
                 sticky
               />
@@ -1676,8 +1640,6 @@ function ResearchWorkspaceContent() {
                 setHour={setHour}
                 playing={playing}
                 setPlaying={setPlaying}
-                speed={speed}
-                setSpeed={setSpeed}
                 replicate={replicate}
                 sticky
               />
@@ -1698,8 +1660,6 @@ function ResearchWorkspaceContent() {
                   setHour={setHour}
                   playing={playing}
                   setPlaying={setPlaying}
-                  speed={speed}
-                  setSpeed={setSpeed}
                   replicate={replicate}
                   sticky
                 />

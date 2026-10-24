@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Badge, Button, NumberField, PageTitle, Panel, Status } from "./workspace-ui"
 import InteractivePlot from "./InteractivePlot"
 import { useCultureData } from "./workspace-context"
-import { replayEndHour } from "./culture-monitoring"
+import { liveEndHour, wallTime } from "./culture-monitoring"
 import { boundRange, panRange, zoomRange, type Range } from "./plot-navigation"
 import {
   exchangeAction,
@@ -13,6 +13,9 @@ import {
   simulate,
   limitsKey,
   loadLimits,
+  measuredSamples,
+  reading,
+  readings,
   safeLimits,
   type Level,
   type Limits,
@@ -47,7 +50,7 @@ function limitLines(settings: Limits) {
   ].filter((line): line is { value: number; kind: string } => line.value !== null)
 }
 
-const extent: Range = [0, replayEndHour]
+const extent: Range = [0, liveEndHour]
 
 type Action = { hour: number; label: string; before: number; after: number; linkedFrom?: string }
 
@@ -63,7 +66,7 @@ function sampleTip(title: string, unit: string, digits: number, sample: Sample, 
   return {
     x: sample.hour,
     y: sample.value,
-    lines: [`${title} · ${sample.hour}h`, `${sample.value.toFixed(digits)} ${unit}`, ...(note ? [note] : [])],
+    lines: [`${title} · ${wallTime(sample.hour, false)}`, `${sample.value.toFixed(digits)} ${unit}`, ...(note ? [note] : [])],
   }
 }
 
@@ -80,8 +83,8 @@ function actionTip(action: Action, unit: string, digits: number) {
     ],
   }
 }
-// Narrowest zoom, so a few samples always stay on screen.
-const minSpan = 6
+// Narrowest zoom: two minutes of per-second readings.
+const minSpan = 2 / 60
 
 // Live view: the trailing window ending at the replay hour, like a dashboard's "last N hours".
 function liveRange(hour: number, span: number): Range {
@@ -173,10 +176,13 @@ function MiniChart({
 function LimitEditor({
   variable,
   settings,
+  measured,
   onChange,
 }: {
   variable: ProcessVariable
   settings: Limits
+  // Measured data is never corrected, so only the limits apply.
+  measured: boolean
   onChange: (next: Limits) => void
 }) {
   const problem = limitProblem(settings)
@@ -194,11 +200,12 @@ function LimitEditor({
   const row = (side: string, action: string, keys: (keyof Limits)[], sizeLabel: string) => (
     <div className="dash-limit-row">
       <p>
-        <strong>{side}</strong> · {action}
+        <strong>{side}</strong>
+        {!measured && <> · {action}</>}
       </p>
       {field(`Warn (${variable.unit})`, keys[0])}
       {field(`Action (${variable.unit})`, keys[1])}
-      {field(sizeLabel, keys[2])}
+      {!measured && field(sizeLabel, keys[2])}
     </div>
   )
   return (
@@ -212,14 +219,18 @@ function LimitEditor({
           exchange ? "Exchange (%)" : `Size (${variable.unit})`,
         )}
       <div className="dash-editor-footer">
-        <label className="inline-check">
-          <input
-            type="checkbox"
-            checked={settings.auto}
-            onChange={(event) => onChange({ ...settings, auto: event.target.checked })}
-          />
-          Automatic correction
-        </label>
+        {measured ? (
+          <span>Measured data · limits flag values, no automatic correction</span>
+        ) : (
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={settings.auto}
+              onChange={(event) => onChange({ ...settings, auto: event.target.checked })}
+            />
+            Automatic correction
+          </label>
+        )}
         <button type="button" className="text-button" onClick={() => onChange(variable.limits)}>
           Reset to defaults
         </button>
@@ -234,8 +245,10 @@ function LimitEditor({
 }
 
 // Cell count is measured, not simulated: it comes from the loaded batch data and uses
-// Bioreactor Guard's growth rules, so its card has no limits of its own.
+// Bioreactor Guard's growth rules, so its card has no limits of its own. Between counts it
+// reads like the other cards: linear between samples plus ±0.02 ×10⁶ cells noise.
 const countId = "cell-count"
+const countVariable = { id: countId, noise: 0.04 }
 
 export default function Dashboard({
   hour,
@@ -249,12 +262,17 @@ export default function Dashboard({
   const culture = useCultureData()
   const countState = culture.analyze(culture.batchMeasurements(replicate), hour)
   const countSamples = countState.valid.map((sample) => ({ hour: sample.hour, value: sample.count! }))
+  const countTrajectory = culture
+    .batchMeasurements(replicate)
+    .flatMap((row) => (row.count !== null && Number.isFinite(row.count) ? [{ hour: row.hour, value: row.count }] : []))
+  const countReadings = (from: number) =>
+    countTrajectory.length ? readings(countVariable, countTrajectory, from, hour) : []
   const countLevel: Level = countState.status === "warning" || countState.status === "needs_review" ? "warning" : "normal"
   const [limits, setLimits] = useState(loadLimits)
   const [selectedId, setSelectedId] = useState(processVariables[0].id)
   // null = live: follow the replay hour with a trailing window of `windowHours`.
   const [pinned, setPinned] = useState<Range | null>(null)
-  const [windowHours, setWindowHours] = useState(48)
+  const [windowHours, setWindowHours] = useState(5 / 60)
   const range = pinned ?? liveRange(hour, windowHours)
 
   useEffect(() => {
@@ -265,27 +283,36 @@ export default function Dashboard({
     }
   }, [limits])
 
-  const runs = useMemo(() => {
-    const safe = safeLimits(limits)
-    const results = simulate(safe, replayEndHour)
-    return processVariables.map((variable) => {
-      const run = results[variable.id]
-      const visible = run.samples.filter((sample) => sample.hour <= hour)
-      const current = visible.at(-1)!
-      return {
-        variable,
-        settings: safe[variable.id],
-        ...run,
-        visible,
-        current,
-        level: level(current.value, safe[variable.id]),
-        eta: safe[variable.id].auto ? null : hoursToAction(visible, safe[variable.id]),
-        done: run.actions.filter((action) => action.hour <= hour),
-      }
-    })
-  }, [limits, hour])
+  const rows = culture.batchMeasurements(replicate)
+  const measured = useMemo(() => measuredSamples(rows), [rows])
+  const results = useMemo(
+    () => simulate(safeLimits(limits), Math.ceil(culture.replayEndHour), measured),
+    [limits, measured, culture.replayEndHour],
+  )
+  const runs = processVariables.map((variable) => {
+    const settings = safeLimits(limits)[variable.id]
+    const run = results[variable.id]
+    const isMeasured = !!measured[variable.id]
+    // Hourly trajectory (data or simulation); cards and charts read it per second with noise.
+    const trajectory = measured[variable.id] ?? run.samples
+    const current = { hour, value: reading(variable, trajectory, hour) }
+    const visible = [...run.samples.filter((sample) => sample.hour < hour), current]
+    return {
+      variable,
+      settings,
+      ...run,
+      measured: isMeasured,
+      trajectory,
+      visible,
+      current,
+      level: level(current.value, settings),
+      eta: settings.auto && !isMeasured ? null : hoursToAction(visible, settings),
+      done: run.actions.filter((action) => action.hour <= hour),
+    }
+  })
 
   const selected = runs.find((run) => run.variable.id === selectedId)
+  const selectedReadings = selected ? readings(selected.variable, selected.trajectory, 0, hour) : []
   const log = runs
     .flatMap((run) => run.done.map((action) => ({ ...action, variable: run.variable })))
     .sort((a, b) => b.hour - a.hour || Number(!!a.linkedFrom) - Number(!!b.linkedFrom))
@@ -299,7 +326,13 @@ export default function Dashboard({
       <PageTitle
         title="Dashboard"
         description="Live process variables with warning limits, action limits, and automated corrections."
-        action={<Badge tone="warning">Process variables simulated · cell count from batch data</Badge>}
+        action={
+          <Badge tone="warning">
+            {runs.some((run) => run.measured)
+              ? `${runs.filter((run) => run.measured).map((run) => run.variable.name).join(", ")} and cell count from batch data · rest simulated`
+              : "Process variables simulated · cell count from batch data"}
+          </Badge>
+        }
       />
       {replayControls}
       <div className="dash-summary">
@@ -325,7 +358,7 @@ export default function Dashboard({
       <div className="dash-timebar">
         <fieldset className="guard-segmented">
           <legend className="sr-only">Time window</legend>
-          {[12, 24, 48, replayEndHour].map((span) => (
+          {[5 / 60, 1, 12, liveEndHour].map((span) => (
             <button
               key={span}
               type="button"
@@ -335,7 +368,7 @@ export default function Dashboard({
                 setPinned(null)
               }}
             >
-              {span === replayEndHour ? "All" : `Last ${span}h`}
+              {span === liveEndHour ? "All" : span < 1 ? `Last ${Math.round(span * 60)} min` : `Last ${span}h`}
             </button>
           ))}
         </fieldset>
@@ -357,7 +390,7 @@ export default function Dashboard({
           </Button>
         </span>
         <span className="dash-range">
-          {Math.round(range[0])}h – {Math.round(range[1])}h{pinned ? " · paused view" : " · following replay"}
+          {wallTime(range[0], false)} – {wallTime(range[1], false)}{pinned ? " · paused view" : " · following replay"}
         </span>
         <span className="dash-hint">Hover a chart for values · scroll to zoom · drag to pan</span>
       </div>
@@ -373,16 +406,23 @@ export default function Dashboard({
               <span className="sr-only"> · {levelLabel[countLevel]}</span>
             </span>
             <span className="dash-value">
-              {countState.latest ? countState.latest.count!.toFixed(2) : "—"}
+              {countTrajectory.length ? reading(countVariable, countTrajectory, hour).toFixed(2) : "—"}
               <small>×10⁶ cells</small>
             </span>
           </button>
-          {/* Fixed full run (0h to end of data), independent of the shared window. With a live
-              stream the right edge would grow with the newest sample. */}
-          <MiniChart title="Cell count" unit="×10⁶ cells" digits={2} samples={countSamples} actions={[]} hour={hour} range={extent} dots />
+          <MiniChart
+            title="Cell count"
+            unit="×10⁶ cells"
+            digits={2}
+            samples={countReadings(range[0])}
+            actions={[]}
+            hour={hour}
+            range={range}
+            onRange={setPinned}
+          />
           <span className="dash-card-foot">
             {countState.latest
-              ? `${culture.batchId(replicate)} · sampled ${countState.latest.hour}h${
+              ? `${culture.batchId(replicate)} · counted ${wallTime(countState.latest.hour, false)}${
                   countState.foldChange !== null ? ` · ${countState.foldChange.toFixed(1)}× since start` : ""
                 }`
               : "No count measured yet"}
@@ -408,7 +448,7 @@ export default function Dashboard({
               title={run.variable.name}
               unit={run.variable.unit}
               digits={run.variable.digits}
-              samples={run.samples}
+              samples={readings(run.variable, run.trajectory, range[0], Math.min(range[1], hour))}
               actions={run.actions}
               settings={run.settings}
               hour={hour}
@@ -416,7 +456,9 @@ export default function Dashboard({
               onRange={setPinned}
             />
             <span className="dash-card-foot">
-              {!run.settings.auto
+              {run.measured
+                ? `Measured · ${run.eta !== null ? `action limit in ~${Math.round(run.eta)}h` : "linear between samples"}`
+                : !run.settings.auto
                 ? run.eta !== null
                   ? `Manual · action limit in ~${Math.round(run.eta)}h`
                   : "Manual · no limit approaching"
@@ -436,15 +478,15 @@ export default function Dashboard({
         <div className="dash-detail-body">
         <InteractivePlot
           title={`${selected.variable.name} chart`}
-          xExtent={[0, replayEndHour]}
+          xExtent={extent}
           fromZero={false}
           values={[
-            ...selected.visible.map((sample) => sample.value),
+            ...selectedReadings.map((sample) => sample.value),
             ...limitLines(selected.settings).map((line) => line.value),
           ]}
           yLabel={`${selected.variable.name}${selected.variable.unit ? ` (${selected.variable.unit})` : ""}`}
           points={[
-            ...selected.visible.map((sample) =>
+            ...selectedReadings.map((sample) =>
               sampleTip(selected.variable.name, selected.variable.unit, selected.variable.digits, sample, selected.settings),
             ),
             ...selected.done.map((action) => actionTip(action, selected.variable.unit, selected.variable.digits)),
@@ -462,7 +504,7 @@ export default function Dashboard({
                 </g>
               ))}
               <polyline
-                points={selected.visible.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
+                points={selectedReadings.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
                 className="dash-line"
               />
             </>
@@ -471,6 +513,7 @@ export default function Dashboard({
         <LimitEditor
           variable={selected.variable}
           settings={limits[selected.variable.id]}
+          measured={selected.measured}
           onChange={(next) => setLimits({ ...limits, [selected.variable.id]: next })}
         />
         </div>
@@ -480,19 +523,19 @@ export default function Dashboard({
           <div className="dash-detail-body">
             <InteractivePlot
               title="Cell count chart"
-              xExtent={[0, replayEndHour]}
-              values={countSamples.map((sample) => sample.value)}
+              xExtent={extent}
+              values={[...countReadings(0), ...countSamples].map((sample) => sample.value)}
               yLabel="Cell count (×10⁶ cells)"
               points={countSamples.map((sample) => ({
                 x: sample.hour,
                 y: sample.value,
-                lines: [`${sample.hour}h`, `${sample.value.toFixed(2)} ×10⁶ cells`],
+                lines: [`Counted ${wallTime(sample.hour, false)}`, `${sample.value.toFixed(2)} ×10⁶ cells`],
               }))}
             >
               {({ x, y }) => (
                 <>
                   <polyline
-                    points={countSamples.map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
+                    points={countReadings(0).map((sample) => `${x(sample.hour)},${y(sample.value)}`).join(" ")}
                     className="dash-line"
                   />
                   {countSamples.map((sample) => (
