@@ -1,0 +1,31 @@
+{
+  "name": "HemoForge BIOSTAT STR Gen 2 inspired cutaway",
+  "version": 1,
+  "license": "CC0-1.0",
+  "author": "HemoForge project contributors",
+  "source": "assets/blender/build_biostat.py",
+  "blender": "5.2.2 LTS",
+  "glb_bytes": 1560860,
+  "meshes": 20,
+  "triangles": 42160,
+  "runtime_nodes": [
+    "HF_Impeller",
+    "HF_Liquid",
+    "HF_Bag",
+    "HF_ViaMass_Legacy"
+  ],
+  "units": "meters; illustrative proportions, not manufacturer CAD",
+  "textures": [
+    {
+      "name": "HF_original_brushed_roughness",
+      "size": [
+        512,
+        512
+      ],
+      "license": "CC0-1.0",
+      "source": "Original seeded numerical grain, generated locally"
+    }
+  ],
+  "reference": "https://www.sartorius.com/en/company/newsroom/product-news/16302-16302",
+  "reference_usage": "Visual reference only. No vendor mesh, texture, logo or CAD redistributed."
+}

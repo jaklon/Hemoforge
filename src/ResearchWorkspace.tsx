@@ -1546,6 +1546,7 @@ function ResearchWorkspaceContent() {
           ))}
         </nav>
         <nav className="nav-signout" aria-label="Account">
+          <a href="#poc" target="_blank" rel="noopener"><Icon name="dna" /><strong>PoC & Simulation ↗</strong></a>
           <a
             href="#account"
             title={
