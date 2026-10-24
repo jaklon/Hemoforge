@@ -9,6 +9,8 @@ set -euo pipefail
 main() {
   cd "$(dirname "$0")/.."
   git pull --ff-only
+  # *.png etc. are Git LFS (.gitattributes); without this public/ ships pointer files.
+  git lfs pull
   .venv/bin/python -m pip install -q -r requirements.txt
   pnpm install --frozen-lockfile
   npm run build
