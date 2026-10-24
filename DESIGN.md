@@ -46,6 +46,18 @@ Keep the established navy navigation and red culture accent. The distinctive
 visual element is selectable batch cards with source-only sparklines, paired with
 a sample-timed comparison chart and an auditable warning review. No marketing hero or decorative media.
 
+## Public marketing pages
+
+`src/landing.css` owns the existing dark marketing theme, separate from workspace
+tokens. Keep its established identity for content fixes. Book a demo opens the
+Work with us inquiry form; Explore demo scrolls to the public, illustrative Guard
+replay; Sign in opens the authenticated workspace gate. Keep the primary header
+action visible on phones and put secondary navigation in an accessible menu.
+The product roadmap
+uses Available, Pilot and Planned; GenoHack history belongs in About.
+Scientific claims link to their primary sources, and illustrative preview samples
+are explicitly labeled.
+
 ## Colors
 
 `src/index.css` is the runtime token owner (ownership model B). Map primary to

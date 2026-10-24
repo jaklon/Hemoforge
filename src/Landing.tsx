@@ -4,6 +4,7 @@ import "@fontsource-variable/fraunces"
 import "@fontsource-variable/jetbrains-mono"
 import "./landing.css"
 import { Icon } from "./workspace-ui"
+import { sourceReferences } from "./source-references"
 
 // Marketing page shown before the workspace. Facts follow the GenoHack 2026
 // proposal "HemoForge: HemoGPT untuk Monitoring dan Analisis Proses Blood Biofactory".
@@ -11,23 +12,22 @@ import { Icon } from "./workspace-ui"
 const LandingCells = lazy(() => import("./LandingCells"))
 
 const sections = [
-  ["problem", "Problem"],
   ["platform", "Platform"],
-  ["guard", "Guard"],
-  ["integrity", "Integrity"],
-  ["audience", "Who it's for"],
+  ["guard", "Explore demo"],
+  ["roadmap", "Roadmap"],
+  ["about", "About"],
   ["faq", "FAQ"],
 ] as const
 
 const sources = [
-  "University of Bath · BEL-A",
-  "NCBI GEO · GSE53983",
-  "1000 Genomes Phase 3",
-  "Ensembl · GRCh38",
-  "NVIDIA · Evo 2",
-  "ICH Q9(R1)",
-  "WHO TRS 1033",
-  "ICH Q8(R2)",
+  { name: "University of Bath · BEL-A", url: sourceReferences[0].url },
+  { name: "NCBI GEO · GSE53983", url: sourceReferences[1].url },
+  { name: "1000 Genomes Phase 3", url: sourceReferences[2].url },
+  { name: "Ensembl · GRCh38", url: "https://www.ensembl.org/Homo_sapiens/Info/Index" },
+  { name: "NVIDIA · Evo 2", url: "https://build.nvidia.com/arc/evo2-40b" },
+  { name: "ICH Q9(R1)", url: "https://database.ich.org/sites/default/files/ICH_Q9(R1)_Guideline_Step4_2023_0126_0.pdf" },
+  { name: "WHO TRS 1033 · Annex 4", url: "https://www.who.int/publications/m/item/annex-4-trs-1033" },
+  { name: "ICH Q8(R2)", url: "https://database.ich.org/sites/default/files/Q8_R2_Guideline.pdf" },
 ]
 
 const challenges = [
@@ -128,18 +128,21 @@ const notList = [
 const datasets = [
   {
     tag: "Culture",
+    url: sourceReferences[0].url,
     name: "BEL-A cell line",
     org: "University of Bath · CC BY 4.0",
     facts: ["Growth curve: 3 replicates × 8 time points", "Metabolite DOE: 12 runs, 4 lactate–ammonia conditions", "Static culture, observed to ~171 h"],
   },
   {
     tag: "Transcriptome",
+    url: sourceReferences[1].url,
     name: "GSE53983",
     org: "NCBI GEO · An et al., Blood 2014",
     facts: ["Human terminal erythroid differentiation", "RNA-seq, 3 replicates per stage", "log₂(CPM+1) → L2 logistic regression"],
   },
   {
     tag: "Genomics",
+    url: sourceReferences[2].url,
     name: "1000 Genomes & Ensembl",
     org: "Phase 3 · GRCh38 · release 116",
     facts: ["KEL rs8176058 · SLC14A1 rs1058396", "1,000 reference/alternate sequence pairs", "Missing or ambiguous calls → unknown"],
@@ -147,10 +150,9 @@ const datasets = [
 ]
 
 const roadmap = [
-  { when: "23 Oct 2026", title: "Foundations", body: "Data structures, source manifest, BEL-A adapter and the Guard skeleton." },
-  { when: "24 Oct 2026", title: "Replay & reports", body: "Multi-batch charts, replay, warning rules, ErythroPilot reports, CulturePlan and RareMatch." },
-  { when: "25 Oct 2026", title: "Proof", body: "Testing, the offline demo, a review of every claim, and the pitch." },
-  { when: "After GenoHack", title: "Into the lab", body: "Real bioreactor sensors, longitudinal maturation datasets, externally validated 21-day forecasting, genomic and phenotypic QC records." },
+  { status: "Available", title: "Research workspace", body: "Public interactive preview; signed-in access to dataset imports, multi-batch replay, traceable warnings and checkpoint reports.", detail: "Research prototype · example data is labeled" },
+  { status: "Pilot", title: "Your data, reviewed together", body: "Proposed collaboration: agree a dataset, configure a research workflow and review its outputs with your team. Scope and access are confirmed before a pilot starts.", detail: "By agreement · request a scoped proposal" },
+  { status: "Planned", title: "Lab connections & validation", body: "Sensor and LIMS connectors, longitudinal maturation datasets and external forecast validation. These require further development and laboratory evidence.", detail: "No committed release date" },
 ]
 
 const team = [
@@ -261,10 +263,24 @@ function Counter({ to, decimals = 0, suffix = "" }: { to: number; decimals?: num
 }
 
 // Replays the illustrative samples; points appear only once the cursor reaches them.
-function GuardMock() {
+function GuardMock({ interactive = false }: { interactive?: boolean }) {
   const [ref, inView] = useInView<HTMLDivElement>(0.25)
   const [hour, setHour] = useState(171)
+  const [playing, setPlaying] = useState(false)
   useEffect(() => {
+    if (interactive) {
+      if (!inView || !playing) return
+      let h = hour
+      const timer = setInterval(() => {
+        h = Math.min(h + 1.4, 171)
+        setHour(h)
+        if (h >= 171) {
+          setPlaying(false)
+          clearInterval(timer)
+        }
+      }, 40)
+      return () => clearInterval(timer)
+    }
     if (!inView || matchMedia("(prefers-reduced-motion: reduce)").matches) return
     let h = 0
     const timer = setInterval(() => {
@@ -272,7 +288,9 @@ function GuardMock() {
       setHour(Math.min(h, 171))
     }, 40)
     return () => clearInterval(timer)
-  }, [inView])
+  }, [inView, interactive, playing])
+
+  const replaying = playing && hour < 171
 
   const x = (h: number) => 34 + (h / 171) * 274
   const y = (v: number) => 112 - (v / 35) * 96
@@ -284,7 +302,7 @@ function GuardMock() {
       <div className="lp-mock-bar">
         <span className="lp-dots"><i /><i /><i /></span>
         <span className="lp-mock-title">Bioreactor Guard</span>
-        <span className="lp-pill replay"><b />Replay · BEL-A</span>
+        <span className="lp-pill replay"><b />Illustrative replay</span>
       </div>
       <div className="lp-mock-body">
         <div className="lp-batches">
@@ -341,6 +359,18 @@ function GuardMock() {
           </div>
           <span className="lp-status needs_review">needs_review</span>
         </div>
+        {interactive && (
+          <div className="lp-demo-controls">
+            <p>Illustrative samples, not a downloaded BEL-A run. No account or lab data needed.</p>
+            <div className="lp-actions">
+              <button className="lp-btn ghost sm" onClick={() => {
+                if (hour >= 171) setHour(0)
+                setPlaying(!replaying)
+              }}>{replaying ? "Pause replay" : "Play replay"}</button>
+              <button className="lp-btn ghost sm" onClick={() => { setPlaying(false); setHour(0) }}>Reset replay</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -492,6 +522,17 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   const [menu, setMenu] = useState(false)
 
   useEffect(() => {
+    if (!menu) return
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setMenu(false)
+      root.current?.querySelector<HTMLButtonElement>(".lp-menu")?.focus()
+    }
+    addEventListener("keydown", close)
+    return () => removeEventListener("keydown", close)
+  }, [menu])
+
+  useEffect(() => {
     const el = root.current!
     const reveal = new IntersectionObserver(
       (entries) =>
@@ -524,26 +565,32 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   // Section links scroll instead of setting the hash, which belongs to the workspace.
   function go(id: string) {
     setMenu(false)
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
+    const target = document.getElementById(id)
+    target?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" })
+    const heading = target?.querySelector<HTMLElement>("h2")
+    heading?.setAttribute("tabindex", "-1")
+    heading?.focus({ preventScroll: true })
   }
 
   return (
     <div className="lp" ref={root}>
       <header className={`lp-nav${scrolled ? " scrolled" : ""}${menu ? " open" : ""}`}>
         <div className="lp-nav-inner">
-          <button className="lp-brand" onClick={() => scrollTo({ top: 0, behavior: "smooth" })}>
+          <button className="lp-brand" aria-label="HemoForge home" onClick={() => scrollTo({ top: 0, behavior: "smooth" })}>
             <Logo />
             <span>HemoForge</span>
           </button>
-          <nav aria-label="Sections">
+          <nav id="landing-navigation" aria-label="Sections">
             {sections.map(([id, label]) => (
               <button key={id} onClick={() => go(id)}>{label}</button>
             ))}
+            <a href="#work-with-us">Work with us</a>
+            <button className="lp-mobile-sign-in" onClick={onEnter}>Sign in</button>
           </nav>
           <div className="lp-nav-cta">
-            <button className="lp-btn ghost sm" onClick={() => (location.hash = "work-with-us")}>Work with us</button>
-            <button className="lp-btn primary sm" onClick={onEnter}>Launch workspace</button>
-            <button className="lp-menu" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <button className="lp-btn ghost sm lp-sign-in" onClick={onEnter}>Sign in</button>
+            <a className="lp-btn primary sm" href="#work-with-us">Book a demo</a>
+            <button className="lp-menu" aria-label={menu ? "Close menu" : "Open menu"} aria-controls="landing-navigation" aria-expanded={menu} onClick={() => setMenu(!menu)}>
               <LocalIcon name={menu ? "x" : "menu"} />
             </button>
           </div>
@@ -557,7 +604,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="lp-wrap lp-hero-inner">
           <div className="lp-hero-copy">
             <span className="lp-badge lp-rise" style={{ "--d": 0 } as CSSProperties}>
-              <b>New</b> GenoHack 2026 · research preview
+              Research preview · HemoForge
             </span>
             <h1 className="lp-rise" style={{ "--d": 1 } as CSSProperties}>
               The command center for <em>lab-grown blood.</em>
@@ -567,15 +614,13 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
               interpretation in one auditable workspace for cultured red blood cell research.
             </p>
             <div className="lp-actions lp-rise" style={{ "--d": 3 } as CSSProperties}>
-              <button className="lp-btn primary lg" onClick={onEnter}>
-                Launch workspace <LocalIcon name="arrow" />
-              </button>
-              <button className="lp-btn ghost lg" onClick={() => go("platform")}>Explore the platform</button>
+              <a className="lp-btn primary lg" href="#work-with-us">Book a demo <LocalIcon name="arrow" /></a>
+              <button className="lp-btn ghost lg" onClick={() => go("guard")}>Explore demo</button>
             </div>
             <ul className="lp-proof lp-rise" style={{ "--d": 4 } as CSSProperties}>
-              <li><LocalIcon name="check" /> Replays real, citable data</li>
-              <li><LocalIcon name="check" /> No invented measurements</li>
-              <li><LocalIcon name="check" /> Every number traceable</li>
+              <li><LocalIcon name="check" /> Try the preview without an account</li>
+              <li><LocalIcon name="check" /> Illustrative data clearly labeled</li>
+              <li><LocalIcon name="check" /> Source references you can open</li>
             </ul>
           </div>
         </div>
@@ -584,11 +629,9 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
 
 
       <section className="lp-sources" aria-label="Data sources and frameworks">
-        <p>Built on open, citable science and recognised quality frameworks</p>
-        <div className="lp-marquee">
-          <div>
-            {[...sources, ...sources].map((s, i) => <span key={i} aria-hidden={i >= sources.length}>{s}</span>)}
-          </div>
+        <p>Research references and quality frameworks · referenced, not certified</p>
+        <div className="lp-source-links lp-wrap">
+          {sources.map((source) => <a key={source.name} href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a>)}
         </div>
       </section>
 
@@ -608,7 +651,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
                 <div><strong><Counter to={4.4} decimals={1} suffix="M" /></strong><span>bags available in 2025</span></div>
                 <div><strong className="red"><Counter to={21} suffix="%" /></strong><span>of estimated need unmet</span></div>
               </div>
-              <p className="lp-cite">Kementerian Kesehatan RI, January 2026. Figures apply to that year and definition.</p>
+              <p className="lp-cite"><a href="https://keslan.kemkes.go.id/read/3342/kemenkes-gelar-donor-darah-sukarela-perkuat-ketersediaan-darah-nasional" target="_blank" rel="noreferrer">Kementerian Kesehatan RI, January 2026 ↗</a>. Gap and percentage calculated from the reported 2025 figures.</p>
             </div>
             <div className="lp-bags" data-reveal aria-label="56 drops: 44 filled for bags available, 12 empty for the gap">
               {Array.from({ length: 56 }, (_, i) => (
@@ -648,6 +691,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
               still needs development and validation, and at research scale the bottleneck is not only biology: it is
               fragmented data and late interpretation.
             </p>
+            <p className="lp-cite"><a href="https://www.nhsbt.nhs.uk/clinical-trials-unit/trials-and-studies/blood-and-transfusion/restore/" target="_blank" rel="noreferrer">RESTORE trial · NHS Blood and Transplant ↗</a></p>
           </div>
           <div className="lp-bento">
             {challenges.map((c, i) => (
@@ -689,7 +733,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       <section id="guard" className="lp-section">
         <div className="lp-wrap lp-split wide">
           <div className="lp-sticky" data-reveal>
-            <span className="lp-eyebrow teal">Bioreactor Guard</span>
+            <span className="lp-eyebrow teal">Explore demo · no sign-in required</span>
             <h2>See every batch. <em>Trust every warning.</em></h2>
             <p className="lp-muted">
               The research command center. Batch cards show the cell line, culture time, source, last update, cell count
@@ -702,7 +746,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
           <div className="lp-guard-side">
-            <div data-reveal><GuardMock /></div>
+            <div data-reveal><GuardMock interactive /></div>
             <div className="lp-rules" data-reveal>
               <h3>Warning rules, each with a reason you can inspect</h3>
               <ol>
@@ -856,36 +900,45 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
                 <h3>{d.name}</h3>
                 <span className="lp-mono lp-org">{d.org}</span>
                 <ul>{d.facts.map((f) => <li key={f}>{f}</li>)}</ul>
+                <a className="lp-reference" href={d.url} target="_blank" rel="noreferrer">Open dataset ↗</a>
+                {d.tag === "Genomics" && <a className="lp-reference" href={sources[3].url} target="_blank" rel="noreferrer">Ensembl reference assembly ↗</a>}
+                {d.tag === "Culture" && <a className="lp-reference" href="https://onlinelibrary.wiley.com/doi/10.1002/btm2.70026" target="_blank" rel="noreferrer">Read the BEL-A publication ↗</a>}
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="lp-section">
+      <section id="roadmap" className="lp-section">
         <div className="lp-wrap">
           <div className="lp-head" data-reveal>
             <span className="lp-eyebrow amber">Roadmap</span>
-            <h2>Built in three days. <em>Designed for the lab.</em></h2>
+            <h2>The product, <em>step by step.</em></h2>
+            <p className="lp-muted">What you can use now, discuss with us, and expect us to develop next.</p>
           </div>
           <ol className="lp-roadmap">
             {roadmap.map((r, i) => (
-              <li key={r.title} data-reveal style={{ "--d": i } as CSSProperties} className={i === 3 ? "next" : ""}>
-                <span className="lp-mono">{r.when}</span>
+              <li key={r.title} data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className={`lp-roadmap-status ${r.status.toLowerCase()}`}>{r.status}</span>
                 <h3>{r.title}</h3>
                 <p>{r.body}</p>
+                <p className="lp-roadmap-detail">{r.detail}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      <section className="lp-section">
+      <section id="about" className="lp-section">
         <div className="lp-wrap">
           <div className="lp-head center" data-reveal>
-            <span className="lp-eyebrow">Team</span>
+            <span className="lp-eyebrow">About</span>
             <h2>Team <em>HemoForge</em></h2>
-            <p className="lp-muted">GenoHack 2026</p>
+            <p className="lp-muted">HemoForge began as a GenoHack 2026 research prototype, built around a practical question: how can a lab review culture data with an evidence trail?</p>
+            <details className="lp-origin">
+              <summary>GenoHack origins</summary>
+              <p>The original 23–25 October 2026 sprint covered source manifests, culture-data adapters, replay, warnings and checkpoint reporting, followed by demo review and a pitch. This is our project history; product availability is listed in the roadmap above.</p>
+            </details>
           </div>
           <div className="lp-team">
             {team.map((name, i) => {
@@ -922,10 +975,11 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="lp-final-glow" />
         <div className="lp-wrap" data-reveal>
           <h2>Bring evidence to <em>every culture.</em></h2>
-          <p className="lp-muted">Open the workspace and replay a real BEL-A run, checkpoint by checkpoint.</p>
+          <p className="lp-muted">Explore the public preview or talk through a research workflow with our team. Existing users can sign in to their workspace.</p>
           <div className="lp-actions center">
-            <button className="lp-btn primary lg" onClick={onEnter}>Launch workspace <LocalIcon name="arrow" /></button>
-            <button className="lp-btn ghost lg" onClick={() => go("platform")}>Tour the modules</button>
+            <a className="lp-btn primary lg" href="#work-with-us">Book a demo <LocalIcon name="arrow" /></a>
+            <button className="lp-btn ghost lg" onClick={() => go("guard")}>Explore demo</button>
+            <button className="lp-link" onClick={onEnter}>Sign in</button>
           </div>
         </div>
       </section>
