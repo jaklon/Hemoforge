@@ -210,3 +210,20 @@ equipment shadows and subtle floor contact occlusion. The existing FPS meter
 shows actual browser performance; Balanced mode automatically lowers both pixel
 ratio and shadow resolution when needed. All lighting is generated locally,
 without paid assets, external HDRI downloads or additional dependencies.
+
+## Inspect the liquid and hoses
+
+Choose **02 BIOSTAT STR** and **Perluas 3D** to see the transparent medium,
+shallow surface waves, sparger bubble plumes, small surface rings and circulation
+tracers. The submerged impeller's commanded RPM drives mixing; volume controls
+the mean level. Bubble and tracer motion is illustrative rather than measured
+CFD or a cell-count display. Bubble count does not encode the oxygen fraction.
+
+The liquid hoses now contain a continuous medium core behind a translucent wall.
+Moving glints show commanded direction/speed without representing pockets of
+air. Trace flows during normal valid operation; feed and retention paths move
+only during the corresponding confirmed Guard transfer. A closed line stays
+filled with stationary contents. Pause freezes the fluid, bubbles, surface rings
+and transport; **Kurangi gerakan** freezes their visual clocks while the visible
+culture clock continues. Balanced quality reduces bubble/tracer counts to keep
+the browser responsive. All geometry, shaders and materials are local and free.

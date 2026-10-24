@@ -4,8 +4,10 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
 import type { LabSnapshot } from "./lab-session"
 import { lastSensor, sensorUsable } from "./biostat-data"
-import { liquidHeight, renderedSeconds, stirrerAngle } from "./biostat-animation"
+import { renderedSeconds, stirrerAngle } from "./biostat-animation"
 import { flowPhase, processPresentation, type FlowKind } from "./process-animation"
+import { createCultureFluid, createHoseMedium } from "./fluid-rendering"
+import { hoseDistance } from "./fluid-motion"
 import { canInspect, InspectionClock } from "./operator-hands"
 import type { HandStation } from "./operator-hands"
 import { EYE_HEIGHT, WALK_SPAWN, mouseLook, walkStep } from "./lab-navigation"
@@ -282,16 +284,7 @@ export default function BiostatScene(props: Props) {
       depthWrite: false,
     })
     cyl(fallback, 0.655, 1.48, [0, 1.2, 0], bagMat)
-    const liquidMat = new THREE.MeshPhysicalMaterial({
-      color: "#b96855",
-      roughness: 0.23,
-      transparent: true,
-      opacity: 0.42,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    })
-    let liquid: THREE.Object3D = cyl(fallback, 0.625, 1.0, [0, 0.98, 0], liquidMat)
-    let blenderLoaded = false
+    const cultureFluid = createCultureFluid(reactor)
     for (const y of [0.45, 1.95]) {
       const ring = mesh(
         fallback,
@@ -341,25 +334,6 @@ export default function BiostatScene(props: Props) {
       const y = 0.62 + i * 0.2
       box(fallback, [0.06, 0.012, 0.02], [-0.59, y, 0.32], white)
     }
-    const bubbleMat = new THREE.MeshStandardMaterial({
-      color: "#adf2ff",
-      transparent: true,
-      opacity: 0.7,
-      emissive: "#166581",
-      emissiveIntensity: 0.3,
-    })
-    const bubbles = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(0.014, 8, 6),
-      bubbleMat,
-      100,
-    )
-    reactor.add(bubbles)
-    const cells = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(0.018, 8, 6),
-      mat("#9b3945", 0, 0.8),
-      90,
-    )
-    reactor.add(cells)
     const marker = new THREE.Object3D()
     const tower = new THREE.Group()
     tower.position.set(0.15, 0, -1.05)
@@ -418,17 +392,35 @@ export default function BiostatScene(props: Props) {
     // Static hoses + instanced directional markers. Arc-length lookup tables
     // are baked once; no curve evaluation or object allocation in the frame loop.
     const paths: {
-      particles: THREE.InstancedMesh
+      particles: THREE.InstancedMesh | null
       points: THREE.Vector3[]
       rotations: THREE.Quaternion[]
       kind: FlowKind
       phase: number
+      distance: number
+      travel?: { value: number }
     }[] = []
     function circuit(points: number[][], color: THREE.Material, kind: FlowKind) {
       const curve = new THREE.CatmullRomCurve3(
         points.map((p) => new THREE.Vector3(...p as [number, number, number])),
       )
       const data = kind === "traceData" || kind === "viaData"
+      const medium = ["trace","feed","waste","base","acid"].includes(kind)
+      if (medium) {
+        const tint = color instanceof THREE.MeshStandardMaterial ? color.color : new THREE.Color("#b8d8d2")
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: tint.clone().lerp(new THREE.Color("#f1f6ef"),.5),
+          roughness:.18, transparent:true, opacity:.26, depthWrite:false })
+        mesh(scene,new THREE.TubeGeometry(curve,64,.018,6,false),wallMaterial,[0,0,0])
+        const fill = createHoseMedium(new THREE.Color(kind === "base" || kind === "acid" ? "#d3e5df" : "#cca989").lerp(tint,.12))
+        const core = new THREE.TubeGeometry(curve,64,.012,6,false)
+        const lengths = curve.getLengths(64)
+        const uv = core.getAttribute("uv")
+        for(let row=0;row<=64;row++) for(let side=0;side<=6;side++) uv.setX(row*7+side,lengths[row])
+        const contents = mesh(scene,core,fill.material,[0,0,0])
+        contents.castShadow = false
+        paths.push({particles:null,points:[],rotations:[],kind,phase:0,distance:0,travel:fill.travel})
+        return
+      }
       mesh(
         scene,
         new THREE.TubeGeometry(curve, 64, data ? .009 : .018, 6, false),
@@ -447,7 +439,7 @@ export default function BiostatScene(props: Props) {
       const samples = curve.getSpacedPoints(96)
       const up = new THREE.Vector3(0,1,0)
       const rotations = samples.map((_, i) => new THREE.Quaternion().setFromUnitVectors(up, curve.getTangentAt(i/96).normalize()))
-      paths.push({ particles, points: samples, rotations, kind, phase: 0 })
+      paths.push({ particles, points: samples, rotations, kind, phase: 0, distance: 0 })
     }
     // O2/N2 are the virtual gas blend. AIR remains an unused reserve cylinder.
     box(scene, [.55,.12,.15], [-3.23,1.66,-1.8], steel)
@@ -731,8 +723,9 @@ export default function BiostatScene(props: Props) {
         fallback.visible = false
         // Rebind to exported transform nodes, not baked Blender animation.
         impellers = shaft
-        liquid = fluid
-        blenderLoaded = true
+        // Retain the original Blender binding, but replace its flat liquid with
+        // the shared GPU-deformed body/cap used by both Blender and fallback.
+        fluid.visible = false
         current.current.onAssetState("biostat", "blender")
       },
       undefined,
@@ -938,7 +931,6 @@ moved: boolean } | null = null,
     let animation = 0,
       last = performance.now(),
       gasElapsed = 0,
-      mixingElapsed = 0,
       lastPaint = 0,
       previousStation = props.station
     let angle = 0, traceElapsed = 0, handElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
@@ -1053,7 +1045,6 @@ moved: boolean } | null = null,
         camera.lookAt(look.clone().add(new THREE.Vector3(yaw * 3, -pitch * 3, 0)))
       }
       gasElapsed += processSeconds * process.rates.gas
-      mixingElapsed += processSeconds * process.rpm / 100
       if (!inspection.active || inspectionAvailable) handElapsed += motionSeconds
       const idle = current.current.reducedMotion ? 0 : Math.sin(handElapsed * 1.25) * .003
       gloveRoots.forEach((root, index) => {
@@ -1097,36 +1088,7 @@ moved: boolean } | null = null,
       thermalField.visible = process.available && process.thermal !== 0
       thermalMat.color.set(process.thermal > 0 ? "#ea9b62" : "#67c8eb")
       thermalMat.opacity = .15 + Math.abs(process.thermal)/100 * (.3 + .15*Math.sin(gasElapsed*3))
-      const height = liquidHeight(s?.working_volume_ml ?? 12500)
-      liquid.scale.y = height
-      if (!blenderLoaded) liquid.position.y = 0.48 + height / 2
-      for (let i = 0; i < 100; i++) {
-        const f = (gasElapsed * 0.38 + i / 100) % 1,
-          angle = i * 2.399 + gasElapsed * 0.3
-        marker.position.set(
-          Math.cos(angle) * (0.12 + (i % 7) * 0.045),
-          0.5 + f * height * 0.92,
-          Math.sin(angle) * (0.12 + (i % 7) * 0.045),
-        )
-        marker.scale.setScalar(0.5 + f * 0.6)
-        marker.updateMatrix()
-        bubbles.setMatrixAt(i, marker.matrix)
-      }
-      bubbles.instanceMatrix.needsUpdate = true
-      bubbles.visible = process.rates.gas > 0
-      for (let i = 0; i < 90; i++) {
-        const a = i * 2.399 + mixingElapsed * (0.22 + (i % 5) * 0.03),
-          r = 0.16 + (i % 9) * 0.045
-        marker.position.set(
-          Math.cos(a) * r,
-          0.53 + ((i * 0.618 + mixingElapsed * 0.08) % 1) * height * 0.85,
-          Math.sin(a) * r,
-        )
-        marker.scale.set(1, 0.45, 1)
-        marker.updateMatrix()
-        cells.setMatrixAt(i, marker.matrix)
-      }
-      cells.instanceMatrix.needsUpdate = true
+      cultureFluid.update(s?.working_volume_ml ?? 0,rpm,process.rates.gas,processSeconds,true,quality === "balanced")
       rotorGroups.forEach((rotor, i) => {
         const rate = [process.rates.feed,process.rates.base,process.rates.acid][i]
         rotor.rotation.z = (rotor.rotation.z - processSeconds*rate*3) % (Math.PI*2)
@@ -1135,6 +1097,11 @@ moved: boolean } | null = null,
         const { particles,points,rotations,kind } = path
         const pulse = kind === "traceData" ? tracePulse : kind === "viaData" ? viaPulse : 1
         const rate = process.rates[kind]
+        if (path.travel) {
+          path.distance = hoseDistance(path.distance,rate,processSeconds,true)
+          path.travel.value = path.distance
+        }
+        if (!particles) return
         particles.visible = rate > 0 && pulse > 0
         if (!particles.visible) return
         path.phase = flowPhase(path.phase,rate,processSeconds,true)

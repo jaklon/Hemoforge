@@ -218,12 +218,60 @@ lab equipment remain standby because their protocols are not modeled. Core
 sensor QC faults do not invent an actuator safety interlock: existing AUTO
 commands keep driving the virtual equipment, while the sensor overlay shows QC.
 
-Hoses/cables remain fixed while contents move in their correct direction. Each
-route uses one eight-instance marker mesh and a precomputed 97-point arc-length
+Hoses/cables remain fixed while contents move in their correct direction. Gas/data
+routes use one eight-instance marker mesh and a precomputed 97-point arc-length
 and orientation table. No per-frame tube rebuild, curve evaluation, marker
 allocation, extra shadow map, external asset request or runtime dependency is
 needed. Pump rotation integrates its current command rather than using elapsed
-time multiplied by a newly changed rate.
+time multiplied by a newly changed rate. Fluid hoses now use continuously filled
+inner cores and advected highlights instead of instanced arrow markers; their
+UV distance is baked from arc length in metres, so short pump arcs and long
+service hoses have the same qualitative transport speed for the same command.
+
+## Liquid, sparging and mixing visuals
+
+`fluid-motion.ts` keeps a separate rendered-time clock with an exactly integrated
+exponential response to mixing commands. RPM changes ease the fluid response
+without resetting its phase. The lower impeller at 0.68m contributes only when
+immersed; an unsupported/dry RPM cannot create stirring. Pause, disconnect,
+hidden/stalled frames and reduced motion freeze wave phase, particle positions
+and hose transport. Recorded volume alone sets mean liquid height, including the
+single final volume update after an intervention. Missing/invalid volume hides
+the medium instead of displaying an assumed 12.5 L.
+
+The original Blender `HF_Liquid` binding remains validated but its flat body is
+hidden. A shared runtime PBR mesh combines the body and radially subdivided cap
+for both Blender and procedural fallback equipment. Vertex deformation produces
+a shallow bowl and rotating angular waves; analytic normals follow the same
+profile. Each term has zero disk integral, preserving the mean visual level.
+Depth/wave displacement is bounded by fluid depth. Transparent body and glossy
+surface shading preserve the cutaway view without a transmission render pass.
+
+Up to 144 instanced rim-lit bubbles leave twenty fixed apertures on the 0.29m
+sparger ring at 0.555m. Deterministic seeds vary radius, buoyant rise and widening
+plume/drift; bubbles remain inside the wetted bag and shrink near the surface.
+Twelve fading rings illustrate surface disturbance without an accumulating foam
+layer. Eighty small tracers illustrate a closed meridional loop (down near the
+axis, up near the wall) with slower azimuthal motion. These are illustrative
+tracers, not RBC shapes, a cell-count display, CFD, measured gas flow, bubble-size
+distribution or a calibrated shear estimate. O2 fraction remains a blend
+composition command and does not increase bubble count or measured gas flow.
+
+Liquid hoses have thin translucent PBR walls and continuously filled inner
+medium/reagent cores. Gentle highlights advect only while the corresponding
+Trace/feed/exchange/base/acid command is active. They stay filled and static
+when closed, avoiding fabricated air slugs. Gas and electrical paths retain
+their distinct directional arrows/data packets. Trace QC holds stop only its
+transport; queued/applied/cancelled transfers never move feed/waste contents.
+
+Four instanced/merged culture meshes reuse the existing Three.js dependency.
+Surface waves and hose shading execute in the existing material pass; there is
+no physics engine, per-frame tube remesh, remote texture/HDRI or postprocess
+simulation. Paused instance matrices are not re-uploaded. Balanced quality uses
+80 bubbles and 48 tracers instead of 144/80, alongside the existing adaptive
+resolution/shadow settings. Tests cover frame-rate independence, immersion,
+finite volume handling, zero mean displacement, geometric bounds, exact clock
+holds and continuous transport at rate changes.
 
 ## Lighting and shading
 

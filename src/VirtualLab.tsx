@@ -243,10 +243,10 @@ export default function VirtualLab() {
               <i /> Gas & DO cascade
             </span>
             <span>
-              <i /> Trace fluid circuit
+              <i /> Trace · kilau cairan mengikuti aliran
             </span>
             <span>
-              <i /> Feed / retensi · panah = arah aliran
+              <i /> Feed / retensi · isi selang transparan
             </span>
             <small>
               Pulsa putih = data PAT · gerakan mengikuti command simulasi

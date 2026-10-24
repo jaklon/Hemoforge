@@ -17,7 +17,7 @@ export default function ProcessMotionPanel({ snapshot, connected }: { snapshot: 
       <div><dt>Kabel PAT → DCU</dt><dd>Pulsa hanya saat receipt QC valid diterima</dd></div>
     </dl>
     {p.transfer && <label>{p.transfer.kind === "feed" ? "Pemberian medium" : "Pertukaran medium"} · {(p.transfer.progress*100).toFixed(0)}%<progress max={1} value={p.transfer.progress} /></label>}
-    <p>Panah menunjukkan arah dan aktivitas perintah simulasi, bukan laju alir terukur. Volume berubah setelah tindakan selesai. Selang tetap; roller pompa dan isi jalur yang bergerak.</p>
+    <p>Panah gas dan kilau cairan menunjukkan arah perintah simulasi, bukan laju alir terukur. Selang cairan tetap terisi saat pompa berhenti. Gelombang, gelembung, dan partikel sirkulasi adalah ilustrasi hidrodinamika, bukan pengukuran sel atau CFD. Volume berubah setelah tindakan selesai.</p>
     <p>AIR cadangan, reagen kalibrasi, centrifuge, inkubator, dan alat persiapan tetap standby karena belum memiliki siklus proses di mesin simulasi.</p>
   </details>
 }
