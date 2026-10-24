@@ -53,7 +53,8 @@ tokens. Keep its established identity for content fixes. Book a demo opens the
 Work with us inquiry form; Explore demo scrolls to the public, illustrative Guard
 replay; Sign in opens the authenticated workspace gate. Keep the primary header
 action visible on phones and put secondary navigation in an accessible menu.
-The product roadmap
+Packages describe proposed scope, deliverables, usage limits, support and a written
+quote, without unverified popularity or fixed-price claims. The product roadmap
 uses Available, Pilot and Planned; GenoHack history belongs in About.
 Scientific claims link to their primary sources, and illustrative preview samples
 are explicitly labeled.

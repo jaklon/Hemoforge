@@ -438,11 +438,21 @@ html:has(.lp), body:has(.lp) { background: #05070d; }
 .lp-wwu h1 { font-size: clamp(2.4rem, 5.4vw, 4.4rem); margin-top: 14px; }
 .lp-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
 .lp-plan { display: flex; flex-direction: column; }
-.lp-plan.featured { border-color: rgba(255, 61, 77, .45); background: linear-gradient(180deg, rgba(255, 61, 77, .08), rgba(255, 255, 255, .01)); }
-.lp-plan .lp-tag { position: absolute; top: 20px; right: 20px; }
-.lp-plan h3 { margin-top: 0; }
-.lp-price { display: block; margin-top: 12px; font-size: 2.2rem; font-weight: 650; letter-spacing: -.04em; }
-.lp-plan .lp-checks { margin: 22px 0 28px; flex: 1; }
+.lp-plan { background: var(--panel-solid); border: 0; }
+.lp-plan:hover { transform: none; }
+.lp-plan h3 { margin-top: 8px; font-size: 1.5rem; }
+.lp-plan .lp-plan-audience { color: var(--teal); font-size: .8125rem; margin-top: 0; }
+.lp-plan-details { display: grid; gap: 22px; margin-block: 26px; flex: 1; }
+.lp-plan-details > div { display: block; }
+.lp-plan-details dt { color: var(--ink); font-size: .875rem; font-weight: 600; }
+.lp-plan-details dd { margin: 5px 0 0; color: var(--dim); font-size: .875rem; }
+.lp-plan-quote { margin-bottom: 24px; }
+.lp-plan-quote strong { font-size: 1.125rem; }
+.lp-plan-quote p { font-size: .8125rem; margin-top: 6px; }
+.lp-scope-note { margin-top: 24px; max-width: 85ch; font-size: .875rem; }
+.lp-inquiry-steps { padding-left: 22px; margin-top: 24px; display: grid; gap: 14px; color: var(--dim); }
+.lp-form .lp-form-note { font-size: .8125rem; margin-top: 0; }
+.lp-form .lp-btn { white-space: normal; padding-block: 12px; }
 .lp-form { display: grid; gap: 16px; }
 .lp-form:hover { transform: none; }
 .lp-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -535,6 +545,10 @@ html:has(.lp), body:has(.lp) { background: #05070d; }
 
 @media (max-width: 380px) {
   .lp-nav .lp-brand span { display: none; }
+}
+
+@media (max-width: 420px) {
+  .lp-business .lp-nav .lp-brand span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
