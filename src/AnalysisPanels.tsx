@@ -14,11 +14,16 @@ import {
   channels,
   filterMarkers,
   type CultureRow,
+  factorNames,
   type ExperimentRow,
   type MarkerRow,
 } from "./workspace-data"
 
-import { conditionSummary, type ExperimentPlan } from "./experiment-model"
+import {
+  conditionSummary,
+  factorLabel,
+  type ExperimentPlan,
+} from "./experiment-model"
 
 import {
   bloodGroups,
@@ -346,7 +351,11 @@ const wholeCells = new Intl.NumberFormat("en-US", {
 function ProductionTarget({
   condition,
 }: {
-  condition: { lactate: number; ammonia: number } | null
+  condition: {
+    lactate: number
+    ammonia: number
+    source: "predicted" | "added"
+  } | null
 }) {
   const { batchIndexes, batchId, batchMeasurements } = useCultureData()
 
@@ -515,8 +524,12 @@ function ProductionTarget({
                     {metaboliteLimits.lactate.inhibitory.toFixed(0)} mg/L and
                     ammonia under{" "}
                     {metaboliteLimits.ammonia.inhibitory.toFixed(0)} mg/L. The
-                    top-ranked condition ({condition.lactate} / {condition.ammonia}{" "}
-                    mg/L) is{" "}
+                    top-ranked condition{" "}
+                    {condition.source === "predicted"
+                      ? "is predicted to end at"
+                      : "adds"}{" "}
+                    {condition.lactate.toFixed(0)} mg/L lactate and{" "}
+                    {condition.ammonia.toFixed(0)} mg/L ammonia, which is{" "}
                     <Badge
                       tone={
                         metabolites.worst === "below"
@@ -539,7 +552,9 @@ function ProductionTarget({
                     against the {metaboliteLimits.lactate.inhibitory.toFixed(0)}{" "}
                     mg/L lactate and{" "}
                     {metaboliteLimits.ammonia.inhibitory.toFixed(0)} mg/L
-                    ammonia inhibition onsets.
+                    ammonia inhibition onsets. The check needs{" "}
+                    <code>measured_lactate_mg_l</code> and{" "}
+                    <code>measured_ammonia_mg_l</code> for every condition.
                   </>
                 )}
               </li>
@@ -569,6 +584,25 @@ function ProductionTarget({
   )
 }
 
+// Measured outputs take priority; a spiking study's added amounts are the fallback.
+function metaboliteCheck(candidate?: ExperimentPlan["candidates"][number]) {
+  if (!candidate) return null
+  const { metabolites, factors } = candidate
+  if (metabolites.lactate_mg_l != null && metabolites.ammonia_mg_l != null)
+    return {
+      lactate: metabolites.lactate_mg_l,
+      ammonia: metabolites.ammonia_mg_l,
+      source: "predicted" as const,
+    }
+  if (factors.lactate_mg_l != null && factors.ammonia_mg_l != null)
+    return {
+      lactate: factors.lactate_mg_l,
+      ammonia: factors.ammonia_mg_l,
+      source: "added" as const,
+    }
+  return null
+}
+
 export function ExperimentPlanner({
   onEditData,
 }: {
@@ -591,6 +625,12 @@ export function ExperimentPlanner({
   const rows = source.rows as ExperimentRow[]
 
   const summary = conditionSummary(rows)
+
+  const factors = factorNames(rows)
+
+  const hasMeasured = summary.some(
+    (row) => row.lactate != null || row.ammonia != null,
+  )
 
   const objective = settings.objective
 
@@ -675,16 +715,7 @@ export function ExperimentPlanner({
           {fitting ? "Running analysis…" : "Fit GP & rank conditions"}
         </Button>
       </div>
-      <ProductionTarget
-        condition={
-          model?.candidates[0]
-            ? {
-                lactate: model.candidates[0].lactate,
-                ammonia: model.candidates[0].ammonia,
-              }
-            : null
-        }
-      />
+      <ProductionTarget condition={metaboliteCheck(model?.candidates[0])} />
       {settingError && (
         <p role="alert" className="import-error">
           {settingError}
@@ -698,27 +729,47 @@ export function ExperimentPlanner({
       )}
       <Panel
         title="Tested conditions"
-        caption={`From the dataset: lactate and ammonia added to the medium, and the measured response (${summary[0]?.unit ?? "unit not supplied"}).`}
+        caption={`From the dataset: ${factors.length} factor${factors.length === 1 ? "" : "s"} set in the medium and the measured response (${summary[0]?.unit ?? "unit not supplied"})${hasMeasured ? ", plus end-of-run lactate and ammonia" : ""}.`}
       >
         <div className="table-scroll compact-table">
           <table>
             <thead>
               <tr>
-                <th className="numeric">Lactate mg/L</th>
-                <th className="numeric">Ammonia mg/L</th>
+                <th>Condition</th>
+                {factors.map((name) => (
+                  <th key={name} className="numeric">
+                    {factorLabel(name)}
+                  </th>
+                ))}
                 <th className="numeric">Response</th>
+                {hasMeasured && (
+                  <>
+                    <th className="numeric">Lactate out mg/L</th>
+                    <th className="numeric">Ammonia out mg/L</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {summary.map((row) => (
                 <tr key={row.id}>
-                  <td className="numeric">{row.lactate}</td>
-                  <td className="numeric">{row.ammonia}</td>
+                  <td>{row.id}</td>
+                  {factors.map((name) => (
+                    <td key={name} className="numeric">
+                      {row.factors[name]}
+                    </td>
+                  ))}
                   <td className="numeric">
                     {row.mean.toFixed(2)}
                     {row.sd !== null && ` ± ${row.sd.toFixed(2)}`}
                     {row.n > 1 && ` (${row.n} runs)`}
                   </td>
+                  {hasMeasured && (
+                    <>
+                      <td className="numeric">{row.lactate?.toFixed(0) ?? "—"}</td>
+                      <td className="numeric">{row.ammonia?.toFixed(1) ?? "—"}</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -729,14 +780,14 @@ export function ExperimentPlanner({
         title="Ranked conditions"
         caption={
           model
-            ? `Best ${Math.min(8, model.candidates.length)} of a ${model.candidates.length}-point grid inside the tested range, already-tested conditions included · ${
+            ? `Best ${Math.min(8, model.candidates.length)} of a ${model.gridSize}-point grid inside the tested range, already-tested conditions included · ${
                 model.noise.source === "replicates"
                   ? `noise from pooled replicate SD ${model.noise.sd.toPrecision(3)} (${model.noise.dof} df)`
                   : model.noise.source === "setting"
                     ? "noise from your override"
                     : "no replicates: noise assumed"
               }`
-            : "Fit the GP to rank new lactate and ammonia combinations by expected improvement."
+            : "Fit the GP to rank new factor combinations by expected improvement."
         }
         action={
           <a className="method-link" href="#methods/improvement">
@@ -799,23 +850,45 @@ export function ExperimentPlanner({
               <table>
                 <thead>
                   <tr>
-                    <th className="numeric">Lactate mg/L</th>
-                    <th className="numeric">Ammonia mg/L</th>
+                    {model.factorNames.map((name) => (
+                      <th key={name} className="numeric">
+                        {factorLabel(name)}
+                      </th>
+                    ))}
                     <th className="numeric">GP mean ± SD</th>
                     <th className="numeric">Expected improvement</th>
+                    {model.candidates[0]?.metabolites.lactate_mg_l != null && (
+                      <th className="numeric">Predicted lactate mg/L</th>
+                    )}
+                    {model.candidates[0]?.metabolites.ammonia_mg_l != null && (
+                      <th className="numeric">Predicted ammonia mg/L</th>
+                    )}
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {model.candidates.slice(0, 8).map((row) => (
-                    <tr key={`${row.lactate}-${row.ammonia}`}>
-                      <td className="numeric">{plotNumber(row.lactate)}</td>
-                      <td className="numeric">{plotNumber(row.ammonia)}</td>
+                    <tr key={JSON.stringify(row.factors)}>
+                      {model.factorNames.map((name) => (
+                        <td key={name} className="numeric">
+                          {plotNumber(row.factors[name])}
+                        </td>
+                      ))}
                       <td className="numeric">
                         {row.prediction.toFixed(3)} ±{" "}
                         {row.uncertainty.toFixed(3)}
                       </td>
                       <td className="numeric">{row.ei.toPrecision(3)}</td>
+                      {row.metabolites.lactate_mg_l != null && (
+                        <td className="numeric">
+                          {row.metabolites.lactate_mg_l.toFixed(0)}
+                        </td>
+                      )}
+                      {row.metabolites.ammonia_mg_l != null && (
+                        <td className="numeric">
+                          {row.metabolites.ammonia_mg_l.toFixed(1)}
+                        </td>
+                      )}
                       <td>
                         <Badge tone={row.tested ? "neutral" : "success"}>
                           {row.tested ? "Tested" : "New"}

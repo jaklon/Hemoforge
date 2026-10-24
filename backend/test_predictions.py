@@ -1,7 +1,6 @@
 import csv
 import json
 import unittest
-from pathlib import Path
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -11,7 +10,6 @@ from backend.api import app
 from backend.models import ExperimentRequest, GrowthRequest
 from backend.predictions import predict_experiments, predict_growth
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def growth_payload():
@@ -20,10 +18,25 @@ def growth_payload():
             "as_of_hour": 48, "horizon": 24, "seed": 42, "source_hash": "a" * 64}
 
 
+# A 2x2 lactate/ammonia spiking study: here the metabolites are factors, not outputs.
+SPIKING_CSV = """condition_id,lactate_mg_l,ammonia_mg_l,response,response_unit
+L0-A0,0,0,7.5,fold_change
+L0-A0,0,0,7.8,fold_change
+L0-A0,0,0,8.1,fold_change
+L850-A0,850,0,4.9,fold_change
+L850-A0,850,0,5.3,fold_change
+L850-A0,850,0,5.6,fold_change
+L0-A41,0,41,6.1,fold_change
+L0-A41,0,41,6.4,fold_change
+L0-A41,0,41,6.7,fold_change
+L850-A41,850,41,3.6,fold_change
+L850-A41,850,41,3.9,fold_change
+L850-A41,850,41,4.2,fold_change
+"""
+
+
 def experiment_payload():
-    file = ROOT / "public/examples/hemogpt-example-experiments.csv"
-    with file.open(encoding="utf-8", newline="") as source:
-        return {"rows": list(csv.DictReader(source))}
+    return {"rows": list(csv.DictReader(SPIKING_CSV.splitlines()))}
 
 
 class PredictionTests(unittest.TestCase):
@@ -130,7 +143,8 @@ class PredictionTests(unittest.TestCase):
         self.assertEqual(sum(row["tested"] for row in result["candidates"]), 4)
         self.assertTrue(any(not row["tested"] and row["ei"] > 0 for row in result["candidates"]))
         for row in result["candidates"]:
-            self.assertTrue(0 <= row["lactate"] <= 850 and 0 <= row["ammonia"] <= 41)
+            self.assertTrue(0 <= row["factors"]["lactate_mg_l"] <= 850 and 0 <= row["factors"]["ammonia_mg_l"] <= 41)
+            self.assertEqual(row["metabolites"], {})
         # Replicate noise is far wider than the old fixed 0.05 normalized SD.
         self.assertTrue(all(row["uncertainty"] > 0.1 for row in result["ranked"]))
         payload["noise_sd"] = 0.05
@@ -146,6 +160,32 @@ class PredictionTests(unittest.TestCase):
             payload["rows"][0][field] = value
             with self.assertRaises(ValidationError):
                 ExperimentRequest(**payload)
+
+    def test_medium_factors_with_measured_metabolites(self):
+        rows = []
+        for i, (epo, scf, glucose) in enumerate([(1, 10, 10), (5, 10, 25), (1, 100, 25), (5, 100, 10), (3, 55, 17.5)]):
+            for r in range(2):
+                rows.append({"condition_id": f"C{i}", "epo_iu_ml": epo, "scf_ng_ml": scf, "glucose_mmol_l": glucose,
+                             "response": 4 + epo * 0.3 + scf * 0.01 + r * 0.2, "response_unit": "fold_change",
+                             "measured_lactate_mg_l": 600 + glucose * 30 + r * 10, "measured_ammonia_mg_l": 40 + glucose})
+        result = predict_experiments(ExperimentRequest(rows=rows))["result"]
+        self.assertEqual(result["factorNames"], ["epo_iu_ml", "glucose_mmol_l", "scf_ng_ml"])
+        self.assertEqual(result["gridSize"], 125)
+        self.assertEqual(len(result["candidates"]), 50)
+        best = result["candidates"][0]
+        self.assertEqual(set(best["factors"]), set(result["factorNames"]))
+        # Lactate tracks glucose in this fixture, so the GP should predict it inside the observed range.
+        self.assertTrue(800 <= best["metabolites"]["lactate_mg_l"] <= 1400)
+        rows[0]["measured_lactate_mg_l"] = None
+        rows[1]["measured_lactate_mg_l"] = None
+        partial = predict_experiments(ExperimentRequest(rows=rows))["result"]
+        self.assertNotIn("lactate_mg_l", partial["candidates"][0]["metabolites"])
+        rows[0]["scf_ng_ml"] = None
+        with self.assertRaises(ValidationError):
+            ExperimentRequest(rows=rows)
+        del rows[0]["scf_ng_ml"]
+        with self.assertRaises(ValidationError):
+            ExperimentRequest(rows=rows)
 
 
 class ApiTests(unittest.TestCase):

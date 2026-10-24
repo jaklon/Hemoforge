@@ -99,15 +99,17 @@ def cultureplan_state(source, objective, settings=None):
     plan = {"status": "fitted", "model_version": result["modelVersion"], "condition_count": conditions, **result["result"]}
     # Only compute a factorial contrast when the uploaded settings actually form a complete 2x2 design.
     ranked = plan["ranked"]
-    lactate = sorted({r["lactate"] for r in ranked})
-    ammonia = sorted({r["ammonia"] for r in ranked})
-    if len(ranked) == 4 and len(lactate) == 2 and len(ammonia) == 2:
-        cells = {(r["lactate"], r["ammonia"]): r["mean"] for r in ranked}
-        if len(cells) == 4:
-            ll, hl = cells[lactate[0], ammonia[0]], cells[lactate[1], ammonia[0]]
-            lh, hh = cells[lactate[0], ammonia[1]], cells[lactate[1], ammonia[1]]
-            plan["factorial_effects"] = {"lactate": (hl + hh - ll - lh) / 2,
-                                        "ammonia": (lh + hh - ll - hl) / 2,
+    names = plan["factorNames"]
+    if len(names) == 2 and len(ranked) == 4:
+        a, b = names
+        levels_a = sorted({r["factors"][a] for r in ranked})
+        levels_b = sorted({r["factors"][b] for r in ranked})
+        cells = {(r["factors"][a], r["factors"][b]): r["mean"] for r in ranked}
+        if len(levels_a) == 2 and len(levels_b) == 2 and len(cells) == 4:
+            ll, hl = cells[levels_a[0], levels_b[0]], cells[levels_a[1], levels_b[0]]
+            lh, hh = cells[levels_a[0], levels_b[1]], cells[levels_a[1], levels_b[1]]
+            plan["factorial_effects"] = {"factors": [a, b], a: (hl + hh - ll - lh) / 2,
+                                        b: (lh + hh - ll - hl) / 2,
                                         "interaction": (ll - hl - lh + hh) / 2,
                                         "unit": ranked[0]["unit"], "significance_test": "not_performed"}
     return plan
@@ -223,7 +225,8 @@ def claim_catalog(context):
         add("plan_validation", "plan", f"Leave-one-condition-out mean absolute error is {plan['mae']:.6g}, versus mean-baseline error {plan['baselineMAE']:.6g}. Replicates are held out together; no significance claim is made.")
         if "factorial_effects" in plan:
             effects = plan["factorial_effects"]
-            add("plan_doe", "plan", f"The complete two-by-two observed design has lactate effect {effects['lactate']:.6g}, ammonia effect {effects['ammonia']:.6g}, and interaction {effects['interaction']:.6g} {effects['unit']}. These contrasts are descriptive and are not causal evidence for the selected culture batch.")
+            a, b = effects["factors"]
+            add("plan_doe", "plan", f"The complete two-by-two observed design has {a} effect {effects[a]:.6g}, {b} effect {effects[b]:.6g}, and interaction {effects['interaction']:.6g} {effects['unit']}. These contrasts are descriptive and are not causal evidence for the selected culture batch.")
     else:
         add("plan_candidate", "plan", "Fewer than three experiment conditions are available; GP fitting and rankings are withheld.")
     counts = match["counts"]

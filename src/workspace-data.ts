@@ -1,7 +1,5 @@
 import { cultureMeasurements } from "./culture-data.ts"
 
-import { doeConditions } from "./culture-doe.ts"
-
 import {
   builtInMarkers,
   normalizeCall,
@@ -37,14 +35,33 @@ export interface CultureRow extends Measurement {
 export interface ExperimentRow {
   condition_id: string
 
-  lactate_mg_l: number
-
-  ammonia_mg_l: number
+  /** Settings chosen by the researcher, e.g. { epo_iu_ml: 3 }. */
+  factors: Record<string, number>
 
   response: number
 
   response_unit: string
+
+  /** End-of-run measurements, checked against inhibition ceilings. */
+  measured_lactate_mg_l: number | null
+
+  measured_ammonia_mg_l: number | null
 }
+
+export const measuredOutputs = [
+  "measured_lactate_mg_l",
+  "measured_ammonia_mg_l",
+] as const
+
+const experimentReserved = new Set([
+  "condition_id",
+  "response",
+  "response_unit",
+  ...measuredOutputs,
+])
+
+export const factorNames = (rows: ExperimentRow[]) =>
+  Object.keys(rows[0]?.factors ?? {}).sort()
 
 export interface InputFile {
   kind: DataKind
@@ -126,19 +143,27 @@ export function toScenarioTable(
     }
   }
   if (file.kind === "experiments") {
-    const columns = [
-      "condition_id",
-      "lactate_mg_l",
-      "ammonia_mg_l",
-      "response",
-      "response_unit",
-    ] as const
+    const rows = file.rows as ExperimentRow[]
+    const factors = factorNames(rows)
+    const measured = measuredOutputs.filter((key) =>
+      rows.some((row) => row[key] != null),
+    )
     return {
       kind: "experiments",
-      columns: [...columns],
-      rows: (file.rows as ExperimentRow[]).map((row) =>
-        columns.map((key) => cell(row[key])),
-      ),
+      columns: [
+        "condition_id",
+        ...factors,
+        "response",
+        "response_unit",
+        ...measured,
+      ],
+      rows: rows.map((row) => [
+        row.condition_id,
+        ...factors.map((key) => cell(row.factors[key])),
+        cell(row.response),
+        row.response_unit,
+        ...measured.map((key) => cell(row[key])),
+      ]),
     }
   }
   const panel = [
@@ -176,8 +201,9 @@ export const exampleFiles: Record<DataKind, string> = {
   culture:
     "batch_id,cell_line,elapsed_hours,cell_count_million,ph,temperature_c,glucose_mmol_l,lactate_mmol_l\nEXAMPLE-A,BEL-A,0,1.02,7.2,37,10,1\nEXAMPLE-A,BEL-A,24,1.47,7.18,37,8.7,1.7\nEXAMPLE-A,BEL-A,48,2.21,7.16,37,7.5,2.6\nEXAMPLE-A,BEL-A,72,3.84,7.13,37,6.2,3.5\nEXAMPLE-A,BEL-A,96,3.62,7.08,37,5.1,4.5\nEXAMPLE-A,BEL-A,120,3.31,7.02,37,4,5.4\nEXAMPLE-A,BEL-A,144,5.08,7.04,37,3.5,6.1\nEXAMPLE-A,BEL-A,168,6.42,7.05,37,2.8,6.8\nEXAMPLE-B,BEL-A,0,1.11,7.2,37,10,1\nEXAMPLE-B,BEL-A,24,1.36,7.19,37,8.9,1.5\nEXAMPLE-B,BEL-A,48,2.06,7.17,37,7.8,2.3\nEXAMPLE-B,BEL-A,72,3.61,7.14,37,6.4,3.2\nEXAMPLE-B,BEL-A,96,3.44,7.1,37,5.4,4.1\nEXAMPLE-B,BEL-A,120,3.18,7.05,37,4.3,5.1\nEXAMPLE-B,BEL-A,144,4.86,7.06,37,3.6,5.9\nEXAMPLE-B,BEL-A,168,6.17,7.07,37,3,6.5\n",
 
+  // Synthetic 2^(4-1) fractional factorial plus a centre point; not measured data.
   experiments:
-    "condition_id,lactate_mg_l,ammonia_mg_l,response,response_unit\nL0-A0,0,0,7.5,fold_change\nL0-A0,0,0,7.8,fold_change\nL0-A0,0,0,8.1,fold_change\nL850-A0,850,0,4.9,fold_change\nL850-A0,850,0,5.3,fold_change\nL850-A0,850,0,5.6,fold_change\nL0-A41,0,41,6.1,fold_change\nL0-A41,0,41,6.4,fold_change\nL0-A41,0,41,6.7,fold_change\nL850-A41,850,41,3.6,fold_change\nL850-A41,850,41,3.9,fold_change\nL850-A41,850,41,4.2,fold_change\n",
+    "condition_id,epo_iu_ml,scf_ng_ml,glucose_mmol_l,seed_1e5_per_ml,response,response_unit,measured_lactate_mg_l,measured_ammonia_mg_l\nE-S-G-D-,1,10,10,1,6.25,fold_change,190,16.5\nE-S-G-D-,1,10,10,1,6.55,fold_change,230,19.5\nE-S-G+D+,1,10,25,4,2.85,fold_change,1390,68.5\nE-S-G+D+,1,10,25,4,3.15,fold_change,1430,71.5\nE-S+G-D+,1,100,10,4,4.85,fold_change,970,48.5\nE-S+G-D+,1,100,10,4,5.15,fold_change,1010,51.5\nE-S+G+D-,1,100,25,1,7.05,fold_change,770,36.5\nE-S+G+D-,1,100,25,1,7.35,fold_change,810,39.5\nE+S-G-D+,5,10,10,4,3.85,fold_change,890,48.5\nE+S-G-D+,5,10,10,4,4.15,fold_change,930,51.5\nE+S-G+D-,5,10,25,1,6.05,fold_change,690,36.5\nE+S-G+D-,5,10,25,1,6.35,fold_change,730,39.5\nE+S+G-D-,5,100,10,1,9.65,fold_change,270,16.5\nE+S+G-D-,5,100,10,1,9.95,fold_change,310,19.5\nE+S+G+D+,5,100,25,4,6.25,fold_change,1470,68.5\nE+S+G+D+,5,100,25,4,6.55,fold_change,1510,71.5\nCENTRE,3,55,17.5,2.5,5.85,fold_change,830,42.5\nCENTRE,3,55,17.5,2.5,6.00,fold_change,850,44.0\nCENTRE,3,55,17.5,2.5,6.15,fold_change,870,45.5\n",
 
   markers:
     "sample_id,kel_rs8176058,slc14a1_rs1058396\nEXAMPLE-01,G/A,G/G\nEXAMPLE-02,G/A,G/G\nEXAMPLE-03,G/G,G/A\nEXAMPLE-04,A/A,G/G\nEXAMPLE-05,./.,G/G\nEXAMPLE-06,G/A,T/G\n",
@@ -223,17 +249,7 @@ export const initialInputs: WorkspaceInputs = {
   experiments: fixtureFile(
     "experiments",
 
-    doeConditions.map((row) => ({
-      condition_id: row[0],
-
-      lactate_mg_l: Number(row[1]),
-
-      ammonia_mg_l: Number(row[2]),
-
-      response: Number(row[3]),
-
-      response_unit: "demo_response",
-    })),
+    parseInput(exampleFiles.experiments, "demo.csv").rows,
   ),
 
   markers: fixtureFile(
@@ -569,30 +585,62 @@ export function parseInput(
     if (batches.size > 30)
       throw new Error("A workspace supports at most 30 culture batches.")
   } else if (kind === "experiments") {
-    rows = objects.map((row, index) => ({
-      condition_id: id(row.condition_id, `Row ${index + 2} condition_id`),
+    // Every column that is not reserved is a factor the researcher set.
+    const flat = objects.map((row) =>
+      row.factors && typeof row.factors === "object" && !Array.isArray(row.factors)
+        ? { ...row, ...(row.factors as Record<string, unknown>), factors: undefined }
+        : row,
+    )
+    const factors = Object.keys(flat[0]).filter(
+      (key) => !experimentReserved.has(key) && key !== "factors",
+    )
+    if (!factors.length || factors.length > 6)
+      throw new Error(
+        "Experiments need 1 to 6 factor columns besides condition_id, response, response_unit and measured_* outputs.",
+      )
+    const badName = factors.find((key) => !/^[a-z][a-z0-9_]{0,40}$/.test(key))
+    if (badName)
+      throw new Error(
+        `Factor column ${badName}: use lowercase letters, digits and underscores.`,
+      )
 
-      lactate_mg_l: numeric(row.lactate_mg_l, "lactate_mg_l")!,
+    rows = flat.map((row, index) => {
+      const line = `Row ${index + 2}`
+      return {
+        condition_id: id(row.condition_id, `${line} condition_id`),
 
-      ammonia_mg_l: numeric(row.ammonia_mg_l, "ammonia_mg_l")!,
+        factors: Object.fromEntries(
+          factors.map((key) => {
+            const value = numeric(row[key], `${line} ${key}`)!
+            if (value < 0)
+              throw new Error(`${line}: factor settings cannot be negative.`)
+            return [key, value]
+          }),
+        ),
 
-      response: numeric(row.response, "response")!,
+        response: numeric(row.response, `${line} response`)!,
 
-      response_unit: id(row.response_unit, "response_unit"),
-    }))
+        response_unit: id(row.response_unit, `${line} response_unit`),
+
+        ...Object.fromEntries(
+          measuredOutputs.map((key) => {
+            const value = numeric(row[key], `${line} ${key}`, true)
+            if (value !== null && value < 0)
+              throw new Error(`${line}: ${key} cannot be negative.`)
+            return [key, value]
+          }),
+        ),
+      } as ExperimentRow
+    })
 
     const conditions = new Map<string, ExperimentRow>()
 
     for (const row of rows as ExperimentRow[]) {
-      if (row.lactate_mg_l < 0 || row.ammonia_mg_l < 0)
-        throw new Error("Factor concentrations cannot be negative.")
-
       const old = conditions.get(row.condition_id)
 
       if (
         old &&
-        (old.lactate_mg_l !== row.lactate_mg_l ||
-          old.ammonia_mg_l !== row.ammonia_mg_l)
+        factors.some((key) => old.factors[key] !== row.factors[key])
       )
         throw new Error(
           `Condition ${row.condition_id} has inconsistent factor levels.`,

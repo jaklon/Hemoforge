@@ -32,7 +32,7 @@ test("all three example inputs parse into the correct domain without joining sam
   assert.equal(batches.length, 2)
   assert.equal(batches[0].measurements.length, 8)
   assert.equal(batches[0].measurements[5].channels.ph, 7.02)
-  assert.equal(file("experiments").rows.length, 12)
+  assert.equal(file("experiments").rows.length, 19)
   assert.equal(file("markers").rows.length, 6)
 })
 test("CSV supports BOM, escaped quotes, newlines, missing values and TSV/JSON", () => {
@@ -112,10 +112,42 @@ test("uploaded culture data feeds reports and simulation at the same cutoff with
 test("uploaded condition replicates summarize to mean and sample SD", () => {
   const rows = file("experiments").rows as ExperimentRow[]
   const summary = conditionSummary(rows)
-  assert.equal(summary.length, 4)
-  assert.equal(summary[0].n, 3)
-  assert.ok(Math.abs(summary[0].mean - 7.8) < 1e-10)
-  assert.ok(Math.abs(summary[0].sd! - 0.3) < 1e-10)
+  assert.equal(summary.length, 9)
+  assert.equal(summary[0].n, 2)
+  assert.ok(Math.abs(summary[0].mean - 6.4) < 1e-10)
+  assert.ok(Math.abs(summary[0].sd! - Math.sqrt(0.045)) < 1e-10)
+  assert.equal(summary[0].lactate, 210)
+  assert.deepEqual(summary[0].factors, {
+    epo_iu_ml: 1,
+    scf_ng_ml: 10,
+    glucose_mmol_l: 10,
+    seed_1e5_per_ml: 1,
+  })
+})
+test("experiment columns become factors unless reserved", () => {
+  const spiking = parseInput(
+    "condition_id,lactate_mg_l,ammonia_mg_l,response,response_unit\nA,0,0,6,x\nB,850,41,4,x\n",
+    "spike.csv",
+  ).rows as ExperimentRow[]
+  assert.deepEqual(spiking[1].factors, { lactate_mg_l: 850, ammonia_mg_l: 41 })
+  assert.equal(spiking[1].measured_lactate_mg_l, null)
+  assert.throws(
+    () => parseInput("condition_id,response,response_unit\nA,6,x\n", "none.csv"),
+    /1 to 6 factor columns/,
+  )
+  assert.throws(
+    () =>
+      parseInput(
+        "condition_id,epo_iu_ml,response,response_unit\nA,1,6,x\nA,2,6,x\n",
+        "conflict.csv",
+      ),
+    /inconsistent factor levels/,
+  )
+  const table = toScenarioTable(file("experiments"))
+  assert.deepEqual(
+    parseInput(scenarioCsv(table), "round.csv").rows,
+    file("experiments").rows,
+  )
 })
 test("uploaded marker rows normalize phased calls and never match unknown genotypes", () => {
   const input = parseInput(

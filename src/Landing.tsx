@@ -71,7 +71,7 @@ const modules = [
     verb: "Plan",
     when: "Before the next experiment",
     question: "Which culture condition is worth testing next?",
-    does: "A Gaussian Process models growth response and its uncertainty across lactate–ammonia conditions; Expected Improvement ranks the next candidates with reasons.",
+    does: "A Gaussian Process models growth response and its uncertainty across medium settings such as EPO, SCF, glucose and seeding density, and checks predicted lactate and ammonia against inhibition limits; Expected Improvement ranks the next candidates with reasons.",
     not: "Not an automatic control command, a production recipe or a 21-day prognosis.",
   },
   {

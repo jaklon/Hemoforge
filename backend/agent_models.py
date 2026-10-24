@@ -79,7 +79,7 @@ class ExperimentInput(Source):
         else:
             settings = {}
             for row in self.rows:
-                values = (row.lactate_mg_l, row.ammonia_mg_l, row.response_unit)
+                values = (row.factors, row.response_unit)
                 if row.condition_id in settings and settings[row.condition_id] != values:
                     raise ValueError("Conflicting condition replicates.")
                 settings[row.condition_id] = values

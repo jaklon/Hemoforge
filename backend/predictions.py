@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from backend.models import ExperimentRequest, GrowthRequest
+from backend.models import MEASURED_OUTPUTS, ExperimentRequest, GrowthRequest
 
 ENGINE = "python-numpy"
 
@@ -89,23 +89,35 @@ def predict_growth(request: GrowthRequest):
 
 
 DEFAULT_NOISE_SD = 0.05  # normalized; used only when no condition has replicates
-GRID_LEVELS = 5  # per factor; ponytail: fixed 5x5 grid inside the observed range, add adaptive search if factors grow
+GRID_LEVELS = 5  # per factor; ponytail: full grid (5^6 = 15,625 points at most), add continuous search past 6 factors
+CANDIDATES_RETURNED = 50
 
 
 def predict_experiments(request: ExperimentRequest):
     grouped = {}
     for row in request.rows:
         grouped.setdefault(row.condition_id, []).append(row)
-    conditions = []
+    names = sorted(request.rows[0].factors)
+
+    def stats(values):
+        values = np.array(values, dtype=float)
+        return float(values.mean()), float(values.var(ddof=1)) if len(values) > 1 else 0.0
+
+    conditions, measured = [], {key: [] for key in MEASURED_OUTPUTS}
     for name, rows in grouped.items():
         outcomes = np.array([row.response for row in rows])
         conditions.append({
-            "id": name, "lactate": rows[0].lactate_mg_l,
-            "ammonia": rows[0].ammonia_mg_l, "mean": float(outcomes.mean()),
+            "id": name, "factors": rows[0].factors, "mean": float(outcomes.mean()),
             "sd": float(outcomes.std(ddof=1)) if len(rows) > 1 else None,
             "n": len(rows), "unit": rows[0].response_unit,
         })
-    raw = np.array([[r["lactate"], r["ammonia"]] for r in conditions], dtype=float)
+        for key in MEASURED_OUTPUTS:
+            values = [getattr(row, key) for row in rows if getattr(row, key) is not None]
+            measured[key].append(stats(values) + (len(values),) if values else None)
+    # A measured output is modelled only when every condition reports it.
+    measured = {key: rows for key, rows in measured.items() if all(rows)}
+
+    raw = np.array([[r["factors"][name] for name in names] for r in conditions], dtype=float)
     span = np.maximum(raw.max(axis=0), 1)
     factors = raw / span
     targets = np.array([r["mean"] for r in conditions])
@@ -113,27 +125,27 @@ def predict_experiments(request: ExperimentRequest):
     variances = np.array([(r["sd"] or 0.0) ** 2 for r in conditions])
 
     # Candidate grid spans the observed factor range only; no extrapolation.
-    axes = [np.unique(np.linspace(raw[:, j].min(), raw[:, j].max(), GRID_LEVELS)) for j in range(2)]
-    grid_raw = np.array([[lactate, ammonia] for lactate in axes[0] for ammonia in axes[1]])
+    axes = [np.unique(np.linspace(raw[:, j].min(), raw[:, j].max(), GRID_LEVELS)) for j in range(len(names))]
+    grid_raw = np.array(np.meshgrid(*axes, indexing="ij")).reshape(len(names), -1).T
     grid = grid_raw / span
 
     def rbf(a, b):
         return np.exp(-0.5 * np.sum((a[:, None] - b[None, :]) ** 2, axis=2) / request.length_scale**2)
 
-    def noise(indices, scale):
+    def noise(indices, scale, counts=counts, variances=variances, override=request.noise_sd):
         """Variance of each condition mean in normalized units."""
-        if request.noise_sd is not None:
-            return np.full(len(indices), request.noise_sd**2), "setting", request.noise_sd * scale, 0
+        if override is not None:
+            return np.full(len(indices), override**2), "setting", override * scale, 0
         dof = float(np.sum(counts[indices] - 1))
         if dof == 0:
             return np.full(len(indices), DEFAULT_NOISE_SD**2), "default", DEFAULT_NOISE_SD * scale, 0
         pooled = math.sqrt(float(np.sum((counts[indices] - 1) * variances[indices])) / dof)
         return (pooled / scale) ** 2 / counts[indices], "replicates", pooled, int(dof)
 
-    def predict(indices, points):
+    def predict(indices, points, targets=targets, **noise_inputs):
         training = targets[indices]
         offset, scale = training.mean(), training.std() or 1.0
-        diagonal, *_ = noise(indices, scale)
+        diagonal, *_ = noise(indices, scale, **noise_inputs)
         covariance = rbf(factors[indices], factors[indices]) + np.diag(diagonal)
         k = rbf(factors[indices], points)
         alpha = np.linalg.solve(covariance, (training - offset) / scale)
@@ -166,16 +178,26 @@ def predict_experiments(request: ExperimentRequest):
 
     grid_mean, grid_sd = predict(indices, grid)
     grid_ei = expected_improvement(grid_mean, grid_sd)
+    top = np.argsort(-grid_ei, kind="stable")[:CANDIDATES_RETURNED]
+    # Predicted end-of-run metabolites at each candidate, from the same GP fitted to measured values.
+    metabolites = {}
+    for key, rows in measured.items():
+        means, output_variances, output_counts = (np.array(column, dtype=float) for column in zip(*rows))
+        metabolites[key], _ = predict(indices, grid[top], targets=means, counts=output_counts,
+                                      variances=output_variances, override=None)
     candidates = [{
-        "lactate": float(point[0]), "ammonia": float(point[1]),
+        "factors": dict(zip(names, map(float, grid_raw[i]))),
         "prediction": float(grid_mean[i]), "uncertainty": float(grid_sd[i]), "ei": float(grid_ei[i]),
-        "tested": bool(np.any(np.all(np.isclose(raw, point), axis=1))),
-    } for i, point in enumerate(grid_raw)]
+        "tested": bool(np.any(np.all(np.isclose(raw, grid_raw[i]), axis=1))),
+        "metabolites": {key.removeprefix("measured_"): max(0.0, float(values[rank])) for key, values in metabolites.items()},
+    } for rank, i in enumerate(top)]
 
     _, source, noise_sd, dof = noise(indices, targets.std() or 1.0)
     result = {
+        "factorNames": names,
+        "gridSize": len(grid_raw),
         "ranked": sorted(ranked, key=lambda row: row["ei"], reverse=True),
-        "candidates": sorted(candidates, key=lambda row: row["ei"], reverse=True),
+        "candidates": candidates,
         "validation": validation,
         "mae": float(np.mean([abs(row["actual"] - row["predicted"]) for row in validation])),
         "baselineMAE": float(np.mean([abs(row["actual"] - row["baseline"]) for row in validation])),
@@ -184,10 +206,11 @@ def predict_experiments(request: ExperimentRequest):
                    + {"replicates": f"noise from pooled replicate SD {noise_sd:.4g} ({dof} df), divided by each condition's run count",
                       "setting": f"fixed normalized noise SD {request.noise_sd}",
                       "default": f"no replicates, assumed normalized noise SD {DEFAULT_NOISE_SD}"}[source]
-                   + f"; exploration margin {request.exploration}; {len(candidates)}-point grid inside the observed factor range"),
+                   + f"; exploration margin {request.exploration}; {len(grid_raw)}-point grid over {len(names)} factors inside the observed range"
+                   + (f"; measured {', '.join(k.removeprefix('measured_') for k in measured)} predicted by separate GPs" if measured else "")),
         "objective": request.objective,
     }
     values = [row[key] for rows in (ranked, candidates) for row in rows for key in ("prediction", "uncertainty", "ei")]
     if not all(math.isfinite(value) for value in values):
         raise ValueError("Model exceeded the numeric range. Review extreme response values.")
-    return envelope(request, result, "experiment-rbf-gp-v3")
+    return envelope(request, result, "experiment-rbf-gp-v4")

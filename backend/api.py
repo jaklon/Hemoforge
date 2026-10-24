@@ -42,7 +42,7 @@ async def validation_error(_request, error):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "engine": ENGINE, "models": ["growth-lognormal-v2", "experiment-rbf-gp-v2"]}
+    return {"status": "ok", "engine": ENGINE, "models": ["growth-lognormal-v2", "experiment-rbf-gp-v4"]}
 
 
 def execute(function, request):

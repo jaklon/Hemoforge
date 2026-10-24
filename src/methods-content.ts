@@ -151,11 +151,11 @@ export const methods = [
     title: "Gaussian process experiment model",
     module: "CulturePlan",
     route: "plan",
-    engine: "Python · experiment-rbf-gp-v2",
+    engine: "Python · experiment-rbf-gp-v4",
     intro:
-      "The model relates lactate and ammonia settings to the observed response for each condition. Measurement noise is estimated from replicate runs; the length scale is supplied by the researcher rather than optimized automatically.",
+      "The model relates 1 to 6 researcher-set factors (for example EPO, SCF, glucose and seeding density) to the observed response for each condition. Measured end-of-run lactate and ammonia are outputs, predicted by separate GPs of the same form. Measurement noise is estimated from replicate runs; the length scale is supplied by the researcher rather than optimized automatically.",
     notation:
-      "x contains lactate and ammonia in mg/L. y is the vector of condition means. b and s are the training means' average and population standard deviation (s = 1 when constant). ℓ is length scale. nᵢ and sᵢ are the run count and replicate SD of condition i; σ̂ is the pooled replicate SD.",
+      "x contains the factor settings in their uploaded units. y is the vector of condition means. b and s are the training means' average and population standard deviation (s = 1 when constant). ℓ is length scale. nᵢ and sᵢ are the run count and replicate SD of condition i; σ̂ is the pooled replicate SD.",
     equations: [
       {
         id: "gp-kernel",
@@ -173,7 +173,7 @@ export const methods = [
       },
     ],
     limits:
-      "Candidates are a 5 × 5 grid spanning the tested lactate and ammonia range, plus the tested conditions; the model does not extrapolate beyond the tested range. Pooling assumes the same noise in every condition. The GP assumes a smooth response surface and does not establish causal effects or a validated production recipe.",
+      "Candidates are a grid of 5 levels per factor (at most 5⁶ = 15,625 points) spanning the tested range, plus the tested conditions; the best 50 by expected improvement are returned; the model does not extrapolate beyond the tested range. Pooling assumes the same noise in every condition. The GP assumes a smooth response surface and does not establish causal effects or a validated production recipe.",
     refs: ["gpml"],
   },
   {
@@ -181,7 +181,7 @@ export const methods = [
     title: "Expected improvement ranking",
     module: "CulturePlan",
     route: "plan",
-    engine: "Python · experiment-rbf-gp-v2",
+    engine: "Python · experiment-rbf-gp-v4",
     intro:
       "Expected improvement balances predicted response against model uncertainty when ranking conditions for another measurement.",
     notation:
@@ -259,7 +259,7 @@ export const methods = [
         name: "Metabolite ceilings for the planned condition",
         latex: String.raw`\begin{aligned}\text{lactate}&<15\,\mathrm{mM}\times 90.08\,\mathrm{g/mol}=1351\ \mathrm{mg/L}\\ \text{ammonia}&<4\,\mathrm{mM}\times 17.03\,\mathrm{g/mol}=68\ \mathrm{mg/L}\end{aligned}`,
         explanation:
-          "Inhibition onsets reported in millimolar are converted with the molar masses of lactate and ammonia to match the mg/L units of the DOE fixture. The condition ranked first by expected improvement is checked against these onsets and against the 2640 mg/L lactate with 129 mg/L ammonia combination reported to mediate cell death.",
+          "Inhibition onsets reported in millimolar are converted with the molar masses of lactate and ammonia to match mg/L. The condition ranked first by expected improvement is checked against these onsets and against the 2640 mg/L lactate with 129 mg/L ammonia combination reported to mediate cell death. Its lactate and ammonia are the GP predictions of measured end-of-run values; in a spiking study that sets lactate and ammonia as factors, the added amounts are checked instead.",
       },
     ],
     limits:

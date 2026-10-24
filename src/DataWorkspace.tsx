@@ -23,8 +23,14 @@ const columnLabels: Record<string, string> = {
   elapsed_hours: "Time (h)",
   cell_count_million: "Cells (million)",
   condition_id: "Condition",
-  lactate_mg_l: "Lactate (mg/L)",
-  ammonia_mg_l: "Ammonia (mg/L)",
+  lactate_mg_l: "Lactate added (mg/L)",
+  ammonia_mg_l: "Ammonia added (mg/L)",
+  epo_iu_ml: "EPO (IU/mL)",
+  scf_ng_ml: "SCF (ng/mL)",
+  glucose_mmol_l: "Glucose (mmol/L)",
+  seed_1e5_per_ml: "Seeding (10⁵ cells/mL)",
+  measured_lactate_mg_l: "Lactate at end (mg/L)",
+  measured_ammonia_mg_l: "Ammonia at end (mg/L)",
   response: "Result",
   response_unit: "Result unit",
   sample_id: "Sample",
@@ -579,7 +585,7 @@ export default function DataWorkspace({
                 {kind === "culture"
                   ? "Two batches with timed cell counts and optional pH, temperature, glucose, and lactate."
                   : kind === "experiments"
-                    ? "Twelve experimental runs across four settings, with measured response values."
+                    ? "Synthetic 19 runs across nine EPO, SCF, glucose and seeding-density settings, with fold change and end-of-run lactate and ammonia."
                     : "Six test profiles with two marker calls, including missing and ambiguous calls."}
               </p>
               <Button
@@ -619,10 +625,14 @@ export default function DataWorkspace({
           </p>
           <p>
             <b>Experiments:</b>{" "}
-            <code>
-              condition_id, lactate_mg_l, ammonia_mg_l, response, response_unit
-            </code>
-            . One row per replicate. Keep the same response unit throughout.
+            <code>condition_id, response, response_unit</code> plus 1 to 6
+            factor columns you set, such as{" "}
+            <code>epo_iu_ml, scf_ng_ml, glucose_mmol_l, seed_1e5_per_ml</code>.
+            Optional <code>measured_lactate_mg_l, measured_ammonia_mg_l</code>{" "}
+            are end-of-run outputs checked against inhibition ceilings. Use{" "}
+            <code>lactate_mg_l, ammonia_mg_l</code> as factors only in a
+            spiking study. One row per replicate. Keep the same response unit
+            throughout.
           </p>
           <p>
             <b>Markers:</b> <code>sample_id</code> plus any number of{" "}
