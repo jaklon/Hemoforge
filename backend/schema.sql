@@ -62,11 +62,16 @@ alter table accounts enable row level security;
 alter table account_sessions enable row level security;
 alter table notifications enable row level security;
 alter table account_state enable row level security;
--- Every exported checkpoint report: the request that produced it and the exact PDF that was downloaded.
+-- Reports: one per automated Dashboard correction, or one saved from a HemoBot analysis.
+-- dedupe_key makes repeat submissions of the same correction or analysis a no-op.
 create table if not exists reports (
     number text primary key, account_id text not null references accounts(id) on delete cascade,
-    created_at timestamptz not null, batch_id text not null, checkpoint_hour double precision not null,
-    request_json jsonb not null, pdf bytea not null
+    dedupe_key text not null, created_at timestamptz not null,
+    kind text not null check (kind in ('automated', 'hemobot')), source text not null, batch_id text not null,
+    hour double precision, status text not null, title text not null, summary text not null, lines jsonb not null,
+    unique (account_id, dedupe_key)
 );
+-- Formal report body (numbered sections) and its figure; null on reports saved before these existed.
+alter table reports add column if not exists sections jsonb, add column if not exists chart jsonb;
 create index if not exists reports_account on reports(account_id, created_at desc);
 alter table reports enable row level security;

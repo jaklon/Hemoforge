@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useWorkspace } from "./workspace-context"
 import { Badge, Button, Details, PageTitle, Panel } from "./workspace-ui"
 import { downloadFile } from "./workspace-utils"
+import { accountApi } from "./account"
 import { analyzeWithBot, botExportUrl, botPayload, botQuestions, botStatus,
   type BotAnalysis, type BotContext, type BotModule, type BotStatus } from "./hemobot-api"
 
@@ -71,6 +72,11 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
   const [status, setStatus] = useState<BotStatus | null>(null)
   const [statusError, setStatusError] = useState("")
   const [exportError, setExportError] = useState("")
+  const { notify, flag } = useWorkspace()
+  // response_id of the analysis last saved as a report.
+  const [savedId, setSavedId] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
   const [exporting, setExporting] = useState(false)
   const statusController = useRef<AbortController | null>(null)
   const refresh = useCallback(async () => {
@@ -114,6 +120,19 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
     } catch (failure) {
       setExportError(failure instanceof Error ? failure.message : "Export failed.")
     } finally { setExporting(false) }
+  }
+  async function saveReport() {
+    if (!result) return
+    setSaving(true)
+    setSaveError("")
+    try {
+      const report = await accountApi<{ number: string }>("reports/hemobot", "POST", { response_id: result.response_id })
+      setSavedId(result.response_id)
+      notify(`Saved as report ${report.number}`, "success")
+      flag("report")
+    } catch (failure) {
+      setSaveError(failure instanceof Error ? failure.message : "Could not save the report.")
+    } finally { setSaving(false) }
   }
   return <>
     <PageTitle title="HemoBot" description="Review laboratory evidence with your biomedical research assistant."
@@ -164,6 +183,10 @@ export default function HemoBot({ bot, context, batchChoices, onBatchChange, rep
           <div className="bot-citations">{result.citations.map(citation => <button type="button" className="button"
             onClick={() => showCitation(citation.id)} key={citation.id}>
             {citation.module}{citation.measured_at !== null ? ` · ${citation.measured_at}h` : ""}</button>)}</div>
+          <div className="bot-run-actions"><Button primary icon="report" disabled={saving || savedId === result.response_id}
+            onClick={() => void saveReport()}>{savedId === result.response_id ? "Saved as report" : saving ? "Saving…" : "Save as report"}</Button>
+            {savedId === result.response_id && <a className="button" href="#report">Open Research Report</a>}</div>
+          {saveError && <p role="alert" className="import-error">{saveError}</p>}
         </div>
       </Panel>
       <div className="bot-card-grid">{result.cards.map(card => <Panel key={card.module} title={card.title}

@@ -41,9 +41,18 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
+
+import {
+  loadLimits,
+  measuredSamples,
+  processVariables,
+  safeLimits,
+  simulate,
+} from "./dashboard-sim"
 
 const MethodsPage = lazy(() => import("./MethodsPage"))
 
@@ -775,121 +784,125 @@ function Workflow({ navigate }: { navigate: (view: View) => void }) {
 
 const reportPage = 10
 
-type ReportDetails = {
+// Names printed under the signature lines of every report; institution is the account's company.
+type SignOff = {
   researcher: string
-
   supervisor: string
-
   institution: string
 }
 
+type SavedReport = {
+  number: string
+  created_at: string
+  kind: "automated" | "hemobot"
+  source: string
+  batch_id: string
+  hour: number | null
+  status: string
+  title: string
+  summary: string
+  lines: string[]
+  sections: { heading: string; paragraphs: string[] }[]
+}
+
 function ResearchReport({
-  hour,
-
-  replicate,
-
   focusHour,
-
-  details,
-
-  onDetailsChange,
-
-  // Checkpoint to open first, from #report/<hour> (ErythroPilot's Review report).
+  version,
+  // Report to open first, from #report/<hour> (ErythroPilot's Review report).
 }: {
-  hour: number
-
-  replicate: number
-
   focusHour: number | null
-
-  details: ReportDetails
-
-  onDetailsChange: (details: ReportDetails) => void
+  // Bumped when new reports are saved, so the list reloads.
+  version: number
 }) {
-  const { batchId, checkpointReports, reportInterval, source } =
-    useCultureData()
-
+  const [signOff, setSignOff] = useState<SignOff | null>(null)
+  const [names, setNames] = useState({ researcher: "", supervisor: "" })
+  const [savingNames, setSavingNames] = useState(false)
+  const [namesError, setNamesError] = useState("")
+  const namesChanged =
+    !!signOff &&
+    (names.researcher.trim() !== signOff.researcher ||
+      names.supervisor.trim() !== signOff.supervisor)
+  useEffect(() => {
+    accountApi<SignOff>("reports/signatories")
+      .then((saved) => {
+        setSignOff(saved)
+        setNames({ researcher: saved.researcher, supervisor: saved.supervisor })
+      })
+      .catch((error: Error) => setNamesError(error.message))
+  }, [])
+  async function saveNames() {
+    setSavingNames(true)
+    setNamesError("")
+    try {
+      const saved = await accountApi<SignOff>("reports/signatories", "PUT", names)
+      setSignOff(saved)
+      setNames({ researcher: saved.researcher, supervisor: saved.supervisor })
+      return true
+    } catch (error) {
+      setNamesError(error instanceof Error ? error.message : "Could not save the names.")
+      return false
+    } finally {
+      setSavingNames(false)
+    }
+  }
+  const [all, setAll] = useState<SavedReport[] | null>(null)
+  const [loadError, setLoadError] = useState("")
   const [exporting, setExporting] = useState(false)
-
   const [exportError, setExportError] = useState("")
-
-  const [activeHour, setActiveHour] = useState(focusHour)
-
-  useEffect(() => setActiveHour(focusHour), [focusHour])
-
-  const all = checkpointReports(replicate, hour)
-
+  const [activeNumber, setActiveNumber] = useState<string | null>(null)
+  useEffect(() => setActiveNumber(null), [focusHour])
+  useEffect(() => {
+    accountApi<SavedReport[]>("reports")
+      .then((reports) => {
+        setAll(reports)
+        setLoadError("")
+      })
+      .catch((error: Error) => setLoadError(error.message))
+  }, [version])
+  const list = all ?? []
   const [query, setQuery] = useState("")
-
-  const [status, setStatus] = useState("all")
-
+  const [kind, setKind] = useState("all")
   const [newestFirst, setNewestFirst] = useState(true)
-
   const [shown, setShown] = useState(reportPage)
-
   const needle = query.trim().toLowerCase()
-
-  const matches = all.filter(
+  const matches = list.filter(
     (report) =>
-      (status === "all" || report.status === status) &&
+      (kind === "all" || report.kind === kind) &&
       (!needle ||
-        `${report.checkpoint_hour}h ${report.summary} ${report.recommendation}`
-
+        `${report.hour ?? ""}h ${report.title} ${report.summary} ${report.source} ${report.batch_id}`
           .toLowerCase()
-
           .includes(needle)),
   )
-
-  const reports = newestFirst ? [...matches].reverse() : matches
-
+  // The server sends newest first.
+  const reports = newestFirst ? matches : [...matches].reverse()
   const selected =
-    all.find((report) => report.checkpoint_hour === activeHour) ?? all.at(-1)
-
+    list.find((report) => report.number === activeNumber) ??
+    list.find((report) => focusHour !== null && report.hour === focusHour) ??
+    list[0]
   const download = async () => {
     if (!selected || exporting) return
-
     setExporting(true)
-
     setExportError("")
-
     try {
-      const response = await fetch("/api/reports/checkpoint.pdf", {
-        method: "POST",
-
-        headers: { "Content-Type": "application/json" },
-
-        body: JSON.stringify({
-          report: selected,
-
-          ...details,
-
-          source_added_at: source.loaded_at || null,
-        }),
-
+      // The PDF prints the saved names, so unsaved edits are saved first.
+      if (namesChanged && !(await saveNames())) return
+      const response = await fetch(`/api/reports/${selected.number}/pdf`, {
         signal: AbortSignal.timeout(30_000),
       })
-
       if (!response.ok) {
         const error = await response.json().catch(() => null)
-
         throw new Error(
           error?.detail ||
             "PDF export failed. Check the Python service and retry.",
         )
       }
-
       if (!response.headers.get("content-type")?.includes("application/pdf")) {
         throw new Error(
           "PDF service unavailable. Check the Python service and retry.",
         )
       }
-
-      const filename = response.headers
-        .get("content-disposition")
-        ?.match(/filename="(HF-RPT-[A-Z0-9-]+\.pdf)"/)?.[1]
-
       downloadFile(
-        filename || "hemoforge-research-report.pdf",
+        `${selected.number}.pdf`,
         await response.blob(),
         "application/pdf",
       )
@@ -905,21 +918,20 @@ function ResearchReport({
       setExporting(false)
     }
   }
-
   return (
     <>
       <PageTitle
         title="Research Report"
-        description={`Review and document every ${reportInterval}h checkpoint for ${batchId(replicate)}.`}
-        action={<Badge>{all.length} reports</Badge>}
+        description="Reports from automated Dashboard actions and saved HemoBot analyses."
+        action={<Badge>{list.length} reports</Badge>}
       />
       <Panel
         title="Formal PDF report"
         className="report-document"
         caption={
           selected
-            ? `Create a report template for the ${selected.checkpoint_hour}h checkpoint with an automatic generation date.`
-            : "Select a checkpoint once reports are available."
+            ? `Create a PDF of ${selected.number} dated when the report was created.`
+            : "Select a report once reports are available."
         }
         action={
           <Button
@@ -932,66 +944,69 @@ function ResearchReport({
           </Button>
         }
       >
-        <div className="report-document-fields" aria-busy={exporting}>
+        <form
+          className="report-document-fields"
+          aria-busy={exporting || savingNames}
+          onSubmit={(event) => {
+            event.preventDefault()
+            void saveNames()
+          }}
+        >
           <div className="settings-grid">
             <label>
               Researcher
               <input
-                value={details.researcher}
+                value={names.researcher}
                 maxLength={120}
-                disabled={exporting}
+                disabled={!signOff || savingNames}
                 autoComplete="name"
                 placeholder="Name for researcher sign-off"
                 onChange={(event) =>
-                  onDetailsChange({
-                    ...details,
-                    researcher: event.target.value,
-                  })
+                  setNames({ ...names, researcher: event.target.value })
                 }
               />
             </label>
             <label>
               Supervisor
               <input
-                value={details.supervisor}
+                value={names.supervisor}
                 maxLength={120}
-                disabled={exporting}
+                disabled={!signOff || savingNames}
                 placeholder="Name for supervisor sign-off"
                 onChange={(event) =>
-                  onDetailsChange({
-                    ...details,
-                    supervisor: event.target.value,
-                  })
+                  setNames({ ...names, supervisor: event.target.value })
                 }
               />
             </label>
             <label>
               Institution / laboratory
               <input
-                value={details.institution}
-                maxLength={160}
-                disabled={exporting}
-                autoComplete="organization"
-                placeholder="Institution or laboratory name"
-                onChange={(event) =>
-                  onDetailsChange({
-                    ...details,
-                    institution: event.target.value,
-                  })
-                }
+                value={signOff?.institution ?? ""}
+                readOnly
+                placeholder="Set your company on the Account page"
               />
             </label>
           </div>
+          <div className="report-names-actions">
+            <Button
+              primary={namesChanged}
+              disabled={!namesChanged || savingNames}
+              onClick={() => void saveNames()}
+            >
+              {savingNames ? "Saving…" : namesChanged ? "Save names" : "Names saved"}
+            </Button>
+          </div>
           <p className="panel-note">
-            Content is a placeholder. The date is set automatically when the
-            report is generated. Sign above each printed name.
+            Saved for your workspace and printed on every report. The
+            institution comes from your <a href="#account">account profile</a>.
+            Sign above each printed name.
           </p>
-          {exportError && (
+          {(namesError || exportError) && (
             <p role="alert" className="import-error">
-              {exportError}
+              {namesError || exportError}
             </p>
           )}
-        </div>
+        </form>
       </Panel>
       <div className="report-layout">
         <Panel title="Past reports" caption="Select a report to inspect it">
@@ -1008,25 +1023,22 @@ function ResearchReport({
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value)
-
                   setShown(reportPage)
                 }}
               />
             </label>
             <label>
-              Status
+              Type
               <select
-                value={status}
+                value={kind}
                 onChange={(event) => {
-                  setStatus(event.target.value)
-
+                  setKind(event.target.value)
                   setShown(reportPage)
                 }}
               >
                 <option value="all">All</option>
-                <option value="normal">Normal</option>
-                <option value="warning">Warning</option>
-                <option value="needs_review">Needs review</option>
+                <option value="automated">Automated action</option>
+                <option value="hemobot">HemoBot</option>
               </select>
             </label>
             <label>
@@ -1042,42 +1054,48 @@ function ResearchReport({
               </select>
             </label>
             <span role="status">
-              {matches.length === all.length
-                ? `${all.length} reports`
-                : `${matches.length} of ${all.length} match`}
+              {matches.length === list.length
+                ? `${list.length} reports`
+                : `${matches.length} of ${list.length} match`}
             </span>
           </div>
+          {loadError && (
+            <p role="alert" className="import-error">
+              {loadError}
+            </p>
+          )}
           <div className="report-timeline">
             {reports.length ? (
               reports.slice(0, shown).map((report) => (
                 <button
-                  key={report.checkpoint_hour}
+                  key={report.number}
                   className={report === selected ? "active" : ""}
                   aria-pressed={report === selected}
-                  onClick={() => setActiveHour(report.checkpoint_hour)}
+                  onClick={() => setActiveNumber(report.number)}
                 >
                   <span className="checkpoint-time">
-                    {report.checkpoint_hour}h
+                    {report.hour === null ? "—" : `${report.hour}h`}
                   </span>
                   <span>
-                    <strong>Checkpoint · {report.checkpoint_hour}h</strong>
+                    <strong>{report.title}</strong>
                     <small>{report.summary}</small>
                   </span>
                   <Status status={report.status} />
                   <Icon name="arrow" />
                 </button>
               ))
-            ) : all.length ? (
+            ) : list.length ? (
               <div className="empty-state">
                 <strong>No matching reports</strong>
-                <p>Change the search or status filter.</p>
+                <p>Change the search or type filter.</p>
               </div>
             ) : (
               <div className="empty-state">
-                <strong>No reports yet</strong>
+                <strong>{all ? "No reports yet" : "Loading reports…"}</strong>
                 <p>
-                  Advance replay to {reportInterval}h to generate the first
-                  report.
+                  A report is created when the Dashboard's automated control
+                  acts on a variable past its action limit, or when you save a
+                  HemoBot analysis as a report.
                 </p>
               </div>
             )}
@@ -1091,18 +1109,59 @@ function ResearchReport({
           )}
         </Panel>
         <Panel
-          title={
-            selected ? `Report · ${selected.checkpoint_hour}h` : "Report detail"
-          }
+          title={selected ? selected.title : "Report detail"}
           caption={
             selected
-              ? `Reporting window (${selected.data_window.from_hour}h, ${selected.checkpoint_hour}h]`
+              ? `${selected.source} · ${selected.batch_id}${
+                  selected.hour === null ? "" : ` · ${selected.hour}h`
+                }`
               : undefined
           }
           className="report-inspector"
         >
           {selected ? (
-            <ReportDetail report={selected} evidence={source.evidence} />
+            <div className="report-detail">
+              <dl>
+                <div>
+                  <dt>Report number</dt>
+                  <dd>{selected.number}</dd>
+                </div>
+                <div>
+                  <dt>Created</dt>
+                  <dd>{new Date(selected.created_at).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>
+                    <Status status={selected.status} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Researcher</dt>
+                  <dd>{signOff?.researcher || "Not set"}</dd>
+                </div>
+                <div>
+                  <dt>Supervisor</dt>
+                  <dd>{signOff?.supervisor || "Not set"}</dd>
+                </div>
+              </dl>
+              <p>{selected.summary}</p>
+              <ul>
+                {selected.lines.map((line, index) => (
+                  <li key={index}>{line}</li>
+                ))}
+              </ul>
+              {selected.sections.map((section, index) => (
+                <section key={index}>
+                  <h3>
+                    {index + 1}. {section.heading}
+                  </h3>
+                  {section.paragraphs.map((paragraph, item) => (
+                    <p key={item}>{paragraph}</p>
+                  ))}
+                </section>
+              ))}
+            </div>
           ) : (
             <p className="panel-note">Select a report to inspect it.</p>
           )}
@@ -1282,20 +1341,14 @@ function ResearchWorkspaceContent() {
 
   const [eventNotes, setEventNotes] = useState<Record<string, string>>({})
 
-  const [reportDetails, setReportDetails] = useState<ReportDetails>(() => ({
-    researcher: profile.name || profile.username,
-
-    supervisor: "",
-
-    institution: profile.company,
-  }))
 
   const [checks, setChecks] = useState([false, false, false])
 
   const botContext = {
     batch_id: batches[replicate - 1]?.id ?? batches[0]?.id ?? "No batch",
 
-    replay_elapsed_hours: hour,
+    // Whole hours: HemoBot clears its answer whenever this context changes.
+    replay_elapsed_hours: Math.floor(hour),
 
     marker_settings: workspaceData.markerSettings,
 
@@ -1311,6 +1364,57 @@ function ResearchWorkspaceContent() {
   }
 
   const bot = useHemoBot(botContext)
+
+  // Each automated Dashboard correction up to the replay hour becomes a report; the server ignores repeats.
+  const [reportsVersion, setReportsVersion] = useState(0)
+  const sentReports = useRef(new Set<string>())
+  useEffect(() => {
+    const batch = batches[replicate - 1]
+    if (!batch) return
+    const limits = safeLimits(loadLimits())
+    const measured = measuredSamples(batch.measurements)
+    const runs = simulate(limits, hour, measured)
+    const reportKey = (item: { batch_id: string; variable: string; hour: number; action: string }) =>
+      `${item.batch_id}:${item.variable}:${item.hour}:${item.action}`
+    const actions = processVariables
+      .flatMap((variable) =>
+        runs[variable.id].actions
+          // An exchange another variable triggered belongs to that variable's report.
+          .filter((action) => !action.linkedFrom)
+          .map((action) => {
+            const settings = limits[variable.id]
+            return {
+              batch_id: batch.id,
+              hour: action.hour,
+              variable: variable.name,
+              unit: variable.unit,
+              side: action.side,
+              limit: (action.side === "low" ? settings.actLow : settings.actHigh) ?? 0,
+              warning: action.side === "low" ? settings.warnLow : settings.warnHigh,
+              action: action.label,
+              before: action.before,
+              after: action.after,
+              digits: variable.digits,
+              measured: !!measured[variable.id],
+              // The report's figure: 48 h before the event up to 12 h after, never past the replay hour.
+              points: runs[variable.id].samples
+                .filter((sample) => sample.hour >= action.hour - 48 && sample.hour <= Math.min(hour, action.hour + 12))
+                .map((sample) => [sample.hour, sample.value]),
+            }
+          }),
+      )
+      .filter((item) => !sentReports.current.has(reportKey(item)))
+    if (!actions.length) return
+    const keys = actions.map(reportKey)
+    keys.forEach((key) => sentReports.current.add(key))
+    accountApi<{ created: number }>("reports/automated", "POST", { actions })
+      .then(({ created }) => {
+        if (!created) return
+        setReportsVersion((value) => value + 1)
+        workspaceData.flag("report")
+      })
+      .catch(() => keys.forEach((key) => sentReports.current.delete(key)))
+  }, [hour, replicate, batches])
 
   const current = pages.find((item) => item.id === view)!
 
@@ -1704,11 +1808,8 @@ function ResearchWorkspaceContent() {
           <Workflow navigate={navigate} />
         ) : (
           <ResearchReport
-            hour={hour}
-            replicate={replicate}
+            version={reportsVersion}
             focusHour={Number(methodSection) || null}
-            details={reportDetails}
-            onDetailsChange={setReportDetails}
           />
         )}
       </main>

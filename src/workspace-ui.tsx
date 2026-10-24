@@ -321,6 +321,8 @@ const statusLabel: Record<string, string> = {
   needs_review: "Needs review",
 
   no_data: "No data",
+
+  action: "Action taken",
 }
 
 export function Status({ status }: { status: string }) {
@@ -329,7 +331,7 @@ export function Status({ status }: { status: string }) {
       tone={
         status === "normal"
           ? "success"
-          : status === "warning" || status === "needs_review"
+          : status === "warning" || status === "needs_review" || status === "action"
             ? "warning"
             : "neutral"
       }
