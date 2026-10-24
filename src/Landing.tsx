@@ -117,38 +117,6 @@ const personas = [
   },
 ]
 
-const notList = [
-  "Bioreactor control or closed-loop automation",
-  "Transfusion compatibility or blood-group typing",
-  "Clinical release of a blood product",
-  "Contamination or sterility diagnosis",
-  "A replacement for voluntary blood donors",
-]
-
-const datasets = [
-  {
-    tag: "Culture",
-    url: sourceReferences[0].url,
-    name: "BEL-A cell line",
-    org: "University of Bath · CC BY 4.0",
-    facts: ["Growth curve: 3 replicates × 8 time points", "Metabolite DOE: 12 runs, 4 lactate–ammonia conditions", "Static culture, observed to ~171 h"],
-  },
-  {
-    tag: "Transcriptome",
-    url: sourceReferences[1].url,
-    name: "GSE53983",
-    org: "NCBI GEO · An et al., Blood 2014",
-    facts: ["Human terminal erythroid differentiation", "RNA-seq, 3 replicates per stage", "log₂(CPM+1) → L2 logistic regression"],
-  },
-  {
-    tag: "Genomics",
-    url: sourceReferences[2].url,
-    name: "1000 Genomes & Ensembl",
-    org: "Phase 3 · GRCh38 · release 116",
-    facts: ["KEL rs8176058 · SLC14A1 rs1058396", "1,000 reference/alternate sequence pairs", "Missing or ambiguous calls → unknown"],
-  },
-]
-
 const roadmap = [
   { status: "Available", title: "Research workspace", body: "Public interactive preview; signed-in access to dataset imports, multi-batch replay, traceable warnings and checkpoint reports.", detail: "Research prototype · example data is labeled" },
   { status: "Pilot", title: "Your data, reviewed together", body: "Proposed collaboration: agree a dataset, configure a research workflow and review its outputs with your team. Scope and access are confirmed before a pilot starts.", detail: "By agreement · request a scoped proposal" },
@@ -829,75 +797,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         </div>
       </section>
 
-      <section id="integrity" className="lp-section">
-        <div className="lp-wrap">
-          <div className="lp-head center" data-reveal>
-            <span className="lp-eyebrow">Integrity</span>
-            <h2>Honest by design. <em>Auditable by default.</em></h2>
-            <p className="lp-muted">
-              In a field where a convincing chart can cost a culture, HemoForge treats provenance as a feature.
-            </p>
-          </div>
-          <div className="lp-integrity">
-            <article className="lp-card big" data-reveal>
-              <span className="lp-card-icon"><LocalIcon name="lock" /></span>
-              <h3>Every input lives in a manifest</h3>
-              <p>Title, DOI, licence, download time, SHA-256, units, sample counts and consistency checks, for every source.</p>
-              <pre className="lp-code" aria-label="Example manifest entry">
-{`{
-  `}<span className="k">"dataset_id"</span>{`: `}<span className="s">"bel-a-growth"</span>{`,
-  `}<span className="k">"doi"</span>{`: `}<span className="s">"10.15125/BATH-01456"</span>{`,
-  `}<span className="k">"license"</span>{`: `}<span className="s">"CC BY 4.0"</span>{`,
-  `}<span className="k">"sha256"</span>{`: `}<span className="s">"9f2c…e81a"</span>{`,
-  `}<span className="k">"replicates"</span>{`: `}<span className="n">3</span>{`,
-  `}<span className="k">"seed"</span>{`: `}<span className="n">42</span>{`,
-  `}<span className="k">"evidence"</span>{`: `}<span className="s">"reference"</span>{`
-}`}
-              </pre>
-            </article>
-            {[
-              ["guard", "Replay is labelled Replay", "Live is reserved for real sensor connections. Reference data and simulations always say what they are."],
-              ["pilot", "No interpolation posing as data", "Sparse lab samples are never smoothed into a continuous sensor trace. Gaps stay visible."],
-              ["layers", "Two independent status axes", "Execution (succeeded / failed) is kept apart from evidence quality (reference, exploratory, needs_review, insufficient_data)."],
-              ["report", "Grounded in quality frameworks", "Designed with ICH Q9(R1) risk management, WHO TRS 1033 data integrity and ICH Q8(R2) in mind. Referenced, not certified."],
-            ].map(([icon, title, body], i) => (
-              <article key={title} className="lp-card" data-reveal style={{ "--d": i } as CSSProperties}>
-                <span className="lp-card-icon"><LocalIcon name={icon} /></span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-section">
-        <div className="lp-wrap lp-split">
-          <div data-reveal>
-            <span className="lp-eyebrow">Architecture</span>
-            <h2>One dashboard. <em>One API.</em> No competing truths.</h2>
-            <p className="lp-muted">
-              A React and TypeScript workspace talks to a single FastAPI service that ingests, validates, replays and
-              applies warning rules. Analyses are fingerprinted by source checksum, code version, configuration and seed,
-              and timestamps are stored in UTC.
-            </p>
-          </div>
-          <div className="lp-stack" data-reveal aria-label="System layers">
-            {[
-              ["React + TypeScript", "Guard dashboard · reports · HemoBot"],
-              ["FastAPI", "Ingest · validate · replay · warning rules"],
-              ["ErythroPilot · CulturePlan · RareMatch", "Analysis modules"],
-              ["SQLite + manifest", "BEL-A · GEO · 1000 Genomes"],
-            ].map(([title, sub], i) => (
-              <div key={title} className="lp-layer" style={{ "--i": i } as CSSProperties}>
-                <strong>{title}</strong>
-                <span>{sub}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section id="audience" className="lp-section">
         <div className="lp-wrap">
           <div className="lp-head" data-reveal>
@@ -914,40 +813,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
               </article>
             ))}
           </div>
-          <div className="lp-not-box" data-reveal>
-            <div>
-              <span className="lp-eyebrow red">Clear boundaries</span>
-              <h3>What HemoForge is not</h3>
-              <p className="lp-muted">Its value is clear monitoring and traceable analysis, not a claim of transfusion-ready blood.</p>
-            </div>
-            <ul>{notList.map((n) => <li key={n}><LocalIcon name="x" /> {n}</li>)}</ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-section">
-        <div className="lp-wrap">
-          <div className="lp-head" data-reveal>
-            <span className="lp-eyebrow teal">Data</span>
-            <h2>Three public studies, <em>kept apart.</em></h2>
-            <p className="lp-muted">
-              They come from different experiments and individuals. HemoForge never presents them as one donor-to-harvest
-              batch, and fills nothing a source does not contain.
-            </p>
-          </div>
-          <div className="lp-datasets">
-            {datasets.map((d, i) => (
-              <article key={d.name} className="lp-dataset" data-reveal style={{ "--d": i } as CSSProperties}>
-                <span className="lp-tag">{d.tag}</span>
-                <h3>{d.name}</h3>
-                <span className="lp-mono lp-org">{d.org}</span>
-                <ul>{d.facts.map((f) => <li key={f}>{f}</li>)}</ul>
-                <a className="lp-reference" href={d.url} target="_blank" rel="noreferrer">Open dataset ↗</a>
-                {d.tag === "Genomics" && <a className="lp-reference" href={sources[3].url} target="_blank" rel="noreferrer">Ensembl reference assembly ↗</a>}
-                {d.tag === "Culture" && <a className="lp-reference" href="https://onlinelibrary.wiley.com/doi/10.1002/btm2.70026" target="_blank" rel="noreferrer">Read the BEL-A publication ↗</a>}
-              </article>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -960,11 +825,14 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           </div>
           <ol className="lp-roadmap">
             {roadmap.map((r, i) => (
-              <li key={r.title} data-reveal style={{ "--d": i } as CSSProperties}>
-                <span className={`lp-roadmap-status ${r.status.toLowerCase()}`}>{r.status}</span>
-                <h3>{r.title}</h3>
-                <p>{r.body}</p>
-                <p className="lp-roadmap-detail">{r.detail}</p>
+              <li key={r.title} className={r.status.toLowerCase()} data-reveal style={{ "--d": i } as CSSProperties}>
+                <span className="lp-roadmap-dot" aria-hidden="true" />
+                <div className="lp-roadmap-card">
+                  <span className="lp-roadmap-status">Phase {String(i + 1).padStart(2, "0")} · {r.status}</span>
+                  <h3>{r.title}</h3>
+                  <p>{r.body}</p>
+                  <p className="lp-roadmap-detail">{r.detail}</p>
+                </div>
               </li>
             ))}
           </ol>
