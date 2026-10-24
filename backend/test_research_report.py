@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from backend.accounts import account_id
 from backend.api import app
+from backend.db import connect, use_temporary_schema
 
 
 def report_request():
@@ -33,6 +34,10 @@ class ResearchReportTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
         app.dependency_overrides[account_id] = lambda: "test-account"
+        saver = patch("backend.research_report.save_report")
+        self.saver = saver
+        saver.start()
+        self.addCleanup(saver.stop)
 
     def tearDown(self):
         app.dependency_overrides.pop(account_id, None)
@@ -46,6 +51,20 @@ class ResearchReportTests(unittest.TestCase):
         self.assertEqual(first.headers["cache-control"], "no-store")
         self.assertRegex(first.headers["content-disposition"], r'filename="HF-RPT-\d{8}-[A-F0-9]{12}\.pdf"')
         self.assertNotEqual(first.headers["content-disposition"], second.headers["content-disposition"])
+
+    def test_export_is_saved_to_the_database(self):
+        self.saver.stop()
+        use_temporary_schema(self)
+        app.dependency_overrides[account_id] = lambda: "demo"
+        response = self.client.post("/api/reports/checkpoint.pdf", json=report_request())
+        self.assertEqual(response.status_code, 200)
+        number = response.headers["content-disposition"].split('"')[1].removesuffix(".pdf")
+        with connect() as db:
+            row = db.execute("SELECT account_id, batch_id, checkpoint_hour, request_json, pdf FROM reports"
+                             " WHERE number = %s", (number,)).fetchone()
+        self.assertEqual(row[:3], ("demo", "DEMO-R1", 48))
+        self.assertEqual(row[3]["researcher"], "Alex Researcher")
+        self.assertEqual(bytes(row[4]), response.content)
 
     def test_requires_a_signed_in_account(self):
         app.dependency_overrides.pop(account_id)

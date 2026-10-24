@@ -54,7 +54,19 @@ create table if not exists account_state (
 insert into accounts values ('demo', 'researcher',
     'pbkdf2_sha256$600000$228924d9e5c4d19784709020f5744fe7$5a15067c854c01c7b60494ea728f533006a7da8d18f5b94bb69c42d17fd9d2da',
     'Demo Researcher', 'researcher@example.com', 'Sanguis Biofactory Lab', 'Bioprocess scientist') on conflict do nothing;
+-- PoC demo sign-in (username pocdemo).
+insert into accounts values ('pocdemo', 'pocdemo',
+    'pbkdf2_sha256$600000$ceede2e81f354a752b22389459fd2a48$8c12bfce98c1880ec5504bbb520a6dd63937e7bfc9ef40dae7743133dc9698a0',
+    'PoC Demo', 'pocdemo@example.com', 'Sanguis Biofactory Lab', 'Bioprocess scientist') on conflict do nothing;
 alter table accounts enable row level security;
 alter table account_sessions enable row level security;
 alter table notifications enable row level security;
 alter table account_state enable row level security;
+-- Every exported checkpoint report: the request that produced it and the exact PDF that was downloaded.
+create table if not exists reports (
+    number text primary key, account_id text not null references accounts(id) on delete cascade,
+    created_at timestamptz not null, batch_id text not null, checkpoint_hour double precision not null,
+    request_json jsonb not null, pdf bytea not null
+);
+create index if not exists reports_account on reports(account_id, created_at desc);
+alter table reports enable row level security;

@@ -19,7 +19,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Paragraph
 
-from backend.accounts import account_id
+from backend.accounts import account_id, unavailable
+from backend.db import Error, connect
 from backend.models import InputModel
 
 router = APIRouter(prefix="/api/reports", tags=["Research reports"])
@@ -158,11 +159,25 @@ def render_report(request: ResearchReportRequest, number: str, created: datetime
     return output.getvalue()
 
 
+def save_report(account: str, number: str, created: datetime, request: ResearchReportRequest, pdf: bytes):
+    """Keep the exported report; the download fails rather than hand out a report the database lacks."""
+    try:
+        with connect() as db:
+            db.execute("INSERT INTO reports (number, account_id, created_at, batch_id, checkpoint_hour, request_json, pdf)"
+                       " VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)",
+                       (number, account, created, request.report.batch_id, request.report.checkpoint_hour,
+                        request.model_dump_json(), pdf))
+    except (Error, OSError) as error:
+        unavailable(error)
+
+
 @router.post("/checkpoint.pdf")
-def checkpoint_pdf(request: ResearchReportRequest, _account: str = Depends(account_id)):
+def checkpoint_pdf(request: ResearchReportRequest, account: str = Depends(account_id)):
     created = datetime.now(timezone.utc)
     number = f"HF-RPT-{created:%Y%m%d}-{uuid4().hex[:12].upper()}"
-    return Response(render_report(request, number, created), media_type="application/pdf", headers={
+    pdf = render_report(request, number, created)
+    save_report(account, number, created, request, pdf)
+    return Response(pdf, media_type="application/pdf", headers={
         "Content-Disposition": f'attachment; filename="{number}.pdf"',
         "Cache-Control": "no-store",
     })
