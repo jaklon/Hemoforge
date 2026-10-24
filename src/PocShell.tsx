@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from "react"
-import { Icon, Badge } from "./workspace-ui"
+import { useEffect, useState, type ReactNode } from "react"
+import { Icon, SignOutLink } from "./workspace-ui"
+import { initials, loadAccount, useAccount } from "./account"
 import { pocMonitorHash, type LiveModule } from "./lab-session"
 import "./poc.css"
 
@@ -26,6 +27,11 @@ export default function PocShell({
   const [hover, setHover] = useState(false)
   const [focused, setFocused] = useState(false)
   const collapsed = !pinned && !hover && !focused
+  const account = useAccount()
+  // PoC routes skip the sign-in gate, so a direct visit may not have checked yet.
+  useEffect(() => {
+    if (account === undefined) loadAccount().catch(() => {})
+  }, [])
   return (
     <div
       className={`app-shell poc-shell${pinned ? " sidebar-pinned" : ""}${
@@ -49,7 +55,11 @@ export default function PocShell({
           if (event.pointerType !== "touch") setHover(true)
         }}
         onPointerLeave={() => setHover(false)}
-        onFocusCapture={() => setFocused(true)}
+        // Only keyboard focus holds the sidebar open; a mouse click on the pin must not.
+        onPointerDown={(event) => setFocused(event.pointerType === "touch")}
+        onFocusCapture={(event) => {
+          if (event.target.matches(":focus-visible")) setFocused(true)
+        }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget))
             setFocused(false)
@@ -73,15 +83,6 @@ export default function PocShell({
             </strong>
           </span>
         </a>
-        <div className="workspace-context">
-          <span>DEDICATED WORKSPACE</span>
-          <strong>PoC & Simulation</strong>
-          <small>
-            {sessionId
-              ? `MONITOR 02 · ${sessionId.slice(0, 8).toUpperCase()}`
-              : "Start a two-monitor session"}
-          </small>
-        </div>
         <nav aria-label="Simulation modules">
           <div className="nav-group">
             <div className="nav-group-label">
@@ -124,23 +125,25 @@ export default function PocShell({
             )}
           </div>
         </nav>
-        <div className="sidebar-bottom">
-          <Badge tone="warning">Synthetic · PoC only</Badge>
-          <p>
-            Dedicated simulation data. Culture time follows the visible 3D
-            laboratory.
-          </p>
-        </div>
-        <nav className="nav-signout" aria-label="Leave simulation">
-          <a href="#poc">
-            <Icon name="home" />
-            <strong>PoC launcher</strong>
-          </a>
-          <a href="#dashboard" target="_blank" rel="noopener">
-            <Icon name="logout" />
-            <strong>Main HemoForge ↗</strong>
-          </a>
-        </nav>
+        {account && (
+          <nav className="nav-signout" aria-label="Account">
+            {/* The PoC demo account has no workspace account page. */}
+            <a
+              href={account.username === "pocdemo" ? "#poc" : "#account"}
+              className="nav-user"
+              title={collapsed ? `${account.name} · ${account.company}` : undefined}
+            >
+              <span className="nav-avatar" aria-hidden="true">
+                {initials(account)}
+              </span>
+              <strong>
+                {account.name || account.username}
+                <small>{account.company}</small>
+              </strong>
+            </a>
+            <SignOutLink collapsed={collapsed} />
+          </nav>
+        )}
       </aside>
       <header className="topbar">
         <div className="breadcrumb">

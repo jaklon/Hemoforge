@@ -22,6 +22,11 @@ function AuthenticatedWorkspace() {
   useEffect(checkAccount, [])
   if (account === undefined && !accountError) return null
   if (!account) return <SignIn key={accountError} error={accountError} onRetry={accountError ? checkAccount : undefined} />
+  // The PoC demo account skips the workspace and lands on the simulation hub.
+  if (account.username === "pocdemo") {
+    location.replace("#poc")
+    return null
+  }
   return <ResearchWorkspace />
 }
 

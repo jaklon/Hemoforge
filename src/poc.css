@@ -1,8 +1,5 @@
 .poc-shell { min-height: 100vh; background: #f3f6fa; color: #1e293b; }
 .poc-shell .workspace { padding-top: 22px; }
-.poc-shell .workspace-context small { overflow-wrap: anywhere; }
-.poc-shell .sidebar-bottom { padding-top: 28px; }
-.poc-shell .nav-signout { margin-top: 20px; }
 .poc-shell .vl-small-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 12px; border: 1px solid #cfd8e2; border-radius: 6px; background: #fff; color: #334155; font: 600 var(--text-md)/1.35 Inter, sans-serif; text-decoration: none; }
 .poc-shell .vl-small-button:hover:not(:disabled) { background: #edf1f6; }
 .poc-shell .vl-live-module { color: #1e293b; font-size: var(--text-md); line-height: 1.6; }
