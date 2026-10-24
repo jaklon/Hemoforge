@@ -561,13 +561,20 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       frame = requestAnimationFrame(() => {
         setScrolled(scrollY > 12)
         el.style.setProperty("--hero-p", String(Math.min(scrollY / (innerHeight * 0.8), 1)))
+        const scrollRange = document.documentElement.scrollHeight - document.documentElement.clientHeight
+        el.style.setProperty("--scroll-progress", String(scrollRange > 0 ? Math.max(0, Math.min(scrollY / scrollRange, 1)) : 0))
       })
     }
+    const resize = new ResizeObserver(onScroll)
+    resize.observe(el)
     onScroll()
     addEventListener("scroll", onScroll, { passive: true })
+    addEventListener("resize", onScroll)
     return () => {
       reveal.disconnect()
+      resize.disconnect()
       removeEventListener("scroll", onScroll)
+      removeEventListener("resize", onScroll)
       cancelAnimationFrame(frame)
     }
   }, [])
@@ -575,7 +582,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   // Section links scroll instead of setting the hash, which belongs to the workspace.
   function go(id: string) {
     setMenu(false)
-    const target = document.getElementById(id)
+    const target = document.getElementById(id)?.querySelector(".lp-wrap")
     target?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" })
     const heading = target?.querySelector<HTMLElement>("h2")
     heading?.setAttribute("tabindex", "-1")
@@ -605,6 +612,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             </button>
           </div>
         </div>
+        <div className="lp-scroll-progress" aria-hidden="true"><span /></div>
       </header>
 
       <section className="lp-hero">
