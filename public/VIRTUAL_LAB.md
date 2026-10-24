@@ -19,7 +19,7 @@ npm run dev -- --host 127.0.0.1 --port 8443
    Keep both windows visible: hiding/minimizing the 3D tab pauses culture. A second tab in the same window is insufficient.
 3. Click **Mulai / lanjutkan** on Monitor 01. The default speed is 0.25 culture hours per rendered second.
    Core sensors publish first; Trace becomes available at 0.1 culture hours; the first Trace-linked cell estimate appears at 1.02 h.
-4. Use the four camera views to inspect the bag cutaway/impellers, bubbles, probes, controller screen, Trace fluid loop,
+4. Use the camera presets to inspect the bag cutaway/impellers, bubbles, probes, controller screen, Trace fluid loop,
    ViaMass display, feed/retention lines, pump rotors and gloved hands. Drag to look around; the arrow toggles play/pause.
 5. Dashboard on Monitor 02 distinguishes **VIRTUAL SENSOR**, **MODEL ESTIMATE**, and **NOT MEASURED**.
    Charts use each source's own measurement/release times. Missing channels are never filled from hidden plant state.
@@ -38,7 +38,7 @@ npm run dev -- --host 127.0.0.1 --port 8443
    The code expires in two minutes. Viewer links alone cannot operate the reactor.
 3. Choose a 500/1250 mL feed or 25/50% medium exchange, enter a reason, preview, then confirm.
    Decision sources must be recent (<=3 culture hours), and core/Trace/ViaMass must all be fresh and passed.
-4. The visible 3D controller accepts the queued action automatically. Four rendered seconds represent three culture minutes;
+4. The visible 3D controller accepts the queued action automatically. Four process seconds represent three culture minutes (about twelve viewing seconds at the default ⅓× transfer presentation speed);
    the bounded virtual transfer applies exactly once on completion. It is deliberately an atomic teaching transfer.
 5. Check matching applied status and volume in both windows. Resume culture for post-action sensor readings before another decision.
 6. Cancel unfinished transfers from Guard, or revoke operator access in Monitor 01. Applied transfers cannot be undone.
@@ -103,7 +103,7 @@ badge confirms **BLENDER LAB + OPERATOR 5/5** after loading. A labeled procedura
 appears if the GLB is unavailable. The legend shows measured FPS and current
 render quality. Lower-resolution Balanced mode is selected automatically if
 rendering falls below 32 FPS. RPM controls the shaft speed; recorded volume
-controls the liquid level. Pause/hidden tabs/disconnect stop process animation.
+controls the recorded level; the transfer view can illustrate acknowledged in-flight progress separately. Pause/hidden tabs/disconnect stop process animation.
 
 Select **BioPAT Trace** or **ViaMass** for close-up camera views. Both displays
 are labeled HemoForge virtual readouts and use the same released sensor receipts
@@ -227,3 +227,50 @@ filled with stationary contents. Pause freezes the fluid, bubbles, surface rings
 and transport; **Kurangi gerakan** freezes their visual clocks while the visible
 culture clock continues. Balanced quality reduces bubble/tracer counts to keep
 the browser responsive. All geometry, shaders and materials are local and free.
+
+## Watch a Guard feeding or exchange decision
+
+Pair Guard with the code from Monitor 01, choose a feed or exchange, then preview
+and confirm it. **05 Transfer** frames the medium bag, reactor, DCU and retention
+skid together. The prepared-dose bag drains during feed; during exchange the
+filtrate receiver fills as the retention head and return circuit also run. Small
+chevrons and brighter moving highlights identify the active directions. Closed
+routes remain stationary. Feed raises the visual level between before/target
+rings; exchange keeps reactor volume constant while replacing medium.
+
+The HUD and Guard separate **Level visual** (acknowledged transfer progress)
+from **Tercatat** (the API's recorded volume). The final volume and culture
+chemistry still apply once at completion. Cancelling does not apply a partial
+transfer; the illustration resets to the unchanged recorded volume. The bags
+show the current planned dose/filtrate only, not a supply inventory model.
+
+**Transfer presentasi ⅓×** is enabled by default so the four-second process-time
+transfer takes about twelve seconds to view. Turn it off for normal playback.
+It scales only an executing transfer and preserves the same approved dose and
+three culture minutes. Use **Jeda transfer / Lanjutkan transfer** directly in the
+3D HUD to inspect the pump, flow and changing levels; the monitor receives the
+same paused progress. Presentation mode expands the current canvas automatically
+when the confirmed transfer begins. **Kembali ke kontrol**, other camera presets
+and FPS exploration remain available.
+
+## Disturbance exercises and sound
+
+In Monitor 01 choose **Simulasikan pH turun**, **Simulasikan DO rendah**, or
+**Simulasikan nutrisi menipis**, then start/continue culture. Only one exercise
+can run at a time. Alarms appear after scheduled QC-passed sensor releases,
+with matching notifications in both monitors and a colored beacon in 3D.
+Pausing stops the process; injection does not rewrite past measurements.
+
+Pair Monitor 02 / Guard using the code on Monitor 01. Acknowledge the alarm,
+then use **Pulihkan buffer virtual** for pH or **Pulihkan jalur gas virtual**
+for DO. AUTO base dosing/gas/agitation respond over time; continue culture
+until a new core reading confirms recovery. For nutrients choose **Tinjau feed
+1250 mL di Guard**, preview/confirm the feed and execute it in Monitor 01.
+Wait for the next released Trace result to verify glucose recovery. An
+acknowledgement or corrective command alone never clears an alarm. Missing,
+stale or failed-QC evidence holds its state. Thresholds are PoC assumptions.
+
+**Aktifkan suara lab** adds locally synthesized room ventilation, equipment hum,
+pump/aeration and short alarm tones. It is off initially, has volume/mute,
+and suspends when the page is hidden or offline. Motor and aeration follow
+the running process. No audio download, microphone or paid service is used.

@@ -7,6 +7,9 @@ import {
   labControlRequest,
 } from "./lab-interventions"
 import LabInterventionStatus from "./LabInterventionStatus"
+import TransferReadout from "./TransferReadout"
+import { transferPresentation } from "./transfer-visual"
+import LabAlerts from "./LabAlerts"
 
 interface Decision {
   request_id: string
@@ -36,6 +39,7 @@ export default function GuardDecisions({
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
   const latest = snapshot.measurements.at(-1)
+  const transferView = snapshot.device_profile ? transferPresentation(snapshot,connected) : null
   const preset = interventionPresets.find((item) => item.id === presetId)!
   const block = decisionBlockReason(
     snapshot,
@@ -71,6 +75,13 @@ amount: number }) =>
     } finally {
       setBusy(false)
     }
+  }
+
+  async function alarmAction(alert_id:string,action:"acknowledge"|"restore_buffer"|"restore_aeration") {
+    setBusy(true);setError("")
+    try {await labControlRequest(id,"alarm-actions","operator",token,{alert_id,action});setMessage(action==="acknowledge"?"Alarm diakui; kondisi belum dianggap pulih.":"Koreksi diterapkan. Lanjutkan kultur dan tunggu pembacaan sensor baru untuk verifikasi.")}
+    catch(failure){setError(failure instanceof Error?failure.message:"Koreksi belum dapat diterapkan.")}
+    finally{setBusy(false)}
   }
 
   async function send(cancelId?: string) {
@@ -171,6 +182,9 @@ amount: number }) =>
         </p>
       )}
       <div className="vl-decision-inputs">
+        {snapshot.training_scenarios&&<LabAlerts snapshot={snapshot} connected={connected} busy={busy}
+          onAction={paired ? (id,action)=>void alarmAction(id,action):undefined}
+          onReviewFeed={paired ? ()=>{setPresetId("feed-25");setReview(null);setNote("Koreksi nutrisi menipis berdasarkan Trace terbaru");setMessage("Feed 1250 mL dipilih. Tinjau dosis lalu tekan Pratinjau keputusan; belum ada transfer dikirim.")}:undefined}/>}
         <label>
           Tindakan simulasi
           <select
@@ -248,10 +262,10 @@ amount: number }) =>
               : `Tukar ${((snapshot.working_volume_ml * review.amount) / 100).toFixed(1)} mL dengan volume reaktor tetap.`}
           </p>
           <p>
-            {snapshot.intervention_protocol.animation_seconds} detik animasi
+            {snapshot.intervention_protocol.animation_seconds} detik jam transfer
             mewakili {snapshot.intervention_protocol.culture_minutes} menit
             kultur. Jaga layar 3D terlihat. Transfer medium diterapkan sekali
-            setelah animasi selesai.
+            setelah animasi selesai. Mode presentasi ⅓× di Monitor 01 memperlambat tampilan tiga kali tanpa mengubah dosis atau durasi kultur yang dimodelkan.
           </p>
           {!snapshot.device_profile &&
             review.source_sample_id !== latest?.sample_id && (
@@ -293,6 +307,7 @@ amount: number }) =>
         </p>
       )}
       {message && <p role="status">{message}</p>}
+      {transferView && <TransferReadout view={transferView} />}
       <LabInterventionStatus
         items={snapshot.interventions}
         testId="guard-intervention-status"

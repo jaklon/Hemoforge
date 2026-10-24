@@ -164,6 +164,44 @@
 .vl-process-motion p { font-size: 10px; line-height: 1.65; color: #647b75; margin: 8px 0 0; }
 .vl-process-motion label { display: grid; gap: 6px; }
 .vl-process-motion progress { width: 100%; accent-color: #268f8b; }
+.biostat-scene-legend.has-transfer { width: 265px; max-width: calc(100% - 48px); top: 90px; bottom: auto; padding: 12px; pointer-events: auto; background: #f4f7f1ed; }
+.is-transfer-view .vl-scene-caption { display: none; }
+.biostat-lab .vl-station-nav { flex-wrap: wrap; }
+.vl-transfer-readout { margin: 14px 0; padding: 12px; background: #e9f3ec; border: 1px solid #b8d1c3; border-radius: 6px; color: #294e47; font-size: 11px; display: grid; gap: 8px; }
+.vl-transfer-readout strong { font-size: 11px; line-height: 1.6; }
+.vl-transfer-readout small { font-size: 10px; color: #5d756c; line-height: 1.5; }
+.vl-transfer-route { font-size: 10px; color: #347f65; }
+.vl-transfer-readout progress { width: 100%; height: 9px; accent-color: #278e66; }
+.vl-transfer-values { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vl-transfer-readout .vl-transfer-values span { display: grid; gap: 3px; font-size: 9px; }
+.vl-transfer-values b { font: 600 11px/1.5 'JetBrains Mono Variable', monospace; }
+.vl-transfer-readout p { font-size: 10px; line-height: 1.6; margin: 0; }
+.vl-transfer-readout.is-compact { margin: 0; border: 0; padding: 0; background: transparent; }
+.vl-transfer-pause { padding: 8px; background: #204e43; color: #f0f6ec; border: 0; border-radius: 4px; font: 600 11px Inter, sans-serif; cursor: pointer; }
+.vl-lab-alerts { display:grid; gap:10px; margin:14px 0; padding:14px; background:#f3f6f2; border:1px solid #c3d3ca; border-radius:6px; font-size:12px; color:#294e47; }
+.vl-lab-alerts p { margin:0; font-size:11px; line-height:1.65; }
+.vl-lab-alarm { display:grid; gap:7px; padding:12px; border-left:4px solid #c99d39; background:#fff6df; color:#72541a; border-radius:4px; }
+.vl-lab-alarm.is-critical { border-color:#c84942; background:#fff0ed; color:#843e37; }
+.vl-lab-alarm.is-hold { border-color:#7d9299; background:#e9eff1; color:#4e6770; }
+.vl-lab-alarm small { font-size:10px; line-height:1.6; }
+.vl-lab-alarm button,.vl-scenarios button { border:1px solid #b5cabc; border-radius:4px; padding:9px; background:#fcfff8; color:#28594a; cursor:pointer; font:600 11px Inter,sans-serif; }
+.vl-lab-alarm button:disabled,.vl-scenarios button:disabled { opacity:.5; cursor:default; }
+.vl-lab-alerts.is-compact { padding:0; margin:0 0 8px; border:0; background:transparent; font-size:11px; }
+.vl-lab-alerts.is-compact .vl-lab-alarm { padding:9px; font-size:10px; }
+.vl-decision-inputs>.vl-lab-alerts { grid-column:1/-1; }
+.vl-scenarios { display:grid; gap:9px; padding:14px; margin:16px 0; background:#edf3f1; border:1px solid #b9cec5; border-radius:6px; }
+.vl-scenarios h3 { margin:0; font-size:14px; }
+.vl-scenarios p,.vl-scenarios small { margin:0; font-size:11px; line-height:1.6; color:#526e63; }
+.vl-notifications { position:fixed; right:20px; bottom:18px; z-index:160; display:grid; gap:8px; width:min(360px,calc(100vw - 40px)); pointer-events:none; }
+.vl-notifications>div { display:flex; justify-content:space-between; gap:12px; padding:13px; background:#fff1cf; color:#6c501e; border:1px solid #cfad61; border-radius:6px; box-shadow:0 4px 22px #193d3a22; font:600 12px/1.6 Inter,sans-serif; pointer-events:auto; }
+.vl-notifications>div.is-critical { background:#ffede9; color:#8d3932; border-color:#ce7a6c; }
+.vl-notifications button { color:inherit; background:transparent; border:0; cursor:pointer; font-size:20px; }
+.vl-audio-controls { display:grid; justify-items:end; gap:7px; width:100%; }
+.vl-audio-controls label { font-size:10px; }
+.vl-audio-controls input { width:80px; accent-color:#337b6a; }
+.vl-audio-controls small { font-size:9px; line-height:1.5; max-width:180px; text-align:right; }
+.biostat-scene-legend.has-transfer { max-height:calc(100% - 235px); overflow:auto; }
+@media (max-width: 720px) { .biostat-scene-legend.has-transfer { display: grid; width: 230px; top: 80px; bottom: auto; left: 12px; } .vl-transfer-readout.is-compact small { font-size: 8px; } }
 .biostat-telemetry { margin: 20px 0; font-size: 12px; color: #39515e; }
 .biostat-telemetry-heading { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .biostat-telemetry-heading small { font-size: 9px; letter-spacing: 1.3px; color: #728a90; }

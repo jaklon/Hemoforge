@@ -9,7 +9,7 @@ const reading: SensorReading = {
   quality: { status: "passed", flags: [] }, stage: "expansion", volume_ml: 12500, model_version: "test",
 }
 const source = (values: Partial<LabSnapshot> = {}) => ({
-  running: true, controller_connected: true, culture_hours: 1.2, sensor_readings: [reading],
+  running: true, controller_connected: true, culture_hours: 1.2, sensor_readings: [reading], working_volume_ml:12500,
   controller: { mode: "AUTO", setpoints: { ph: 7.3, dissolved_oxygen: 40, temperature: 37 },
     outputs: { stirrer_rpm: 100, oxygen_percent: 25, base_output_percent: 30, acid_output_percent: 0, thermal_output_percent: -15 }, events: [] },
   active_intervention: null, ...values,

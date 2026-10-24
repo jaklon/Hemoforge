@@ -14,6 +14,9 @@ import LivePilot from "./LivePilot"
 import LiveCulturePlan from "./LiveCulturePlan"
 import LiveProcessDashboard from "./LiveProcessDashboard"
 import BiostatTelemetry from "./BiostatTelemetry"
+import LabAlerts from "./LabAlerts"
+import LabNotifications from "./LabNotifications"
+import {alarmPresentation} from "./lab-alerts"
 import PocShell, { liveModuleNames } from "./PocShell"
 import { Badge, Details, PageTitle } from "./workspace-ui"
 import useLiveAnalytics from "./use-live-analytics"
@@ -46,6 +49,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
     [snapshot?.measurements_sha256],
   )
   const latest = snapshot?.measurements.at(-1)
+  const alarms=alarmPresentation(snapshot,connection==="connected")
   const report = snapshot?.assays.at(-1)
   useEffect(() => {
     document.title = `${liveModuleNames[module]} · Monitor 02 · HemoForge`
@@ -125,6 +129,8 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
             ? `Latest release: ${latest.sample_id} · collected ${latest.collected_at_hour.toFixed(3)}h · released ${latest.available_at_hour.toFixed(3)}h.`
             : "Start BIOSTAT on Monitor 01; online sensor readings arrive automatically."}
       </p>
+      <LabNotifications snapshot={snapshot} connected={connection==="connected"}/>
+      {snapshot?.training_scenarios&&module!=="guard"&&<LabAlerts snapshot={snapshot} connected={connection==="connected"}/>}
       {error && (
         <p role="alert" className="import-error">
           {error}
@@ -171,6 +177,7 @@ export default function LiveLabDashboard({ module }: { module: LiveModule }) {
         <DataProvider liveCulture={culture}>
           <Guard
             live
+            liveProcessNotice={alarms.configured&&(alarms.current.length||!alarms.dataReady)?{title:alarms.title,review:alarms.current.length>0}:undefined}
             sensorRows={
               snapshot?.device_profile ? liveSensorRows(snapshot) : undefined
             }

@@ -8,6 +8,9 @@ import { renderedSeconds, stirrerAngle } from "./biostat-animation"
 import { flowPhase, processPresentation, type FlowKind } from "./process-animation"
 import { createCultureFluid, createHoseMedium } from "./fluid-rendering"
 import { hoseDistance } from "./fluid-motion"
+import { createTransferHardware } from "./transfer-rendering"
+import { transferPresentation, transferFrameDelta, TransferVisualClock } from "./transfer-visual"
+import {alarmPresentation} from "./lab-alerts"
 import { canInspect, InspectionClock } from "./operator-hands"
 import type { HandStation } from "./operator-hands"
 import { EYE_HEIGHT, WALK_SPAWN, mouseLook, walkStep } from "./lab-navigation"
@@ -17,13 +20,14 @@ export type LabAssetState = "loading" | "blender" | "fallback"
 export interface FpsStatus { locked: boolean; dragOnly: boolean; target: HandStation; inRange: boolean; hint: string }
 
 interface Props {
-  station: "overview" | "bioreactor" | "trace" | "viamass"
+  station: "overview" | "bioreactor" | "trace" | "viamass" | "transfer"
   snapshot: LabSnapshot | null
   connected: boolean
   onAssetState: (asset: LabAsset, state: LabAssetState) => void
   onPerformance: (fps: number, quality: "high" | "balanced") => void
   inspectionRequest: number
   reducedMotion: boolean
+  slowTransfers: boolean
   onHandState: (state: string) => void
   walkMode: boolean
   resetWalkRequest: number
@@ -285,6 +289,8 @@ export default function BiostatScene(props: Props) {
     })
     cyl(fallback, 0.655, 1.48, [0, 1.2, 0], bagMat)
     const cultureFluid = createCultureFluid(reactor)
+    const transferHardware = createTransferHardware(scene)
+    const transferClock = new TransferVisualClock()
     for (const y of [0.45, 1.95]) {
       const ring = mesh(
         fallback,
@@ -344,6 +350,10 @@ export default function BiostatScene(props: Props) {
     const controllerScreen = surface()
     const controllerDisplay = box(tower, [0.63, 0.54, 0.025], [0, 1.92, 0.36], controllerScreen.material)
     plaque(tower, "DCU / VIRTUAL AUTO", [0, 1.52, 0.33], 0.57, 0.12)
+    cyl(tower,.025,.10,[0,2.30,0],dark)
+    const beaconMaterial=new THREE.MeshStandardMaterial({color:"#879ba0",emissive:"#879ba0",emissiveIntensity:.25,roughness:.4})
+    const beacon=mesh(tower,new THREE.CylinderGeometry(.055,.07,.11,16),beaconMaterial,[0,2.40,0])
+    beacon.castShadow=false;beacon.receiveShadow=false
     const rotorGroups: THREE.Group[] = []
     for (let i = 0; i < 3; i++) {
       const rotor = new THREE.Group()
@@ -399,13 +409,16 @@ export default function BiostatScene(props: Props) {
       phase: number
       distance: number
       travel?: { value: number }
+      activity?: { value: number }
+      transferOnly?: boolean
+      length?: number
     }[] = []
     function circuit(points: number[][], color: THREE.Material, kind: FlowKind) {
       const curve = new THREE.CatmullRomCurve3(
         points.map((p) => new THREE.Vector3(...p as [number, number, number])),
       )
       const data = kind === "traceData" || kind === "viaData"
-      const medium = ["trace","feed","waste","base","acid"].includes(kind)
+      const medium = ["trace","feed","waste","retentate","base","acid"].includes(kind)
       if (medium) {
         const tint = color instanceof THREE.MeshStandardMaterial ? color.color : new THREE.Color("#b8d8d2")
         const wallMaterial = new THREE.MeshStandardMaterial({ color: tint.clone().lerp(new THREE.Color("#f1f6ef"),.5),
@@ -418,7 +431,13 @@ export default function BiostatScene(props: Props) {
         for(let row=0;row<=64;row++) for(let side=0;side<=6;side++) uv.setX(row*7+side,lengths[row])
         const contents = mesh(scene,core,fill.material,[0,0,0])
         contents.castShadow = false
-        paths.push({particles:null,points:[],rotations:[],kind,phase:0,distance:0,travel:fill.travel})
+        const transferOnly=["feed","waste","retentate"].includes(kind)
+        const arrows=transferOnly ? new THREE.InstancedMesh(new THREE.ConeGeometry(.027,.075,5),new THREE.MeshBasicMaterial({color:kind==="feed" ? "#c9f2a8" : "#dbc1ef"}),4) : null
+        if(arrows) {arrows.instanceMatrix.setUsage(THREE.DynamicDrawUsage);arrows.frustumCulled=false;arrows.visible=false;scene.add(arrows)}
+        const points=transferOnly ? curve.getSpacedPoints(96) : []
+        const up=new THREE.Vector3(0,1,0)
+        const rotations=points.map((_,i)=>new THREE.Quaternion().setFromUnitVectors(up,curve.getTangentAt(i/96).normalize()))
+        paths.push({particles:arrows,points,rotations,kind,phase:0,distance:0,travel:fill.travel,activity:fill.activity,transferOnly,length:curve.getLength()})
         return
       }
       mesh(
@@ -529,14 +548,16 @@ export default function BiostatScene(props: Props) {
       [
         [-1.1, 0.7, -0.5],
         [-0.5, 0.6, 0],
-        [0.65, 0.85, 0],
+        [.62,.86,.29],
+        [.72,.96,.29],
+        [.82,.86,.29],
         [1, 1.26, .2],
       ],
       violet,
       "waste",
     )
     circuit([[1,1.1,.2],[1.18,.98,.24],[1,.86,.2]],violet,"waste")
-    circuit([[.93,1.08,.2],[.65,1.2,-.2],[-.6,1.5,-.55],[-1.12,1.45,-.65]],violet,"waste")
+    circuit([[.93,1.08,.2],[.65,1.2,-.2],[-.6,1.5,-.55],[-1.12,1.45,-.65]],violet,"retentate")
     circuit([[2.57,1.69,-1.84],[2.3,.65,-2.06],[.6,.4,-1.5],[.15,1.65,-1.37]],dark,"traceData")
     circuit([[-.63,1.53,-1.04],[-.5,1.58,-1.45],[.15,1.58,-1.37]],dark,"viaData")
     const thermalMat = new THREE.MeshBasicMaterial({ color: "#e9a06a", transparent: true, opacity: 0, depthWrite: false })
@@ -547,9 +568,6 @@ export default function BiostatScene(props: Props) {
       [-3.5, green, "MEDIUM"],
       [1, violet, "FILTRATE / WASTE"],
     ] as const) {
-      const bag = box(scene, [0.42, 0.62, 0.2], [x, 0.55, 0.2], color)
-      bag.rotation.z = x < 0 ? 0.05 : -0.05
-      plaque(scene, text, [x, 0.6, 0.32], 0.65, 0.13)
       cyl(scene, 0.022, 1.5, [x - 0.32, 0.75, 0], steel)
       cyl(scene, 0.25, 0.04, [x - 0.32, 0.03, 0], steel)
     }
@@ -836,7 +854,7 @@ moved: boolean } | null = null,
       if (signature !== lastNavigation) { lastNavigation = signature; current.current.onNavigation(state) }
     }
     const inspectionTarget = () => activeInspection?.object ?? (current.current.walkMode ? walkHit?.object : current.current.station === "trace" ? traceDisplay : current.current.station === "viamass" ? viaDisplay : controllerDisplay)
-    const inspectionStation = () => activeInspection?.station ?? (current.current.walkMode ? walkHit?.station ?? "overview" : current.current.station)
+    const inspectionStation = () => activeInspection?.station ?? (current.current.walkMode ? walkHit?.station ?? "overview" : current.current.station === "transfer" ? "overview" : current.current.station)
     const startInspection = () => {
       const p = current.current
       if (p.walkMode) updateAim()
@@ -936,6 +954,7 @@ moved: boolean } | null = null,
     let angle = 0, traceElapsed = 0, handElapsed = 0, frames = 0, measuredAt = performance.now(), quality: "high" | "balanced" = "high"
     let instrumentSnapshot: LabSnapshot | null | undefined, instrumentConnected: boolean | undefined
     let process = processPresentation(null, false)
+    let alarms=alarmPresentation(null,false),alarmElapsed=0
     let traceView = process.trace
     let viaView = process.via
     let tracePulse = 0, viaPulse = 0
@@ -977,6 +996,7 @@ moved: boolean } | null = null,
       const { station, snapshot: s, connected } = current.current
       if (instrumentSnapshot !== s || instrumentConnected !== connected) {
         process = processPresentation(s, connected)
+        alarms=alarmPresentation(s,connected)
         const nextTrace = process.trace
         const nextVia = process.via
         if (nextTrace.state === "live" && nextTrace.receipt !== traceView.receipt) tracePulse = 0.6
@@ -1007,7 +1027,12 @@ moved: boolean } | null = null,
       }
       const running = !!s?.running && connected && document.visibilityState === "visible" && !contextLost
       const motionSeconds = renderedSeconds(delta, running)
-      const processSeconds = process.running && !current.current.reducedMotion ? motionSeconds : 0
+      alarmElapsed+=current.current.reducedMotion ? 0 : motionSeconds
+      const beaconColor=alarms.tone==="critical" ? "#e65c51" : alarms.tone==="warning" ? "#efb54b" : alarms.tone==="hold"||!alarms.dataReady ? "#879ba0" : "#66c7aa"
+      beaconMaterial.color.set(beaconColor);beaconMaterial.emissive.set(beaconColor)
+      beaconMaterial.emissiveIntensity=.25+(alarms.current.length ? .35*(.5+.5*Math.sin(alarmElapsed*Math.PI)):0)
+      const processSeconds = process.running && !current.current.reducedMotion
+        ? transferFrameDelta(motionSeconds,process.transferView?.status === "executing",current.current.slowTransfers) : 0
       if (current.current.reducedMotion) cancelInspection()
       if (lastInspectionRequest !== current.current.inspectionRequest) {
         lastInspectionRequest = current.current.inspectionRequest
@@ -1021,6 +1046,9 @@ moved: boolean } | null = null,
       if (station === "overview") {
         goal.set(0.1, 2.7, Math.max(9, 8 / Math.max(0.55, camera.aspect) - 1.5))
         goalLook.set(0, 1.6, -1.8)
+      } else if (station === "transfer") {
+        goal.set(-.75,2.4,Math.max(5.7,4.7/Math.max(.5,camera.aspect)))
+        goalLook.set(-1.3,1.15,-.8)
       } else if (station === "trace") {
         goal.set(2.15, 1.9, Math.max(1.4, 1.9 / camera.aspect - 1.2))
         goalLook.set(2.0, 1.5, -1.2)
@@ -1088,7 +1116,11 @@ moved: boolean } | null = null,
       thermalField.visible = process.available && process.thermal !== 0
       thermalMat.color.set(process.thermal > 0 ? "#ea9b62" : "#67c8eb")
       thermalMat.opacity = .15 + Math.abs(process.thermal)/100 * (.3 + .15*Math.sin(gasElapsed*3))
-      cultureFluid.update(s?.working_volume_ml ?? 0,rpm,process.rates.gas,processSeconds,true,quality === "balanced")
+      const shownProgress=transferClock.update(process.transferView,processSeconds,process.running)
+      const shownTransfer=process.transferView ? transferPresentation(s,connected,shownProgress) : null
+      const retentionAngle=transferHardware.update(shownTransfer,processSeconds)
+      const displayVolume=shownTransfer?.status==="executing" ? shownTransfer.visualVolumeMl : s?.working_volume_ml ?? 0
+      cultureFluid.update(displayVolume,rpm,process.rates.gas,processSeconds,true,quality === "balanced")
       rotorGroups.forEach((rotor, i) => {
         const rate = [process.rates.feed,process.rates.base,process.rates.acid][i]
         rotor.rotation.z = (rotor.rotation.z - processSeconds*rate*3) % (Math.PI*2)
@@ -1098,13 +1130,15 @@ moved: boolean } | null = null,
         const pulse = kind === "traceData" ? tracePulse : kind === "viaData" ? viaPulse : 1
         const rate = process.rates[kind]
         if (path.travel) {
-          path.distance = hoseDistance(path.distance,rate,processSeconds,true)
+          const pulse=path.transferOnly ? .86+.14*Math.cos((kind==="feed" ? rotorGroups[0].rotation.z : retentionAngle)*3) : 1
+          path.distance = hoseDistance(path.distance,rate*pulse,processSeconds,true)
           path.travel.value = path.distance
         }
+        if(path.activity) path.activity.value=path.transferOnly && process.transferView?.active ? 1 : 0
         if (!particles) return
-        particles.visible = rate > 0 && pulse > 0
+        particles.visible = rate > 0 && pulse > 0 && (!path.transferOnly || !!process.transferView?.active)
         if (!particles.visible) return
-        path.phase = flowPhase(path.phase,rate,processSeconds,true)
+        path.phase = path.transferOnly ? (path.distance/Math.max(.01,path.length!))%1 : flowPhase(path.phase,rate,processSeconds,true)
         for(let i=0; i<particles.count; i++) {
           const sample = ((path.phase+i/particles.count)%1)*96
           const index = Math.floor(sample), fraction = sample-index
@@ -1132,7 +1166,7 @@ moved: boolean } | null = null,
             : "--"
         screen(
           controllerScreen,
-          `DCU | ${s?.controller?.mode ?? "READY"}`,
+          s?.process_disturbance?.aeration_restricted ? "DCU | GAS RESTRICTED" : `DCU | ${s?.controller?.mode ?? "READY"}`,
           [
             `pH   ${pv("ph", 2)}  SP ${s?.controller?.setpoints.ph.toFixed(2) ?? "7.30"}`,
             `DO   ${pv("dissolved_oxygen", 1)}% SP ${s?.controller?.setpoints.dissolved_oxygen ?? 40}%`,

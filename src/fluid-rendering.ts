@@ -94,12 +94,13 @@ export function createCultureFluid(parent: THREE.Object3D) {
   return {
     update(volumeMl: number, rpm: number, gas: number, delta: number, active: boolean, balanced: boolean) {
       const shape = fluidShape(volumeMl,rpm)
-      clock.advance(delta,active,shape.drive,shape.present ? gas : 0)
+      clock.advance(delta,active,shape.drive,shape.present&&gas>0 ? 1 : 0)
       liquid.visible = shape.present
       bubbles.visible = shape.present && gas > 0 && FLUID_BASE+shape.height > SPARGER_HEIGHT+.03
       ripples.visible = bubbles.visible
       tracers.visible = shape.present
-      bubbles.count = balanced ? 80 : 144
+      bubbles.count = Math.max(1,Math.round((balanced ? 80 : 144)*Math.max(.1,Math.min(1,gas))))
+      ripples.count=Math.max(1,Math.round(12*Math.max(.1,Math.min(1,gas))))
       tracers.count = balanced ? 48 : 80
       const profile = surfaceProfile(shape.height,clock.drive,clock.mix*2.4)
       liquid.scale.y = Math.max(.0001,shape.height)
@@ -145,16 +146,18 @@ export function createCultureFluid(parent: THREE.Object3D) {
 /** A continuously filled medium line with subtle advected highlights, not air slugs. */
 export function createHoseMedium(color: THREE.Color) {
   const travel = {value:0}
+  const activity = {value:0}
   const material = new THREE.MeshStandardMaterial({color,roughness:.29,metalness:0})
   material.onBeforeCompile = shader => {
     shader.uniforms.hfTravel = travel
+    shader.uniforms.hfActivity = activity
     shader.vertexShader = shader.vertexShader.replace("#include <common>","#include <common>\nvarying float hfDistance;")
       .replace("#include <begin_vertex>","#include <begin_vertex>\nhfDistance=uv.x;")
-    shader.fragmentShader = shader.fragmentShader.replace("#include <common>","#include <common>\nvarying float hfDistance; uniform float hfTravel;")
+    shader.fragmentShader = shader.fragmentShader.replace("#include <common>","#include <common>\nvarying float hfDistance; uniform float hfTravel, hfActivity;")
       .replace("#include <color_fragment>",`#include <color_fragment>
         float streak = pow(0.5+0.5*cos((hfDistance-hfTravel)*39.269908),12.0);
-        diffuseColor.rgb = mix(diffuseColor.rgb,vec3(0.92,0.86,0.69),streak*0.32);`)
+        diffuseColor.rgb = mix(diffuseColor.rgb,vec3(0.92,0.94,0.69),streak*(0.32+hfActivity*0.4));`)
   }
   material.customProgramCacheKey = () => "hemoforge-hose-medium-1"
-  return {material,travel}
+  return {material,travel,activity}
 }

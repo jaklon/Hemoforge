@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { sessionPattern, type LabAction, type LabSnapshot } from "./lab-session"
+import { sessionPattern, type DisturbanceKind, type LabAction, type LabSnapshot } from "./lab-session"
 
 export default function useLabSession(
   id: string | null,
@@ -14,6 +14,7 @@ export default function useLabSession(
   const latest = useRef<LabSnapshot | null>(null)
   const pending = useRef<number | null>(null)
   const queued = useRef<{
+    disturbance?: DisturbanceKind
     action: LabAction
     seconds?: number
     speed?: number
@@ -30,6 +31,7 @@ export default function useLabSession(
     (
       action: LabAction,
       values: {
+        disturbance?: DisturbanceKind
         seconds?: number
         speed?: number
         volume_ml?: number

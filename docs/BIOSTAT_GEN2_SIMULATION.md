@@ -84,7 +84,7 @@ Monitor 01 loads the locally authored CC0 model at
 stainless texture, rebuild instructions, and the runtime node contract are in
 `assets/blender/README.md`. The model is illustrative, not vendor CAD.
 
-The named impeller and liquid nodes bind to controller RPM and recorded volume.
+The named impeller binds to controller RPM; the runtime liquid uses recorded volume with a separately labeled in-flight transfer illustration.
 Motion integrates valid rendered seconds; changing RPM does not jump the shaft
 angle. Pause, hidden tabs, disconnect, and stalls do not advance process motion.
 Sensor readings, QC, estimates, culture kinetics, and intervention semantics
@@ -212,8 +212,8 @@ Direction arrows show qualitative command activity. Blend percentage is not
 gas flow, dosing percentage is not mL/min, and arrow speed is not a flow sensor.
 Three extra dosing connectors, the manifold, chemical reservoirs and retention
 skid are illustrative virtual service geometry rather than manufacturer CAD.
-Medium progress comes from the intervention; recorded liquid height changes
-only when the backend applies its final audited volume. Reagents and ancillary
+Medium progress comes from the intervention; recorded volume changes
+only when the backend applies its final audited volume. The labeled visual level can follow acknowledged transfer progress. Reagents and ancillary
 lab equipment remain standby because their protocols are not modeled. Core
 sensor QC faults do not invent an actuator safety interlock: existing AUTO
 commands keep driving the virtual equipment, while the sensor overlay shows QC.
@@ -272,6 +272,108 @@ simulation. Paused instance matrices are not re-uploaded. Balanced quality uses
 resolution/shadow settings. Tests cover frame-rate independence, immersion,
 finite volume handling, zero mean displacement, geometric bounds, exact clock
 holds and continuous transport at rate changes.
+
+## Transfer presentation speed
+
+The transfer presentation adds an optional **Transfer presentasi ⅓×** playback
+setting, enabled by default. During an executing intervention only, both the
+controller's rendered process-time contribution and physical visual clocks run
+at one third speed. The API still integrates the same four process seconds,
+three culture minutes and approved dose. The presentation takes about twelve
+wall-clock seconds when frames are uninterrupted. Long/invalid frames remain
+rejected before scaling. Normal culture speed, FPS walking and camera movement
+are unaffected; this is a viewing control, not a change to the biological model.
+
+## Guard transfer visualization
+
+`transfer-visual.ts` derives the display exclusively from approved intervention
+records. Queued records prepare a virtual dose without opening flow; only a
+valid executing record activates feed. Medium exchange also runs the optional
+retention pump, culture return and filtrate outlet. A single prepared-dose bag
+empties while the filtrate receiver fills for exchange; these represent the
+current approved dose rather than untracked supply/waste inventory. Valves,
+peristaltic heads, in-medium feed plume, intensified hose highlights and small
+direction chevrons share the existing process/transfer gates. Hose highlight
+pulsation follows the respective feed or retention rotor. No air slugs are
+introduced. Added mesh/instance counts are fixed; display textures update only
+when their displayed progress/status changes.
+
+The reactor level smoothly follows acknowledged feed progress, bounded above
+by the backend's receipt. Ghost rings mark before/target levels; the physical
+height change is not exaggerated. Exchange feeds and removes equal medium, so
+the reactor level stays constant as the two receivers show movement. The HUD
+and Guard report acknowledged incoming/outgoing amounts, visual level, before/
+target level and independently recorded volume. Graphics can ease slightly
+behind the latest receipt; they never extrapolate future delivery. Sensor,
+estimate and chart rows continue using the original recorded volume. The API
+still applies chemistry, cells and final volume once at completion. Applied
+records reconcile the display with the audited outcome and cannot replay flow;
+cancellation rolls the illustration back with an explicit no-recorded-transfer
+notice, matching the existing atomic backend policy.
+
+Confirmed actions select **05 Transfer**, framing the prepared-dose bag, reactor,
+DCU feed head and retention skid together. Presentation mode expands the same
+canvas without replacing it. **Jeda transfer / Lanjutkan transfer** is available
+in the HUD; connection loss, hidden/stalled frames, pause and reduced-motion
+settings hold the relevant visual clocks. Other preset cameras and FPS walking
+remain available. All added hardware is original local procedural geometry
+using the existing Three.js package and free materials.
+
+## Training scenarios, alarms and lab ambience
+
+Monitor 01 has three **Skenario gangguan kultur** controls: pH drop (acid
+load), low DO (restricted virtual gas delivery), and low nutrients (glucose
+depletion). Only one exercise runs at a time, with at most 12 per session.
+Continue the visible culture to obtain scheduled sensor results; injecting a
+scenario never rewrites previous receipts or creates an instant measurement.
+
+| Signal | Warning below | Critical below | Recovery at or above |
+| --- | --- | --- | --- |
+| Core pH | 7.15 | 7.00 | 7.22 |
+| Core DO (% air saturation) | 25 | 15 | 30 |
+| Trace glucose (mmol/L) | 5.0 | 2.5 | 5.3 |
+
+These thresholds and disturbances are teaching assumptions, not manufacturer
+specifications or validated culture limits. Alarm state uses only released,
+finite, QC-passed sensor receipts. Invalid/stale readings and disconnection
+hold the status; they cannot prove recovery. Acknowledgement records operator
+review without clearing the condition. A new valid measurement above the
+recovery threshold closes the alarm. Episodes, escalation, correction and
+recovery have a bounded event audit, shared by both monitors.
+
+In paired Monitor 02 / Guard, acknowledge an alarm and review its advice.
+For the pH exercise, **Pulihkan buffer virtual** removes the sustained acid
+load; the AUTO base pump then restores pH over time. For DO, **Pulihkan jalur
+gas virtual** restores gas delivery; AUTO gas blend/agitation recovers DO.
+Neither operation directly overwrites the measurement. For low glucose,
+**Tinjau feed 1250 mL di Guard** prefills the existing reviewed feed proposal.
+Preview and confirm it, execute it in Monitor 01, then continue culture until
+a fresh post-feed Trace result verifies recovery. Operator review remains
+necessary if a dose improves glucose but does not reach
+the recovery threshold; review fresh evidence before another transfer.
+Pairing, local-origin and
+operator authorization apply to alarm corrections just as to other Guard
+actions. No physical device is controlled.
+
+The 3D scene shows the current alarm, DCU beacon, base output, agitation and
+reduced gas/bubble transport; a recorded correction remains pending until a
+new sensor observation. Notifications appear on both monitors. Animation uses
+the existing render loop and fixed meshes/instances, without extra shadow
+lights or physics simulation.
+
+**Aktifkan suara lab** in Monitor 01 enables original, locally synthesized
+HVAC/room hum, motor, pump and aeration ambience. Volume and mute are available;
+sound never autoplays. Motor/aeration track the running simulated process;
+room tone remains during pause. Hidden/offline pages suspend sound. A short
+tone announces each unacknowledged alarm episode/severity once, without
+periodic repeats; Monitor 02 stays silent to avoid duplicate audio. Web Audio
+uses one reusable context and a small loop buffer, with no downloaded audio,
+microphone access, licensed recording or paid API.
+
+Quick demo: create a new session, pair Guard with the on-screen code, select
+one disturbance, start culture, wait for its scheduled sensor alarm, then
+acknowledge/correct in Guard. Keep both windows visible on separate displays.
+Pause to inspect; after verified recovery the next exercise becomes available.
 
 ## Lighting and shading
 
