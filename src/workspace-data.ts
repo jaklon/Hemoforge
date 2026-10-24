@@ -84,6 +84,7 @@ export const channels = [
   { key: "lactate_mmol_l", label: "Lactate", unit: "mmol/L" },
 
   { key: "ammonia_mmol_l", label: "Ammonia", unit: "mmol/L" },
+  { key: "ammonium_mmol_l", label: "Ammonium (NH4)", unit: "mmol/L" },
 
   { key: "viability_percent", label: "Viability", unit: "%" },
 ]

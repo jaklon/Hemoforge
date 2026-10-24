@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react"
 
 import { useCultureData, useWorkspace } from "./workspace-context"
+import type { CultureRow } from "./workspace-data"
 
 import {
   Button,
@@ -86,6 +87,7 @@ function Sparkline({ summary }: { summary: GuardBatchSummary }) {
 }
 
 function GrowthChart({
+  estimated = false,
   batches,
 
   selected,
@@ -99,6 +101,7 @@ function GrowthChart({
   onSelectEvent,
 }: {
   batches: BatchView[]
+  estimated?: boolean
 
   selected: BatchView
 
@@ -213,7 +216,7 @@ function GrowthChart({
                 aria-pressed={view.scale === "count"}
                 onClick={() => setView({ ...view, scale: "count" })}
               >
-                Cell count
+                {estimated ? "Estimated cells" : "Cell count"}
               </button>
               <button
                 type="button"
@@ -235,7 +238,7 @@ function GrowthChart({
             </label>
           </>
         }
-        title={`Observed growth for ${selected.id}`}
+        title={`${estimated ? "Estimated cell trend" : "Observed growth"} for ${selected.id}`}
         xExtent={[start, end]}
         values={allPoints.map((point) => point.value)}
         points={[
@@ -253,7 +256,7 @@ function GrowthChart({
         ]}
         yLabel={
           view.scale === "count"
-            ? "Cell count (×10⁶ cells)"
+            ? `${estimated ? "Estimated cell count" : "Cell count"} (×10⁶ cells)`
             : "Fold change (first valid sample = 1×)"
         }
       >
@@ -408,6 +411,8 @@ export default function BioreactorGuard({
   setEventNotes,
 
   replayControls,
+  live = false,
+  sensorRows,
 }: {
   hour: number
 
@@ -422,6 +427,8 @@ export default function BioreactorGuard({
   setEventNotes: (notes: Record<string, string>) => void
 
   replayControls: ReactNode
+  live?: boolean
+  sensorRows?: CultureRow[]
 }) {
   const {
     batches,
@@ -602,6 +609,8 @@ export default function BioreactorGuard({
             <p>
               {urgent
                 ? `Start with ${urgent.id}. It has the most urgent warning.`
+                : live
+                  ? "Monitoring virtual PAT signals and estimated cell counts. Monitor 01 controls culture time."
                 : hour < replayEndHour
                   ? "Press Play or Next to step through the culture samples."
                   : "Every sample so far is within your monitoring rules."}
@@ -764,7 +773,7 @@ export default function BioreactorGuard({
           className="guard-growth-panel"
           action={
             <div className="header-actions">
-              <a className="method-link" href="#methods/monitoring">
+              <a className="method-link" href="#methods/monitoring" target={live ? "_blank" : undefined} rel={live ? "noopener" : undefined}>
                 Growth &amp; warning formulas
               </a>
               <Status status={state.status} />
@@ -837,6 +846,7 @@ export default function BioreactorGuard({
           <div className="guard-graphs-grid">
           <div>
           <GrowthChart
+            estimated={!!sensorRows}
             batches={batchViews}
             selected={selected}
             hour={hour}
@@ -854,7 +864,7 @@ export default function BioreactorGuard({
           />
           </div>
           <div className="guard-mvp">
-            <MvpCharts replicate={replicate} hour={hour} />
+            <MvpCharts replicate={replicate} hour={hour} rowsOverride={sensorRows} />
           </div>
           </div>
           <p className="guard-plot-help">
@@ -900,7 +910,7 @@ export default function BioreactorGuard({
                     <small>
                       {item.variable === "sample_age"
                         ? "Evaluated"
-                        : "Measured"}{" "}
+                        : sensorRows ? "Estimated" : "Measured"}{" "}
                       at {number(item.hour)}h
                       {eventNotes[`R${selected.index}-${item.id}`]
                         ? " · note recorded"
@@ -1037,7 +1047,7 @@ export default function BioreactorGuard({
         <MonitoringControls />
       </div>
       <div id="guard-raw">
-      <Details title={`Raw measurements · ${selected.id}`}>
+      <Details title={`${sensorRows ? "Estimated count rows" : "Raw measurements"} · ${selected.id}`}>
         <div className="guard-table-actions">
           <p>
               {state.visible.length} source rows through {number(hour)}h.

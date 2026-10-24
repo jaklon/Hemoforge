@@ -1,0 +1,35 @@
+{
+  "license": "CC0-1.0",
+  "author": "HemoForge project contributors",
+  "blender": "5.2.2 LTS",
+  "source": "assets/blender/build_biopat.py",
+  "models": [
+    {
+      "file": "biopat-trace.glb",
+      "bytes": 884452,
+      "meshes": 19,
+      "triangles": 17354,
+      "required_nodes": [
+        "HF_Trace_Display",
+        "HF_Trace_PumpA",
+        "HF_Trace_PumpB",
+        "HF_Trace_Status"
+      ],
+      "reference": "https://shop.sartorius.com/ww/p/biopat-trace/BioPAT_Trace"
+    },
+    {
+      "file": "biopat-viamass.glb",
+      "bytes": 559472,
+      "meshes": 9,
+      "triangles": 9170,
+      "required_nodes": [
+        "HF_ViaMass_Display",
+        "HF_ViaMass_Status"
+      ],
+      "reference": "https://www.sartorius.com/download/1223770/biopat-viamass-datasheet-en-b-sll2010-sartorius-pdf-8982--data.pdf"
+    }
+  ],
+  "textures": "Original local brushed-roughness.png, packed; no remote dependencies",
+  "display_notice": "Both screens are added HemoForge virtual readouts, not factory display replicas. Sensor data is bound at runtime, never baked.",
+  "reference_notice": "References only; no manufacturer mesh, logo, image or texture redistributed."
+}

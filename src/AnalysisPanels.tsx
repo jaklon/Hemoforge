@@ -889,19 +889,21 @@ const mvpSeries = [
 
 // Axes span the whole run, so replay reveals points without rescaling the lines.
 export function MvpCharts({
+  rowsOverride,
   replicate,
 
   hour,
 }: {
+  rowsOverride?: CultureRow[]
   replicate: number
 
   hour: number
 }) {
   const { batchMeasurements, replayEndHour } = useCultureData()
 
-  const rows = batchMeasurements(replicate)
+  const rows = rowsOverride ?? batchMeasurements(replicate)
 
-  const end = Math.max(replayEndHour, 1)
+  const end = Math.max(replayEndHour, rows.at(-1)?.hour ?? 0, 1)
 
   const series = mvpSeries.map((item) => {
     const channel = channels.find((c) => c.key === item.key)!

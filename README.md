@@ -34,6 +34,18 @@ To try hosted inference, follow EVO2_NVIDIA.md, install the key through
 `.\configure-evo2-nvidia.ps1 -ConfirmFreeTrial`, refresh NVIDIA status, select one
 variant and use **Send … to NVIDIA trial**. No key belongs in the browser.
 
+## Virtual Lab: BIOSTAT STR Gen 2 + BioPAT Trace + ViaMass
+
+Open `http://127.0.0.1:8443/#poc/lab`, create a session, then open its dashboard in a separate window on monitor 2.
+Start culture: online virtual pH/DO/temperature, glucose/lactate and capacitance signals publish automatically.
+The two monitors distinguish virtual sensors, uncalibrated ViaMass-derived cell estimates and unmeasured assays.
+Guard decisions return to the animated reactor; Pilot/Plan use bounded stage-aware local analytics.
+The main research workspace keeps its own inputs. Only visible rendered time advances culture; keep both windows visible.
+
+See [local walkthrough and free asset credits](public/VIRTUAL_LAB.md), [BIOSTAT implementation contract](docs/BIOSTAT_GEN2_SIMULATION.md),
+and [PoC routes](docs/VIRTUAL_LAB_POC_WORKSPACE.md). Run one Python API worker; sessions are local, in memory and lost on restart.
+No physical device, remote database, NVIDIA, hosted LLM, paid assets or cloud resources are called by this simulation.
+Stage A–E documents describe the historical FLEX2 implementation; new sessions default to BIOSTAT schema 4.
 ## Demo account
 
 The workspace needs a sign-in, so it needs the Python API and `DATABASE_URL`.
