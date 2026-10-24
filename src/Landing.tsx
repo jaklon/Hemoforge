@@ -482,50 +482,6 @@ function ModuleSwitcher() {
   )
 }
 
-function CheckpointRing() {
-  const [ref, inView] = useInView<HTMLDivElement>(0.4)
-  const [index, setIndex] = useState(167)
-  useEffect(() => {
-    if (!inView || matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    let i = 0
-    const timer = setInterval(() => {
-      i = (i + 1) % 200 // a short hold on the full ring before it restarts
-      setIndex(Math.min(i, 167))
-    }, 55)
-    return () => clearInterval(timer)
-  }, [inView])
-  const hours = (index + 1) * 3
-  const day = Math.floor((hours - 1) / 24) + 1
-
-  return (
-    <div ref={ref} className="lp-ring">
-      <svg viewBox="-160 -160 320 320" aria-hidden="true">
-        {Array.from({ length: 168 }, (_, i) => {
-          const angle = (i / 168) * Math.PI * 2 - Math.PI / 2
-          const major = i % 8 === 7
-          const r1 = major ? 118 : 124
-          return (
-            <line
-              key={i}
-              x1={Math.cos(angle) * r1}
-              y1={Math.sin(angle) * r1}
-              x2={Math.cos(angle) * 140}
-              y2={Math.sin(angle) * 140}
-              className={i < index ? "done" : i === index ? "now" : ""}
-            />
-          )
-        })}
-        <circle r="100" className="lp-ring-inner" />
-      </svg>
-      <div className="lp-ring-center">
-        <span className="lp-mono">Checkpoint</span>
-        <strong>{index + 1}<small>/168</small></strong>
-        <span>Day {day} · {String(hours % 24).padStart(2, "0")}:00</span>
-      </div>
-    </div>
-  )
-}
-
 export default function Landing({ onEnter }: { onEnter: () => void }) {
   const root = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
@@ -772,27 +728,6 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
                 <span className="lp-status no_data">no_data</span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-section lp-pilot">
-        <div className="lp-wrap lp-split">
-          <div data-reveal><CheckpointRing /></div>
-          <div data-reveal>
-            <span className="lp-eyebrow amber">ErythroPilot</span>
-            <h2>168 checkpoints. <em>One every three hours.</em></h2>
-            <p className="lp-muted">
-              A helicopter view on top of Guard. Across a planned 21-day cycle, each checkpoint report records when it
-              was made, the data window it read, the last valid values, the change since the previous report, open
-              warnings and what an analyst should review.
-            </p>
-            <ul className="lp-checks">
-              <li><LocalIcon name="check" /> Says "no new data" plainly when nothing was measured</li>
-              <li><LocalIcon name="check" /> Report cadence never changes lab measurement cadence</li>
-              <li><LocalIcon name="check" /> Stage classifier trained on GSE53983, scored with out-of-fold Macro-F1</li>
-              <li><LocalIcon name="check" /> Exportable timeline with prediction uncertainty in view</li>
-            </ul>
           </div>
         </div>
       </section>
