@@ -55,7 +55,8 @@ replay; Sign in opens the authenticated workspace gate. Keep the primary header
 action visible on phones and put secondary navigation in an accessible menu.
 Packages describe proposed scope, deliverables, usage limits, support and a written
 quote, without unverified popularity or fixed-price claims. The product roadmap
-uses Available, Pilot and Planned; GenoHack history belongs in About.
+uses Available, Pilot and Planned; GenoHack history belongs in About. Public
+marketing allows indexing; workspace views remain gated and carry noindex.
 Scientific claims link to their primary sources, and illustrative preview samples
 are explicitly labeled.
 

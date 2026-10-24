@@ -28,6 +28,10 @@ export default function App() {
 
   useEffect(() => {
     scrollTo(0, 0)
+    const robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]') ?? document.createElement("meta")
+    robots.name = "robots"
+    robots.content = current === "workspace" ? "noindex, nofollow" : "index, follow"
+    if (!robots.isConnected) document.head.append(robots)
   }, [current])
 
   const enter = () => (location.hash = "data")
